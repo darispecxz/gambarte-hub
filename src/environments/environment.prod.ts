@@ -1,5 +1,5 @@
 export const environment = {
   production: true,
-  apiBase: '/cgrapi/api',
+  apiBase: 'https://api-platorma-gambarte.owl-tech.net/api',
   legacyBase: '',
 };
