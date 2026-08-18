@@ -1,0 +1,171 @@
+<div class="ph">
+  <h1>Operaciones</h1>
+  <i class="ti ti-chevron-right chev"></i>
+  <span class="view-chip"><i class="ti ti-eye" style="font-size:14px"></i>Vista comercial</span>
+  <div class="pr">
+    <button class="obtn" (click)="load()" [disabled]="loadingAny">
+      @if (loadingAny) { <span class="spin"></span> } @else { <i class="ti ti-refresh"></i> }
+      Actualizar
+    </button>
+  </div>
+</div>
+
+<div class="filters">
+  <div class="fdrop"><label>Desde</label><input type="date" [(ngModel)]="dateFrom"></div>
+  <div class="fdrop"><label>Hasta</label><input type="date" [(ngModel)]="dateTo"></div>
+  <button class="obtn primary" (click)="load()" [disabled]="loadingAny"><i class="ti ti-filter"></i>Aplicar</button>
+</div>
+
+@if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
+
+@if (started) {
+
+  <!-- KPIs -->
+  @if (ready['kpi']) {
+    <div class="kgrid">
+      <div class="kcard">
+        <div class="ktit"><i class="ti ti-arrows-exchange-2"></i>Total de operaciones</div>
+        <div class="kval">{{ fmt(totalOps) }}</div>
+        <div class="ksub">
+          @if (deltaOps !== null) {
+            <span [class]="deltaOps >= 0 ? 'delta-up' : 'delta-down'"><i class="ti {{ deltaOps >= 0 ? 'ti-trending-up' : 'ti-trending-down' }}"></i>{{ pct(deltaOps) }}</span>&nbsp;vs período anterior
+          } @else { en el período }
+        </div>
+        <div class="kchip"><i class="ti ti-arrows-exchange-2"></i></div>
+      </div>
+      <div class="kcard">
+        <div class="ktit"><i class="ti ti-coins"></i>Volumen operado</div>
+        <div class="kval">{{ fmt(totalVol) }}</div><div class="ksub">Bs equivalente</div>
+        <div class="kchip"><i class="ti ti-coins"></i></div>
+      </div>
+      <div class="kcard">
+        <div class="ktit"><i class="ti ti-trending-up"></i>Utilidad estimada</div>
+        <div class="kval">{{ fmt(utilTotal) }}</div>
+        <div class="ksub">Top: <strong>{{ topMoneda }}</strong> ({{ fmt(topMonedaUtil) }})</div>
+        <div class="kchip"><i class="ti ti-trending-up"></i></div>
+      </div>
+      <div class="kcard">
+        <div class="ktit"><i class="ti ti-building-store"></i>Agencia más activa</div>
+        <div class="kval" style="font-size:18px;">{{ topAgencia }}</div>
+        <div class="ksub">{{ fmt(topAgenciaOps) }} operaciones</div>
+        <div class="kchip"><i class="ti ti-building-store"></i></div>
+      </div>
+      <div class="kcard">
+        <div class="ktit"><i class="ti ti-clock-hour-4"></i>Operaciones hoy</div>
+        <div class="kval">{{ fmt(opsHoy) }}</div><div class="ksub">registradas en el día</div>
+        <div class="kchip"><i class="ti ti-clock-hour-4"></i></div>
+      </div>
+    </div>
+  } @else { <div class="kgrid"><div class="kcard sk"><span class="spin"></span></div><div class="kcard sk"><span class="spin"></span></div><div class="kcard sk"><span class="spin"></span></div></div> }
+
+  <!-- Charts -->
+  <div class="charts">
+    <div class="card">
+      <div class="sec-t" style="margin-top:0">
+        <i class="ti ti-chart-line"></i>Cotizaciones en el tiempo
+        @if (ready['cotiz'] && monedas.length) {
+          <div class="hint"><select class="mon-sel" [(ngModel)]="selMoneda" (ngModelChange)="onMonedaChange()">@for (m of monedas; track m) { <option [value]="m">{{ m }}</option> }</select></div>
+        }
+      </div>
+      @if (ready['cotiz']) { <div class="chart-box"><canvas #cotizCanvas></canvas></div> }
+      @else { <div class="chart-box loading-block"><span class="spin lg"></span></div> }
+    </div>
+    <div class="card">
+      <div class="sec-t" style="margin-top:0"><i class="ti ti-clock-hour-9"></i>Operaciones por hora</div>
+      @if (ready['horas']) { <div class="chart-box"><canvas #horasCanvas></canvas></div> }
+      @else { <div class="chart-box loading-block"><span class="spin lg"></span></div> }
+    </div>
+  </div>
+
+  <!-- Tendencias -->
+  <div class="sec-t"><i class="ti ti-activity"></i>Tendencias por moneda<span class="hint">señal, spread y volatilidad (30 días)</span></div>
+  <div class="tbl scroll">
+    @if (ready['tend']) {
+      <table class="g">
+        <thead><tr><th>Moneda</th><th class="r">Compra</th><th class="r">Venta</th><th class="r">Spread</th><th class="r">Volatilidad</th><th class="r">Tendencia</th><th class="c">Señal</th><th class="c">Score</th></tr></thead>
+        <tbody>
+          @for (t of tendencias; track t.moneda) {
+            <tr>
+              <td><div class="fw">@if (flag(t.moneda)) { <span class="{{ flag(t.moneda) }} ficon"></span> } @else { <div class="fw-ic"><i class="ti ti-currency-dollar"></i></div> }<div class="fn">{{ t.moneda }}<span class="fv">{{ cname(t.moneda) }}</span></div></div></td>
+              <td class="r">{{ fmt(t.compra_actual, 4) }}</td>
+              <td class="r">{{ fmt(t.venta_actual, 4) }}</td>
+              <td class="r">{{ pct(t.spread_pct) }}</td>
+              <td class="r">{{ pct(t.volatilidad) }}</td>
+              <td class="r"><span [class]="num(t.tend_pct) >= 0 ? 'up' : 'down'">{{ pct(t.tend_pct) }}</span></td>
+              <td class="c"><span class="pill {{ signalClass(t['señal']) }}">{{ t['señal'] }}</span></td>
+              <td class="c"><span class="score">{{ fmt(t.score) }}</span></td>
+            </tr>
+          }
+          @if (!tendencias.length) { <tr><td colspan="8" class="empty">Sin datos de tendencias.</td></tr> }
+        </tbody>
+      </table>
+    } @else { <div class="loading-block"><span class="spin lg"></span></div> }
+  </div>
+
+  <!-- Resumen por moneda + Cajeros -->
+  <div class="two">
+    <div>
+      <div class="sec-t"><i class="ti ti-coin"></i>Resumen por moneda</div>
+      <div class="tbl scroll">
+        @if (ready['moneda']) {
+          <table class="g">
+            <thead><tr><th>Moneda</th><th class="r">Ops</th><th>Volumen</th><th class="r">Utilidad</th></tr></thead>
+            <tbody>
+              @for (m of porMoneda; track m.moneda) {
+                <tr>
+                  <td><span class="tag">{{ m.moneda }}</span></td>
+                  <td class="r">{{ fmt(m.ops) }}</td>
+                  <td><div class="assets"><div class="bar blue"><i [style.width.%]="(m.vol / maxVol) * 100"></i></div><span class="frac">{{ fmt(m.vol) }}</span></div></td>
+                  <td class="r"><span [class]="m.util >= 0 ? 'up' : 'down'">{{ fmt(m.util) }}</span></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        } @else { <div class="loading-block"><span class="spin lg"></span></div> }
+      </div>
+    </div>
+    <div>
+      <div class="sec-t"><i class="ti ti-user-star"></i>Cajeros con más operaciones</div>
+      <div class="tbl scroll">
+        @if (ready['cajeros']) {
+          <table class="g">
+            <thead><tr><th>Cajero</th><th class="c">Cambios</th><th class="c">Giros</th><th class="c">Remesas</th><th class="r">Total</th></tr></thead>
+            <tbody>
+              @for (c of cajeros; track c.login) {
+                <tr>
+                  <td><div class="fw"><div class="fw-ic"><i class="ti ti-user"></i></div><div><div class="fn">{{ c.nombre || c.login }}</div><div class="fv">{{ c.agencia }}</div></div></div></td>
+                  <td class="c">{{ fmt(c.cambio) }}</td><td class="c">{{ fmt(c.giro) }}</td><td class="c">{{ fmt(c.remesa) }}</td>
+                  <td class="r"><span class="score" style="font-size:15px">{{ fmt(c.total) }}</span></td>
+                </tr>
+              }
+              @if (!cajeros.length) { <tr><td colspan="5" class="empty">Sin datos.</td></tr> }
+            </tbody>
+          </table>
+        } @else { <div class="loading-block"><span class="spin lg"></span></div> }
+      </div>
+    </div>
+  </div>
+
+  <!-- Precios -->
+  <div class="sec-t"><i class="ti ti-tags"></i>Precios de compra y venta por moneda<span class="hint">promedio · mín–máx del período</span></div>
+  <div class="tbl scroll">
+    @if (ready['precios']) {
+      <table class="g">
+        <thead><tr><th>Moneda</th><th class="r">Compra prom.</th><th class="r">Rango compra</th><th class="r">Venta prom.</th><th class="r">Rango venta</th><th class="c">Días</th></tr></thead>
+        <tbody>
+          @for (p of precios; track p.moneda) {
+            <tr>
+              <td><span class="tag">{{ p.moneda }}</span></td>
+              <td class="r">{{ fmt(p.prom_compra, 4) }}</td>
+              <td class="r muted">{{ fmt(p.min_compra, 4) }} – {{ fmt(p.max_compra, 4) }}</td>
+              <td class="r">{{ fmt(p.prom_venta, 4) }}</td>
+              <td class="r muted">{{ fmt(p.min_venta, 4) }} – {{ fmt(p.max_venta, 4) }}</td>
+              <td class="c">{{ p.dias_datos }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    } @else { <div class="loading-block"><span class="spin lg"></span></div> }
+  </div>
+
+}

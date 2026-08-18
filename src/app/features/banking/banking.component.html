@@ -1,0 +1,670 @@
+<div class="ph">
+  <h1>Reportes de Contabilidad</h1>
+  <i class="ti ti-chevron-right chev"></i>
+  <span class="view-chip"><i class="ti ti-building-bank" style="font-size:14px"></i>Bancos</span>
+</div>
+<p class="page-sub">Conciliación contable OBEL vs Balance de Sumas y Saldos, movimientos y traspasos</p>
+
+@if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
+
+<div class="tabs">
+  @for (t of tabs; track t.key) {
+    <button class="tab" [class.active]="t.key === selected" (click)="select(t.key)">
+      <i class="ti {{ t.icon }}"></i>{{ t.label }}
+    </button>
+  }
+</div>
+
+<div class="filters">
+  @if (selected === 'conciliacion' || selected === 'daily') {
+    <div class="fdrop"><label>Fecha</label><input type="date" [(ngModel)]="desde"></div>
+  }
+  @if (needsDateRange()) {
+    <div class="fdrop"><label>Desde</label><input type="date" [(ngModel)]="desde"></div>
+    <div class="fdrop"><label>Hasta</label><input type="date" [(ngModel)]="hasta"></div>
+  }
+  @if (selected === 'conciliacion' || selected === 'movements') {
+    <div class="fdrop"><label>Agencia</label>
+      <select [(ngModel)]="agencia">
+        <option [ngValue]="null">Todas</option>
+        @for (ag of agencies; track ag.id_agencia) {
+          <option [ngValue]="ag.id_agencia">{{ ag.descripcion }}</option>
+        }
+      </select>
+    </div>
+  }
+  @if (selected === 'movements') {
+    <div class="fdrop"><label>Tipo</label>
+      <select [(ngModel)]="conciliacionFilter">
+        @for (o of conciliacionOptions; track o.value) {
+          <option [value]="o.value">{{ o.label }}</option>
+        }
+      </select>
+    </div>
+  }
+  @if (selected === 'transfers') {
+    <div class="fdrop"><label>Estado</label>
+      <select [(ngModel)]="estadoTraspaso">
+        <option value="">Todos</option>
+        <option value="P">Pendiente</option>
+        <option value="A">Aceptado</option>
+        <option value="R">Revertido</option>
+      </select>
+    </div>
+  }
+  <button class="obtn primary" (click)="load()" [disabled]="loading"><i class="ti ti-eye"></i>Consultar</button>
+</div>
+
+@if (loading) {
+  <app-loading message="Consultando reporte..."></app-loading>
+}
+
+<!-- ═══════════════════════════════════════════════════════════════
+     CONCILIACIÓN CONTABLE — OBEL vs Balance de Sumas y Saldos
+     ═══════════════════════════════════════════════════════════════ -->
+@if (conciliacionReport && selected === 'conciliacion') {
+  <div class="sec-t"><i class="ti ti-scale"></i>Conciliación Contable<span class="hint">Al {{ conciliacionReport.fecha }}</span></div>
+
+  <!-- Resumen global -->
+  <div class="disc-summary">
+    @if (conciliacionReport.totalDiscrepancies > 0) {
+      <span class="pill sem-warn">{{ conciliacionReport.totalDiscrepancies }} diferencia(s)</span>
+    } @else {
+      <span class="pill sem-ok">Todo conciliado</span>
+    }
+    <span class="muted">{{ conciliacionReport.totalCuentas }} cuenta(s) activa(s)</span>
+  </div>
+
+  <!-- Totales por moneda -->
+  @if (conciliacionReport.totalesPorMoneda.length) {
+    <div class="tbl scroll">
+      <table class="g">
+        <thead>
+          <tr>
+            <th>Moneda</th>
+            <th class="r">Saldo OBEL (SCGR)</th>
+            <th class="r">Saldo Contable</th>
+            <th class="r">Diferencia</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (t of conciliacionReport.totalesPorMoneda; track t.moneda) {
+            <tr>
+              <td><strong>{{ t.moneda }}</strong></td>
+              <td class="r">{{ t.totalOBEL | number:'1.2-2' }}</td>
+              <td class="r">{{ t.totalContable | number:'1.2-2' }}</td>
+              <td class="r" [class.sem-bad]="t.totalDiferencia !== 0" [class.sem-ok]="t.totalDiferencia === 0">
+                <strong>{{ t.totalDiferencia | number:'1.2-2' }}</strong>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  <!-- Detalle por cuenta bancaria (expandible) -->
+  <div class="sec-t sub"><i class="ti ti-list-details"></i>Detalle por Cuenta</div>
+
+  @for (cuenta of conciliacionReport.cuentas; track cuentaKey(cuenta)) {
+    <div class="cuenta-card card" [class.warn-border]="!cuenta.conciliado" [class.ok-border]="cuenta.conciliado">
+      <button class="cuenta-head" (click)="toggleCuenta(cuenta)">
+        <div class="cuenta-info">
+          <span class="fn">{{ cuenta.entidad }} — {{ cuenta.numCuenta }}</span>
+          <span class="muted">{{ cuenta.agencia }} · {{ cuenta.moneda }} · Subcuenta {{ cuenta.codsubcuenta }}</span>
+        </div>
+        <div class="cuenta-saldos">
+          <div class="saldo-pair">
+            <span class="saldo-label">OBEL</span>
+            <span class="saldo-value">{{ cuenta.saldoOBEL | number:'1.2-2' }}</span>
+          </div>
+          <div class="saldo-pair">
+            <span class="saldo-label">Contable</span>
+            <span class="saldo-value">{{ cuenta.saldoContable | number:'1.2-2' }}</span>
+          </div>
+          <div class="saldo-pair" [class.diff-bad]="!cuenta.conciliado" [class.diff-ok]="cuenta.conciliado">
+            <span class="saldo-label">Diferencia</span>
+            <span class="saldo-value">{{ cuenta.diferencia | number:'1.2-2' }}</span>
+          </div>
+        </div>
+        @if (!cuenta.conciliado) {
+          <span class="pill sem-warn">Diferencia</span>
+        } @else {
+          <span class="pill sem-ok">OK</span>
+        }
+        <i class="ti ti-chevron-down chev-toggle" [class.open]="isOpen(cuenta)"></i>
+      </button>
+
+      @if (isOpen(cuenta)) {
+        <div class="cuenta-body">
+          @if (cuenta.conciliado) {
+            <div class="ok-bar"><i class="ti ti-circle-check"></i>Cuenta conciliada — saldos coinciden</div>
+          } @else if (isDetalleLoading(cuenta)) {
+            <div class="detail-section"><app-loading message="Analizando discrepancias..."></app-loading></div>
+          } @else if (getDetalle(cuenta)) {
+            @let det = getDetalle(cuenta)!;
+            <!-- Causas identificadas -->
+            @if (det.causas.length) {
+              <div class="causas-section">
+                <div class="causas-title">Posibles causas de la diferencia</div>
+                @for (causa of det.causas; track causa.tipo) {
+                  <div class="causa-item">
+                    @if (causa.tipo === 'egreso_no_registrado') {
+                      <i class="ti ti-arrow-down-right causa-icon egreso"></i>
+                    } @else if (causa.tipo === 'ingreso_no_registrado') {
+                      <i class="ti ti-arrow-up-right causa-icon ingreso"></i>
+                    } @else {
+                      <i class="ti ti-file-off causa-icon asiento"></i>
+                    }
+                    <span class="causa-label">{{ causa.label }}</span>
+                    <span class="pill muted-pill">{{ causa.count }}</span>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- Movimientos OBEL sin registro contable -->
+            @if (det.movsSinContabilidad.length) {
+              <div class="detail-section">
+                <div class="detail-title"><i class="ti ti-alert-triangle"></i>Movimientos OBEL sin asiento contable</div>
+                <div class="tbl scroll">
+                  <table class="g compact">
+                    <thead>
+                      <tr>
+                        <th>Fecha</th>
+                        <th class="r">Monto</th>
+                        <th>Tipo</th>
+                        <th>Concepto</th>
+                        <th>Glosa</th>
+                        <th>Usuario</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (m of det.movsSinContabilidad; track $index) {
+                        <tr>
+                          <td class="mono">{{ m.fecha }}</td>
+                          <td class="r" [class.tx-pos]="m.tipo === 'INGRESO'" [class.tx-neg]="m.tipo === 'EGRESO'">
+                            {{ (m.monto < 0 ? -m.monto : m.monto) | number:'1.2-2' }}
+                          </td>
+                          <td>
+                            <span class="pill" [class.sem-ok]="m.tipo === 'INGRESO'" [class.sem-bad]="m.tipo === 'EGRESO'">
+                              {{ m.tipo }}
+                            </span>
+                          </td>
+                          <td>{{ m.conciliacionDesc }}</td>
+                          <td class="glosa">{{ m.glosa }}</td>
+                          <td>{{ m.usuario }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            }
+
+            <!-- Asientos contables sin movimiento OBEL -->
+            @if (det.asientosSinOBEL.length) {
+              <div class="detail-section">
+                <div class="detail-title"><i class="ti ti-file-off"></i>Asientos contables sin movimiento OBEL</div>
+                <div class="tbl scroll">
+                  <table class="g compact">
+                    <thead>
+                      <tr>
+                        <th>Fecha</th>
+                        <th class="r">Debe</th>
+                        <th class="r">Haber</th>
+                        <th>Tipo</th>
+                        <th>Concepto</th>
+                        <th>Doc.</th>
+                        <th>Asiento</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (a of det.asientosSinOBEL; track $index) {
+                        <tr>
+                          <td class="mono">{{ a.fecha }}</td>
+                          <td class="r" [class.tx-pos]="a.debe > 0">{{ a.debe | number:'1.2-2' }}</td>
+                          <td class="r" [class.tx-neg]="a.haber > 0">{{ a.haber | number:'1.2-2' }}</td>
+                          <td>
+                            <span class="pill" [class.sem-ok]="a.tipo === 'INGRESO'" [class.sem-bad]="a.tipo === 'EGRESO'">
+                              {{ a.tipo }}
+                            </span>
+                          </td>
+                          <td class="glosa">{{ a.concepto }}</td>
+                          <td class="mono">{{ a.tipodocumento }}</td>
+                          <td class="mono muted">#{{ a.idasiento }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            }
+
+            @if (!det.causas.length && !det.movsSinContabilidad.length && !det.asientosSinOBEL.length) {
+              <div class="detail-section">
+                <div class="dp-empty-block warn">
+                  <i class="ti ti-alert-triangle"></i>
+                  <span>Existe diferencia pero no se identificaron movimientos o asientos sin contraparte.</span>
+                </div>
+              </div>
+            }
+          }
+        </div>
+      }
+    </div>
+  }
+
+  @if (!conciliacionReport.cuentas.length) {
+    <div class="empty">Sin cuentas bancarias activas.</div>
+  }
+}
+
+<!-- ═══ RESUMEN DIARIO BANCARIO ═══ -->
+@if (dailyReport && selected === 'daily') {
+  <div class="sec-t"><i class="ti ti-calendar-stats"></i>Resumen Diario Bancario<span class="hint">{{ dailyReport.fecha }}</span></div>
+
+  <div class="tbl scroll">
+    <table class="g">
+      <thead>
+        <tr>
+          <th>Agencia</th>
+          <th>Banco</th>
+          <th>Cuenta</th>
+          <th>Moneda</th>
+          <th class="r">Apertura</th>
+          <th class="r">Depósitos</th>
+          <th class="r">Traspasos</th>
+          <th class="r">Cheques</th>
+          <th class="r">Remesas</th>
+          <th class="r">Total Sistema</th>
+          <th class="r">Cierre</th>
+          <th class="r">Diferencia</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (a of dailyReport.accounts; track a.numCuenta + a.moneda) {
+          <tr>
+            <td>{{ a.agencia }}</td>
+            <td><strong>{{ a.entidad }}</strong></td>
+            <td class="mono">{{ a.numCuenta }}</td>
+            <td>{{ a.moneda }}</td>
+            <td class="r">{{ a.apertura | number:'1.2-2' }}</td>
+            <td class="r">{{ a.depositos | number:'1.2-2' }}</td>
+            <td class="r">{{ a.traspasosSalida | number:'1.2-2' }}</td>
+            <td class="r">{{ a.cobroCheques | number:'1.2-2' }}</td>
+            <td class="r">{{ a.debitosRemesa | number:'1.2-2' }}</td>
+            <td class="r"><strong>{{ a.totalSistema | number:'1.2-2' }}</strong></td>
+            <td class="r">{{ a.cierre | number:'1.2-2' }}</td>
+            <td class="r" [class.sem-bad]="a.diferencia !== null && a.diferencia !== 0"
+                          [class.sem-ok]="a.diferencia === 0">
+              {{ a.diferencia !== null ? (a.diferencia | number:'1.2-2') : '—' }}
+            </td>
+          </tr>
+        }
+        @if (!dailyReport.accounts.length) {
+          <tr><td colspan="12" class="empty">Sin movimientos bancarios para esta fecha.</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+<!-- ═══ MOVIMIENTOS BANCARIOS ═══ -->
+@if (movementsReport && selected === 'movements') {
+  <div class="sec-t">
+    <i class="ti ti-list-details"></i>Movimientos Bancarios
+    <span class="hint">{{ movementsReport.total }} registro(s)</span>
+  </div>
+
+  <div class="mov-toolbar">
+    <div class="mov-search">
+      <i class="ti ti-search"></i>
+      <input type="text" placeholder="Buscar por glosa, cuenta o usuario..." [(ngModel)]="movSearch">
+    </div>
+    <div class="mov-export">
+      <button class="obtn dark" (click)="exportMovements('xlsx')" [disabled]="!filteredMovements.length">
+        <i class="ti ti-file-spreadsheet"></i>Excel
+      </button>
+      <button class="obtn" (click)="exportMovements('pdf')" [disabled]="!filteredMovements.length">
+        <i class="ti ti-file-type-pdf"></i>PDF
+      </button>
+    </div>
+  </div>
+
+  @if (movSearch && filteredMovements.length !== movementsReport.total) {
+    <div class="search-count">{{ filteredMovements.length }} de {{ movementsReport.total }} movimiento(s)</div>
+  }
+
+  <div class="tbl scroll">
+    <table class="g">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Agencia</th>
+          <th>Cuenta</th>
+          <th>Moneda</th>
+          <th class="r">Monto</th>
+          <th>Concepto</th>
+          <th>Tipo</th>
+          <th>Glosa</th>
+          <th>Fecha Registro</th>
+          <th>Usuario</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (m of filteredMovements; track $index) {
+          <tr class="clickable-row" (click)="openDetail(m)">
+            <td class="muted">{{ $index + 1 }}</td>
+            <td>{{ m.agencia }}</td>
+            <td class="mono">{{ m.entidad }} {{ m.numCuenta }}</td>
+            <td>{{ m.moneda }}</td>
+            <td class="r" [class.tx-pos]="m.concepto === 'INGRESO'" [class.tx-neg]="m.concepto === 'EGRESO'">
+              {{ (m.monto < 0 ? -m.monto : m.monto) | number:'1.2-2' }}
+            </td>
+            <td>
+              <span class="pill" [class.sem-ok]="m.concepto === 'INGRESO'" [class.sem-bad]="m.concepto === 'EGRESO'">
+                {{ m.concepto }}
+              </span>
+            </td>
+            <td><span class="pill muted-pill">{{ m.conciliacionDesc }}</span></td>
+            <td class="glosa">{{ m.glosa }}</td>
+            <td class="mono small">{{ m.fechaRegistro }}</td>
+            <td>{{ m.usuario }}</td>
+          </tr>
+        }
+        @if (!filteredMovements.length) {
+          <tr><td colspan="10" class="empty">
+            {{ movSearch ? 'Sin resultados para la búsqueda.' : 'Sin movimientos para los filtros seleccionados.' }}
+          </td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+<!-- ═══ TRASPASOS BANCARIOS ═══ -->
+@if (transfersReport && selected === 'transfers') {
+  <div class="sec-t">
+    <i class="ti ti-transfer-vertical"></i>Traspasos entre Cuentas
+    <span class="hint">{{ transfersReport.total }} registro(s)</span>
+  </div>
+
+  <div class="tbl scroll">
+    <table class="g">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Origen</th>
+          <th>Destino</th>
+          <th class="r">Monto</th>
+          <th>Estado</th>
+          <th>Creación</th>
+          <th>Modificación</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (t of transfersReport.transfers; track t.id) {
+          <tr>
+            <td class="muted">{{ t.id }}</td>
+            <td>
+              <div class="xfer-cell">
+                <span class="xfer-ag">{{ t.origenAgencia }}</span>
+                <span class="mono small">{{ t.origenEntidad }} {{ t.origenCuenta }}</span>
+              </div>
+            </td>
+            <td>
+              <div class="xfer-cell">
+                <span class="xfer-ag">{{ t.destinoAgencia }}</span>
+                <span class="mono small">{{ t.destinoEntidad }} {{ t.destinoCuenta }}</span>
+              </div>
+            </td>
+            <td class="r"><strong>{{ t.monto | number:'1.2-2' }}</strong></td>
+            <td>
+              <span class="pill" [class]="transferEstadoClass(t.estado)">{{ t.estadoDesc }}</span>
+            </td>
+            <td class="mono small">{{ t.fechaCreacion }}</td>
+            <td class="mono small">{{ t.fechaModificacion }}</td>
+          </tr>
+        }
+        @if (!transfersReport.transfers.length) {
+          <tr><td colspan="7" class="empty">Sin traspasos para los filtros seleccionados.</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+<!-- ═══ PANEL DETALLE DE MOVIMIENTO ═══ -->
+@if (detailOpen) {
+  <div class="detail-overlay" (click)="closeDetail()"></div>
+  <div class="detail-panel">
+    <div class="dp-header">
+      <h3><i class="ti ti-file-search"></i> Detalle del Movimiento</h3>
+      <div class="dp-actions">
+        @if (movDetail && !detailLoading) {
+          <button class="dp-btn" (click)="exportDetailPdf()" title="Descargar PDF">
+            <i class="ti ti-file-type-pdf"></i> PDF
+          </button>
+        }
+        <button class="dp-close" (click)="closeDetail()"><i class="ti ti-x"></i></button>
+      </div>
+    </div>
+
+    @if (detailLoading) {
+      <div class="dp-body"><app-loading message="Cargando detalle..."></app-loading></div>
+    }
+
+    @if (detailError) {
+      <div class="dp-body"><div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ detailError }}</div></div>
+    }
+
+    @if (movDetail && !detailLoading) {
+      <div class="dp-body">
+        <!-- ── Registro del movimiento ── -->
+        <div class="dp-section">
+          <div class="dp-sec-title"><i class="ti ti-receipt"></i> Registro del Movimiento</div>
+          <div class="dp-fields">
+            <div class="dp-field">
+              <span class="dp-label">Agencia</span>
+              <span class="dp-value">{{ movDetail.movimiento.agencia }}</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Entidad</span>
+              <span class="dp-value">{{ movDetail.movimiento.entidadDesc }}</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Cuenta</span>
+              <span class="dp-value mono">{{ movDetail.movimiento.numCuenta }}</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Tipo Cuenta</span>
+              <span class="dp-value">{{ movDetail.movimiento.tipoCuenta }}</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Moneda</span>
+              <span class="dp-value">{{ movDetail.movimiento.monedaDesc }} ({{ movDetail.movimiento.moneda }})</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Monto</span>
+              <span class="dp-value" [class.tx-pos]="movDetail.movimiento.concepto === 'INGRESO'" [class.tx-neg]="movDetail.movimiento.concepto === 'EGRESO'">
+                <strong>{{ (movDetail.movimiento.monto < 0 ? -movDetail.movimiento.monto : movDetail.movimiento.monto) | number:'1.2-2' }} {{ movDetail.movimiento.moneda }}</strong>
+              </span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Concepto</span>
+              <span class="dp-value">
+                <span class="pill" [class.sem-ok]="movDetail.movimiento.concepto === 'INGRESO'" [class.sem-bad]="movDetail.movimiento.concepto === 'EGRESO'">
+                  {{ movDetail.movimiento.concepto }}
+                </span>
+              </span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Tipo Operación</span>
+              <span class="dp-value"><span class="pill muted-pill">{{ movDetail.movimiento.conciliacionDesc }}</span></span>
+            </div>
+            <div class="dp-field full">
+              <span class="dp-label">Glosa</span>
+              <span class="dp-value">{{ movDetail.movimiento.glosa || '—' }}</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Fecha Registro</span>
+              <span class="dp-value mono">{{ movDetail.movimiento.fechaRegistro }}</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Usuario</span>
+              <span class="dp-value">{{ movDetail.movimiento.usuario }}</span>
+            </div>
+            @if (movDetail.codsubcuenta) {
+              <div class="dp-field">
+                <span class="dp-label">Subcuenta Contable</span>
+                <span class="dp-value mono">{{ movDetail.codsubcuenta }}</span>
+              </div>
+            }
+          </div>
+
+          @if (comprobanteFullUrl) {
+            <div class="dp-comprobante">
+              <i class="ti ti-paperclip"></i>
+              <a [href]="comprobanteFullUrl" target="_blank" rel="noopener">
+                <i class="ti ti-download"></i> Descargar comprobante adjunto
+              </a>
+            </div>
+          }
+        </div>
+
+        <!-- ── Asiento contable vinculado ── -->
+        <div class="dp-section">
+          <div class="dp-sec-title"><i class="ti ti-book"></i> Asiento Contable</div>
+          @if (movDetail.asiento) {
+            <div class="dp-asiento-header">
+              <span class="pill sem-ok">Encontrado</span>
+              <span class="dp-asiento-tipo">{{ movDetail.asiento.tipoLabel }} N° {{ movDetail.asiento.idconcepto }}-{{ movDetail.asiento.numero }}</span>
+            </div>
+            <div class="dp-fields">
+              <div class="dp-field">
+                <span class="dp-label">ID Asiento</span>
+                <span class="dp-value mono">#{{ movDetail.asiento.idasiento }}</span>
+              </div>
+              <div class="dp-field">
+                <span class="dp-label">Ejercicio</span>
+                <span class="dp-value">{{ movDetail.asiento.codejercicio }}</span>
+              </div>
+              <div class="dp-field">
+                <span class="dp-label">Fecha</span>
+                <span class="dp-value mono">{{ movDetail.asiento.fecha }}</span>
+              </div>
+              <div class="dp-field">
+                <span class="dp-label">Tipo Doc.</span>
+                <span class="dp-value mono">{{ movDetail.asiento.tipodocumento }}</span>
+              </div>
+              <div class="dp-field full">
+                <span class="dp-label">Concepto</span>
+                <span class="dp-value">{{ movDetail.asiento.concepto }}</span>
+              </div>
+            </div>
+
+            <!-- Partidas del asiento -->
+            <div class="dp-partidas-title">Partidas contables</div>
+            <div class="tbl scroll">
+              <table class="g compact">
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Subcuenta</th>
+                    <th>Detalle</th>
+                    <th class="r">Debe</th>
+                    <th class="r">Haber</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (p of movDetail.asiento.partidas; track $index) {
+                    <tr [class.dp-partida-hl]="p.codsubcuenta === movDetail.codsubcuenta">
+                      <td class="mono">{{ p.codsubcuenta }}</td>
+                      <td class="small">{{ p.subcuentaDesc }}</td>
+                      <td class="small">{{ p.detalle || '—' }}</td>
+                      <td class="r" [class.tx-pos]="p.debe > 0">{{ p.debe | number:'1.2-2' }}</td>
+                      <td class="r" [class.tx-neg]="p.haber > 0">{{ p.haber | number:'1.2-2' }}</td>
+                    </tr>
+                  }
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="3"><strong>TOTALES</strong></td>
+                    <td class="r"><strong>{{ movDetail.asiento.totalDebe | number:'1.2-2' }}</strong></td>
+                    <td class="r"><strong>{{ movDetail.asiento.totalHaber | number:'1.2-2' }}</strong></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          } @else {
+            <div class="dp-empty-block">
+              <i class="ti ti-file-off"></i>
+              <span>No se encontró asiento contable vinculado a este movimiento.</span>
+            </div>
+          }
+        </div>
+
+        <!-- ── Traspaso relacionado ── -->
+        @if (movDetail.traspaso) {
+          <div class="dp-section">
+            <div class="dp-sec-title"><i class="ti ti-transfer-vertical"></i> Traspaso Relacionado</div>
+            <div class="dp-fields">
+              <div class="dp-field">
+                <span class="dp-label">ID Traspaso</span>
+                <span class="dp-value mono">#{{ movDetail.traspaso.id }}</span>
+              </div>
+              <div class="dp-field">
+                <span class="dp-label">Estado</span>
+                <span class="dp-value">
+                  <span class="pill" [class.sem-ok]="movDetail.traspaso.estado === 'A'"
+                        [class.sem-warn]="movDetail.traspaso.estado === 'P'"
+                        [class.sem-bad]="movDetail.traspaso.estado === 'R'">
+                    {{ movDetail.traspaso.estadoDesc }}
+                  </span>
+                </span>
+              </div>
+              <div class="dp-field">
+                <span class="dp-label">Monto</span>
+                <span class="dp-value"><strong>{{ movDetail.traspaso.monto | number:'1.2-2' }}</strong></span>
+              </div>
+              <div class="dp-field">
+                <span class="dp-label">Fecha</span>
+                <span class="dp-value mono">{{ movDetail.traspaso.fechaCreacion }}</span>
+              </div>
+              <div class="dp-field">
+                <span class="dp-label">Origen</span>
+                <span class="dp-value">{{ movDetail.traspaso.origenAgencia }} — {{ movDetail.traspaso.origenEntidad }} {{ movDetail.traspaso.origenCuenta }}</span>
+              </div>
+              <div class="dp-field">
+                <span class="dp-label">Destino</span>
+                <span class="dp-value">{{ movDetail.traspaso.destinoAgencia }} — {{ movDetail.traspaso.destinoEntidad }} {{ movDetail.traspaso.destinoCuenta }}</span>
+              </div>
+              @if (movDetail.traspaso.documentoOrigen) {
+                <div class="dp-field">
+                  <span class="dp-label">Doc. Origen</span>
+                  <span class="dp-value mono">{{ movDetail.traspaso.documentoOrigen }}</span>
+                </div>
+              }
+              @if (movDetail.traspaso.documentoDestino) {
+                <div class="dp-field">
+                  <span class="dp-label">Doc. Destino</span>
+                  <span class="dp-value mono">{{ movDetail.traspaso.documentoDestino }}</span>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        @if (!movDetail.asiento && !movDetail.traspaso) {
+          <div class="dp-section">
+            <div class="dp-empty-block warn">
+              <i class="ti ti-alert-triangle"></i>
+              <span>Este movimiento no tiene registros contables ni traspasos asociados.</span>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </div>
+}

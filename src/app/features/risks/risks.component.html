@@ -1,0 +1,37 @@
+<div class="ph">
+  <h1>Informes de Riesgo</h1>
+  <i class="ti ti-chevron-right chev"></i>
+  <span class="view-chip"><i class="ti ti-file-typography" style="font-size:14px"></i>Documento PDF</span>
+</div>
+<p class="page-sub">Se visualiza el mismo PDF que genera el sistema actual · sin reemplazarlo</p>
+
+@if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
+
+<div class="tabs">
+  @for (r of risks; track r.slug) {
+    <button class="tab" [class.active]="r.slug === selected" (click)="select(r.slug)">
+      <i class="ti {{ iconFor(r.slug) }}"></i>{{ r.title }}
+    </button>
+  }
+</div>
+
+<div class="filters">
+  <div class="fdrop"><label>Período</label>
+    <select [(ngModel)]="preset">
+      <option value="mes">Mes a la fecha</option>
+      <option value="dia">Un día</option>
+    </select>
+  </div>
+  <div class="fdrop"><label>Corte (hasta)</label><input type="date" [(ngModel)]="fin"></div>
+  <button class="obtn primary" (click)="view()"><i class="ti ti-eye"></i>Ver PDF</button>
+  <button class="obtn dark" (click)="download()"><i class="ti ti-download"></i>Descargar PDF</button>
+</div>
+
+@if (pdfUrl) {
+  <div class="viewer card">
+    @if (pdfLoading) {
+      <div class="pdf-loading"><span class="spin lg"></span><span>Generando informe…</span></div>
+    }
+    <iframe [src]="pdfUrl" title="Informe PDF" (load)="onPdfLoad()"></iframe>
+  </div>
+}

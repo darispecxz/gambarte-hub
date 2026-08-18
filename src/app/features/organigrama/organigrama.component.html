@@ -1,0 +1,52 @@
+<div class="ph">
+  <h1>Estructura Organizacional</h1>
+  <i class="ti ti-chevron-right chev"></i>
+  <span class="view-chip"><i class="ti ti-sitemap" style="font-size:14px"></i>Gambarte Bolivia S.R.L.</span>
+</div>
+<p class="page-sub">Las áreas resaltadas enlazan a su módulo de reportes.</p>
+
+@if (openPopup) {
+  <div class="popup-backdrop" (click)="closePopup()"></div>
+}
+
+<div class="org">
+  @for (n of niveles; track n.nivel; let i = $index) {
+    <div class="band">
+      <div class="band-label"><span>{{ n.nivel }}</span></div>
+      <div class="band-roles" [class.agencies]="n.nivel === 'Agencias'">
+        @for (r of n.roles; track r.t) {
+          @if (r.subMods) {
+            <div class="role hl has-popup" (click)="togglePopup(r, $event)">
+              <div class="ic"><i class="ti {{ r.ic }}"></i></div>
+              <div class="txt"><div class="t">{{ r.t }}</div>@if (r.sub) { <div class="s">{{ r.sub }}</div> }</div>
+              <i class="ti ti-chevron-up go" [class.open]="openPopup === r"></i>
+              @if (openPopup === r) {
+                <div class="sub-popup" (click)="$event.stopPropagation()">
+                  @for (sm of r.subMods; track sm.route) {
+                    <a class="sub-link" (click)="goTo(sm.route)">
+                      <i class="ti {{ sm.ic }}"></i>
+                      <span>{{ sm.label }}</span>
+                      <i class="ti ti-arrow-right"></i>
+                    </a>
+                  }
+                </div>
+              }
+            </div>
+          } @else if (r.mod) {
+            <a class="role hl" [routerLink]="r.mod" [queryParams]="r.q || null" [title]="'Ir al módulo'">
+              <div class="ic"><i class="ti {{ r.ic }}"></i></div>
+              <div class="txt"><div class="t">{{ r.t }}</div>@if (r.sub) { <div class="s">{{ r.sub }}</div> }</div>
+              <i class="ti ti-arrow-right go"></i>
+            </a>
+          } @else {
+            <div class="role" [class.lead]="r.lead" [class.hl]="r.hl">
+              <div class="ic"><i class="ti {{ r.ic }}"></i></div>
+              <div class="txt"><div class="t">{{ r.t }}</div>@if (r.sub) { <div class="s">{{ r.sub }}</div> }</div>
+            </div>
+          }
+        }
+      </div>
+      @if (n.note) { <div class="band-note"><i class="ti ti-corner-down-right"></i>{{ n.note }} → <span class="tag">Cajeros</span></div> }
+    </div>
+  }
+</div>

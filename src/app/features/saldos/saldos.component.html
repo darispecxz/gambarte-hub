@@ -1,0 +1,137 @@
+<div class="ph">
+  <h1>Saldos</h1>
+  <i class="ti ti-chevron-right chev"></i>
+  @if (selectedAgency) {
+    <span class="view-chip"><i class="ti ti-building-store" style="font-size:14px"></i>{{ agencyShortName(selectedAgency) }}</span>
+  } @else {
+    <span class="view-chip"><i class="ti ti-eye" style="font-size:14px"></i>Vista general</span>
+  }
+  <div class="pr">
+    <button class="obtn" (click)="load()" [disabled]="loading">
+      @if (loading) { <span class="spin"></span> } @else { <i class="ti ti-refresh"></i> }
+      Actualizar
+    </button>
+  </div>
+</div>
+
+@if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
+
+@if (loading && !rows.length) {
+  <div class="loading-block"><span class="spin lg"></span>Cargando saldos...</div>
+}
+
+@if (rows.length) {
+
+  <!-- Agency filter chips -->
+  <div class="agency-filter card">
+    <div class="filter-label">AGENCIAS</div>
+    <div class="chips">
+      <button class="chip" [class.active]="!selectedAgency" (click)="selectAgency(null)">
+        <i class="ti ti-apps"></i>Todas
+      </button>
+      @for (row of rows; track row.agencia) {
+        <button class="chip" [class.active]="selectedAgency === row.agencia" (click)="selectAgency(row.agencia)">
+          <i class="ti ti-building-store"></i>{{ agencyShortName(row.agencia) }}
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- Summary header -->
+  <div class="summary card">
+    <div class="sum-icon"><i class="ti ti-moneybag"></i></div>
+    <div class="sum-info">
+      <div class="sum-label">Saldos de caja por agencia — hoy</div>
+      <div class="sum-title">{{ selectedAgency ? agencyShortName(selectedAgency) : 'TODAS LAS AGENCIAS' }}</div>
+      <div class="sum-meta">
+        {{ displayRows.length }} agencia{{ displayRows.length !== 1 ? 's' : '' }}
+        · {{ monedas.length }} monedas
+        · Stock total ≈ <strong>USD {{ fmt(grandTotalUsd, 0) }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agency cards -->
+  <div class="sec-t"><i class="ti ti-wallet"></i>Saldo por agencia</div>
+  <div class="agency-grid">
+    @for (row of displayRows; track row.agencia) {
+      <div class="ag-card card" [class.top]="topAgency()?.agencia === row.agencia && !selectedAgency">
+
+        @if (topAgency()?.agencia === row.agencia && !selectedAgency) {
+          <div class="top-badge"><i class="ti ti-star-filled"></i> MAYOR STOCK</div>
+        }
+
+        <div class="ag-head">
+          <div class="ag-name">{{ agencyShortName(row.agencia) }}</div>
+          <div class="ag-usd">
+            ≈ USD {{ fmtCompact(agencyTotalUsd(row)) }}
+            <div class="ag-bar"><i [style.width.%]="barPct(row)"></i></div>
+          </div>
+        </div>
+
+        <div class="ag-currencies">
+          @for (m of activeCurrencies(row); track m) {
+            <div class="cur-row">
+              @if (flag(m)) { <span class="cur-flag {{ flag(m) }}"></span> }
+              @else { <span class="cur-flag cur-flag-text">{{ currencyIso(m) }}</span> }
+              <span class="cur-code">{{ m }}</span>
+              <span class="cur-val" [class.negative]="num(row[m]) < 0">{{ fmtCompact(num(row[m])) }}</span>
+            </div>
+          }
+          @if (!activeCurrencies(row).length) {
+            <div class="empty" style="padding:12px">Sin saldos</div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Detailed table (shown when agency is selected) -->
+  @if (selectedAgency) {
+    <div class="sec-t"><i class="ti ti-list-details"></i>Detalle completo — {{ agencyShortName(selectedAgency) }}</div>
+    <div class="tbl">
+      <table class="g">
+        <thead>
+          <tr>
+            <th>Moneda</th>
+            <th class="r">Saldo</th>
+            <th class="r">T/C (Bs)</th>
+            <th class="r">Equiv. Bs</th>
+            <th class="r">Equiv. USD</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of displayRows; track row.agencia) {
+            @for (m of monedas; track m) {
+              @if (num(row[m]) !== 0) {
+                <tr>
+                  <td>
+                    <div class="fw">
+                      @if (flag(m)) { <span class="tbl-flag {{ flag(m) }}"></span> }
+                      @else { <div class="fw-ic"><i class="ti ti-currency-dollar"></i></div> }
+                      <div><div class="fn">{{ m }}</div><div class="fv">{{ cname(m) }}</div></div>
+                    </div>
+                  </td>
+                  <td class="r" [class.down]="num(row[m]) < 0">{{ fmt(num(row[m])) }}</td>
+                  <td class="r muted">{{ fmt(tc[m] || 0, 4) }}</td>
+                  <td class="r">{{ fmt(num(row[m]) * (tc[m] || 0)) }}</td>
+                  <td class="r"><strong>{{ fmt(tc['USD'] ? (num(row[m]) * (tc[m] || 0)) / tc['USD'] : 0) }}</strong></td>
+                </tr>
+              }
+            }
+          }
+        </tbody>
+        <tfoot>
+          <tr>
+            <td><strong>TOTAL</strong></td>
+            <td></td>
+            <td></td>
+            <td class="r"><strong>{{ fmt(grandTotalUsd * (tc['USD'] || 1)) }}</strong></td>
+            <td class="r"><strong>{{ fmt(grandTotalUsd) }}</strong></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  }
+
+}

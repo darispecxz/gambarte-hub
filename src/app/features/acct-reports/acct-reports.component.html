@@ -1,0 +1,258 @@
+<div class="ph">
+  <h1>Reportes de Contabilidad</h1>
+  <i class="ti ti-chevron-right chev"></i>
+  <span class="view-chip"><i class="ti ti-report-analytics" style="font-size:14px"></i>Reportes Contables</span>
+</div>
+<p class="page-sub">Balance de sumas y saldos, libro mayor por subcuenta</p>
+
+@if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
+
+<div class="tabs">
+  @for (t of tabs; track t.key) {
+    <button class="tab" [class.active]="t.key === selected" (click)="select(t.key)">
+      <i class="ti {{ t.icon }}"></i>{{ t.label }}
+    </button>
+  }
+</div>
+
+<div class="filters">
+  <div class="fdrop"><label>Ejercicio</label>
+    <select [(ngModel)]="ejercicio" (ngModelChange)="onEjercicioChange()">
+      @for (ej of ejercicios; track ej.codejercicio) {
+        <option [value]="ej.codejercicio">{{ ej.nombre }} ({{ ej.estado }})</option>
+      }
+    </select>
+  </div>
+  <div class="fdrop"><label>Desde</label><input type="date" [(ngModel)]="desde"></div>
+  <div class="fdrop"><label>Hasta</label><input type="date" [(ngModel)]="hasta"></div>
+  @if (selected === 'libro-mayor') {
+    <div class="fdrop fdrop-wide"><label>Subcuenta</label>
+      <input type="text" [(ngModel)]="subcuentaFilter" (ngModelChange)="onSubcuentaFilterChange()"
+             placeholder="Buscar por codigo o nombre…"
+             class="subcuenta-search" autocomplete="off">
+      @if (subcuentaFilter && !codsubcuenta) {
+        <div class="subcuenta-dropdown">
+          @for (s of filteredSubcuentas; track s.codsubcuenta) {
+            <button class="subcuenta-opt" (click)="selectSubcuenta(s)">
+              <span class="sc-code">{{ s.codsubcuenta }}</span>
+              <span class="sc-desc">{{ s.descripcion }}</span>
+            </button>
+          }
+          @if (!filteredSubcuentas.length) {
+            <div class="subcuenta-empty">Sin resultados</div>
+          }
+        </div>
+      }
+    </div>
+  }
+  <button class="obtn primary" (click)="load()" [disabled]="loading"><i class="ti ti-eye"></i>Consultar</button>
+</div>
+
+@if (loading && !loadingPage) {
+  <app-loading message="Consultando reporte…"></app-loading>
+}
+
+<!-- ═══ BALANCE DE SUMAS Y SALDOS ═══ -->
+@if (balanceReport && selected === 'balance') {
+  <div class="sec-t">
+    <i class="ti ti-scale"></i>Balance de Sumas y Saldos
+    <span class="hint">{{ balanceReport.fechaDesde }} — {{ balanceReport.fechaHasta }}</span>
+    @if (balanceReport.cuadrado) {
+      <span class="pill sem-ok">Cuadrado</span>
+    } @else {
+      <span class="pill sem-warn">Descuadre: {{ balanceReport.totalSaldo | number:'1.2-2' }}</span>
+    }
+  </div>
+
+  <div class="bal-wrap">
+    <div class="tbl scroll bal-scroll">
+      <table class="g">
+        <thead>
+          <tr>
+            <th style="min-width:100px">Codigo</th>
+            <th>Descripcion</th>
+            <th class="r">Debe</th>
+            <th class="r">Haber</th>
+            <th class="r">Saldo</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (c of balanceReport.cuentas; track c.codcuenta) {
+            <tr class="row-cuenta" (click)="toggleCuenta(c)">
+              <td><strong>{{ c.codcuenta }}</strong></td>
+              <td>
+                <i class="ti ti-chevron-down chev-sm" [class.open]="isCuentaOpen(c)"></i>
+                <strong>{{ c.descripcion }}</strong>
+              </td>
+              <td class="r"><strong>{{ c.debe | number:'1.2-2' }}</strong></td>
+              <td class="r"><strong>{{ c.haber | number:'1.2-2' }}</strong></td>
+              <td class="r" [class.sem-bad]="c.saldo < 0"><strong>{{ c.saldo | number:'1.2-2' }}</strong></td>
+            </tr>
+            @if (isCuentaOpen(c)) {
+              @for (s of c.subcuentas; track s.codsubcuenta) {
+                <tr class="row-sub">
+                  <td class="pl-sub">{{ s.codsubcuenta }}</td>
+                  <td>{{ s.descripcion }}</td>
+                  <td class="r">{{ s.debe | number:'1.2-2' }}</td>
+                  <td class="r">{{ s.haber | number:'1.2-2' }}</td>
+                  <td class="r" [class.sem-bad]="s.saldo < 0">{{ s.saldo | number:'1.2-2' }}</td>
+                </tr>
+              }
+            }
+          }
+          @if (!balanceReport.cuentas.length) {
+            <tr><td colspan="5" class="empty">Sin movimientos en este periodo.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (balanceReport.cuentas.length) {
+      <div class="bal-bottom-bar">
+        <span class="lm-totals-label">TOTALES</span>
+        <span class="lm-total-item">Debe <strong>{{ balanceReport.totalDebe | number:'1.2-2' }}</strong></span>
+        <span class="lm-total-item">Haber <strong>{{ balanceReport.totalHaber | number:'1.2-2' }}</strong></span>
+        <span class="lm-total-item">Saldo <strong [class.sem-bad]="balanceReport.totalSaldo < 0">{{ balanceReport.totalSaldo | number:'1.2-2' }}</strong></span>
+      </div>
+    }
+  </div>
+}
+
+<!-- ═══ LIBRO MAYOR POR SUBCUENTA ═══ -->
+@if (libroMayorReport && selected === 'libro-mayor') {
+  <div class="sec-t">
+    <i class="ti ti-book"></i>Libro Mayor
+    <span class="hint">{{ libroMayorReport.codsubcuenta }} — {{ libroMayorReport.descripcion }}</span>
+  </div>
+
+  <div class="lm-header">
+    <div class="lm-stat"><span>Saldo Inicial</span><strong>{{ libroMayorReport.saldoInicial | number:'1.2-2' }}</strong></div>
+    <div class="lm-stat"><span>Total Debe</span><strong class="lm-debe">{{ libroMayorReport.totalDebe | number:'1.2-2' }}</strong></div>
+    <div class="lm-stat"><span>Total Haber</span><strong class="lm-haber">{{ libroMayorReport.totalHaber | number:'1.2-2' }}</strong></div>
+    <div class="lm-stat"><span>Saldo Final</span><strong>{{ libroMayorReport.saldoFinal | number:'1.2-2' }}</strong></div>
+    <div class="lm-stat"><span>Movimientos</span><strong>{{ libroMayorReport.totalRows | number }}</strong></div>
+  </div>
+
+  <div class="lm-filters">
+    <div class="lm-filter">
+      <i class="ti ti-search"></i>
+      <input type="text" [(ngModel)]="conceptoFilter" placeholder="Buscar por concepto…">
+    </div>
+    <div class="lm-filter">
+      <select [(ngModel)]="tipoFilter">
+        <option value="">Todos los tipos</option>
+        @for (t of tipoOptions; track t) {
+          <option [value]="t">{{ t }}</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  <div class="lm-table-wrap" [class.lm-loading]="loadingPage">
+    @if (loadingPage) {
+      <div class="lm-overlay"><div class="lm-spinner"></div></div>
+    }
+    <div class="tbl scroll lm-scroll">
+      <table class="g lm-table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th class="r">N°</th>
+            <th>Tipo</th>
+            <th>Concepto</th>
+            <th class="r">Debe</th>
+            <th class="r">Haber</th>
+            <th class="r">Saldo</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (page === 1 && !conceptoFilter && !tipoFilter) {
+            <tr class="row-saldo-ini">
+              <td colspan="4"><em>Saldo Inicial</em></td>
+              <td class="r">—</td>
+              <td class="r">—</td>
+              <td class="r"><strong>{{ libroMayorReport.saldoInicial | number:'1.2-2' }}</strong></td>
+            </tr>
+          }
+          @for (m of filteredMovimientos; track $index) {
+            <tr class="row-lm" (click)="showAsiento(m.idasiento)">
+              <td>{{ m.fecha }}</td>
+              <td class="r">{{ m.numero }}</td>
+              <td><span class="tipo-badge">{{ m.tipodocumento }}</span></td>
+              <td class="concepto-cell">{{ m.concepto }}</td>
+              <td class="r" [class.lm-debe]="m.debe > 0">{{ m.debe | number:'1.2-2' }}</td>
+              <td class="r" [class.lm-haber]="m.haber > 0">{{ m.haber | number:'1.2-2' }}</td>
+              <td class="r"><strong>{{ m.saldo | number:'1.2-2' }}</strong></td>
+            </tr>
+          }
+          @if (!filteredMovimientos.length) {
+            <tr><td colspan="7" class="empty">Sin movimientos en este periodo para esta subcuenta.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="lm-bottom-bar">
+      <div class="lm-totals">
+        <span class="lm-totals-label">TOTALES</span>
+        <span class="lm-total-item">Debe <strong class="lm-debe">{{ libroMayorReport.totalDebe | number:'1.2-2' }}</strong></span>
+        <span class="lm-total-item">Haber <strong class="lm-haber">{{ libroMayorReport.totalHaber | number:'1.2-2' }}</strong></span>
+        <span class="lm-total-item">Saldo <strong>{{ libroMayorReport.saldoFinal | number:'1.2-2' }}</strong></span>
+      </div>
+      @if (libroMayorReport.totalPages > 1) {
+        <div class="pager">
+          <button class="pager-btn" [disabled]="page <= 1 || loadingPage" (click)="goToPage(page - 1)"><i class="ti ti-chevron-left"></i></button>
+          @for (p of pageNumbers; track p) {
+            <button class="pager-btn" [class.active]="p === page" [disabled]="loadingPage" (click)="goToPage(p)">{{ p }}</button>
+          }
+          <button class="pager-btn" [disabled]="page >= libroMayorReport.totalPages || loadingPage" (click)="goToPage(page + 1)"><i class="ti ti-chevron-right"></i></button>
+          <span class="pager-info">Pag. {{ page }} de {{ libroMayorReport.totalPages }}</span>
+        </div>
+      }
+    </div>
+  </div>
+}
+
+<!-- ═══ MODAL DETALLE DE ASIENTO ═══ -->
+@if (loadingAsiento || asientoDetalle) {
+  <div class="modal-backdrop" (click)="closeAsiento()"></div>
+  <div class="modal-card">
+    @if (loadingAsiento) {
+      <div class="modal-loading">
+        <div class="lm-spinner"></div>
+        <span>Cargando asiento…</span>
+      </div>
+    } @else if (asientoDetalle) {
+      <div class="modal-head">
+        <h3>Asiento #{{ asientoDetalle.numero }}</h3>
+        <button class="modal-close" (click)="closeAsiento()"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="modal-meta">
+        <span><i class="ti ti-calendar"></i>{{ asientoDetalle.fecha }}</span>
+        <span><i class="ti ti-file-text"></i>{{ asientoDetalle.tipodocumento }}</span>
+        <span><i class="ti ti-cash"></i>{{ asientoDetalle.importe | number:'1.2-2' }}</span>
+      </div>
+      <p class="modal-concepto">{{ asientoDetalle.concepto }}</p>
+      <div class="tbl scroll">
+        <table class="g compact">
+          <thead>
+            <tr>
+              <th>Subcuenta</th>
+              <th>Descripcion</th>
+              <th class="r">Debe</th>
+              <th class="r">Haber</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of asientoDetalle.partidas; track p.codsubcuenta) {
+              <tr>
+                <td><strong>{{ p.codsubcuenta }}</strong></td>
+                <td>{{ p.descripcion }}</td>
+                <td class="r" [class.lm-debe]="p.debe > 0">{{ p.debe | number:'1.2-2' }}</td>
+                <td class="r" [class.lm-haber]="p.haber > 0">{{ p.haber | number:'1.2-2' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+}

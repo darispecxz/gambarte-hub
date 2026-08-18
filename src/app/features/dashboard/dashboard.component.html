@@ -1,0 +1,63 @@
+<div class="ph">
+  <h1>Tablero de Gestión Integral de Riesgos</h1>
+  <i class="ti ti-chevron-right chev"></i>
+  <span class="view-chip"><i class="ti ti-eye" style="font-size:14px"></i>Vista de dirección</span>
+  <div class="pr">
+    <button class="obtn" (click)="load(true)" [disabled]="loading"><i class="ti ti-refresh"></i>Recalcular</button>
+  </div>
+</div>
+<p class="page-sub">Consolidado de los 6 informes · datos en vivo desde la API</p>
+
+<div class="filters">
+  <div class="fdrop"><label>Período</label>
+    <select [(ngModel)]="preset">
+      <option value="mes">Mes a la fecha</option>
+      <option value="dia">Un día</option>
+    </select>
+  </div>
+  <div class="fdrop"><label>Corte (hasta)</label><input type="date" [(ngModel)]="fin"></div>
+  <button class="obtn primary" (click)="load()" [disabled]="loading"><i class="ti ti-filter"></i>Ver</button>
+  @if (data?.generado) {
+    <span class="muted" style="align-self:center">Actualizado: {{ data?.generado }} {{ data?.from_cache ? '(caché)' : '' }}</span>
+  }
+</div>
+
+@if (loading) {
+  <app-loading message="Calculando el tablero… (puede tardar la primera vez)"></app-loading>
+} @else if (error) {
+  <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div>
+} @else if (data) {
+
+  <div class="hero card">
+    <div>
+      <div class="hero-t">Estado integral del período</div>
+      <div class="muted">Del {{ data.periodo.ini }} al {{ data.periodo.fin }}</div>
+    </div>
+    <span class="pill sem-{{ data.semaforo }} big">{{ semTxt[data.semaforo] }}</span>
+  </div>
+
+  <div class="grid">
+    @for (d of data.dominios; track d.slug) {
+      <div class="dcard {{ d.sem }}">
+        <div class="dhead">
+          <h3>{{ d.icon }} {{ d.title }}</h3>
+          <span class="pill sem-{{ d.sem }}">{{ semTxt[d.sem] }}</span>
+        </div>
+        @for (m of d.metrics; track m[0]) {
+          <div class="mrow"><span class="k">{{ m[0] }}</span><span class="v">{{ m[1] }}</span></div>
+        }
+        <a class="det" [routerLink]="['/riesgos']" [queryParams]="{ riesgo: d.slug }">Ver informe →</a>
+      </div>
+    }
+  </div>
+
+  <div class="card alerts">
+    <div class="sec-t" style="margin-top:0"><i class="ti ti-alert-triangle"></i>Alertas prioritarias</div>
+    @for (a of data.alertas; track $index) {
+      <div class="alert">
+        <span class="pill p-{{ a.sev }}">{{ a.sev === 'bad' ? 'CRÍTICO' : (a.sev === 'warn' ? 'ATENCIÓN' : 'OK') }}</span>
+        <div><strong>{{ a.dom }}:</strong> {{ a.txt }}</div>
+      </div>
+    }
+  </div>
+}

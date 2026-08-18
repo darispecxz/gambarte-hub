@@ -1,0 +1,277 @@
+<div class="ph">
+  <h1>Reportes de Contabilidad</h1>
+  <i class="ti ti-chevron-right chev"></i>
+  <span class="view-chip"><i class="ti ti-calculator" style="font-size:14px"></i>Arqueos de Caja</span>
+</div>
+<p class="page-sub">Arqueos diarios, movimientos consolidados y cierres por agencia</p>
+
+@if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
+
+<div class="tabs">
+  @for (t of tabs; track t.key) {
+    <button class="tab" [class.active]="t.key === selected" (click)="select(t.key)">
+      <i class="ti {{ t.icon }}"></i>{{ t.label }}
+    </button>
+  }
+</div>
+
+<div class="filters">
+  <div class="fdrop"><label>Fecha</label><input type="date" [(ngModel)]="fecha"></div>
+  @if (selected === 'cashier') {
+    <div class="fdrop"><label>Agencia</label>
+      <select [(ngModel)]="agencia">
+        <option [ngValue]="null">Todas</option>
+        @for (ag of agencies; track ag.id_agencia) {
+          <option [ngValue]="ag.id_agencia">{{ ag.descripcion }}</option>
+        }
+      </select>
+    </div>
+  }
+  <button class="obtn primary" (click)="load()" [disabled]="loading"><i class="ti ti-eye"></i>Consultar</button>
+  <button class="obtn dark" (click)="downloadExcel()" [disabled]="!hasData()"><i class="ti ti-file-spreadsheet"></i>Excel</button>
+  <button class="obtn" (click)="downloadPdf()" [disabled]="!hasData()"><i class="ti ti-file-type-pdf"></i>PDF</button>
+</div>
+
+@if (loading) {
+  <app-loading message="Consultando reporte…"></app-loading>
+}
+
+<!-- ═══ RESUMEN DIARIO ═══ -->
+@if (dailyReport && selected === 'daily') {
+  <div class="sec-t"><i class="ti ti-calendar-stats"></i>Resumen Diario<span class="hint">{{ dailyReport.fecha }}</span></div>
+
+  <div class="tbl scroll">
+    <table class="g">
+      <thead>
+        <tr>
+          <th>Moneda</th>
+          <th class="r">Total Cajas</th>
+          <th class="r">Total Bóveda</th>
+          <th class="r">Total C+B</th>
+          <th class="r">TC Oficial</th>
+          <th class="r">En BOB</th>
+          <th class="r">Contabilidad</th>
+          <th class="r">Diferencia</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (c of dailyReport.currencies; track c.moneda) {
+          <tr>
+            <td><strong>{{ c.moneda }}</strong></td>
+            <td class="r">{{ c.totalCajas | number:'1.2-2' }}</td>
+            <td class="r">{{ c.totalBoveda | number:'1.2-2' }}</td>
+            <td class="r">{{ c.totalCajasBoveda | number:'1.2-2' }}</td>
+            <td class="r">{{ c.tipoCambioOficial | number:'1.4-4' }}</td>
+            <td class="r"><strong>{{ c.monedasEnBob | number:'1.2-2' }}</strong></td>
+            <td class="r">
+              {{ c.contabilidad !== null && c.contabilidad !== undefined ? (c.contabilidad | number:'1.2-2') : '—' }}
+            </td>
+            <td class="r" [class.sem-bad]="c.diferencia !== null && c.diferencia !== 0">
+              {{ c.diferencia !== null && c.diferencia !== undefined ? (c.diferencia | number:'1.2-2') : '—' }}
+            </td>
+          </tr>
+        }
+        @if (!dailyReport.currencies.length) {
+          <tr><td colspan="8" class="empty">Sin datos para esta fecha.</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  @if (dailyReport.currencies.length) {
+    <div class="total-bar">
+      <span>GRAN TOTAL (BOB)</span>
+      <strong class="score">{{ dailyReport.grandTotalBob | number:'1.2-2' }}</strong>
+    </div>
+  }
+}
+
+<!-- ═══ ARQUEOS DE CAJERO ═══ -->
+@if (cashierReport && selected === 'cashier') {
+  <div class="sec-t">
+    <i class="ti ti-cash-register"></i>Arqueos de Cajero
+    <span class="hint">{{ cashierReport.fecha }}</span>
+  </div>
+
+  <div class="disc-summary">
+    @if (cashierReport.totalDiscrepancies > 0) {
+      <span class="pill sem-warn">{{ cashierReport.totalDiscrepancies }} discrepancia(s)</span>
+    } @else {
+      <span class="pill sem-ok">Todo balanceado</span>
+    }
+    <span class="muted">{{ cashierReport.cashiers.length }} cajero(s)</span>
+  </div>
+
+  @for (cashier of cashierReport.cashiers; track cajeroKey(cashier)) {
+    <div class="cajero-card card" [class.warn-border]="hasDiscrepancy(cashier)">
+      <button class="cajero-head" (click)="toggleCajero(cashier)">
+        <div class="cajero-info">
+          <span class="fn">{{ cashier.cajero }}</span>
+          <span class="muted">{{ cashier.agencia }} · {{ cashier.currencies.length }} caja(s)</span>
+        </div>
+        @if (hasDiscrepancy(cashier)) {
+          <span class="pill sem-warn">Discrepancia</span>
+        } @else {
+          <span class="pill sem-ok">OK</span>
+        }
+        <i class="ti ti-chevron-down chev-toggle" [class.open]="isOpen(cashier)"></i>
+      </button>
+
+      @if (isOpen(cashier)) {
+        <div class="cajero-body">
+          @for (cur of cashier.currencies; track cur.idCaja) {
+            <div class="cur-section">
+              <div class="cur-head">
+                <strong>{{ cur.moneda }} — Caja #{{ cur.numCaja }}</strong>
+                @if (cur.diferencia !== 0) {
+                  <span class="pill sem-warn">⚠ {{ cur.diferencia | number:'1.2-2' }}</span>
+                } @else {
+                  <span class="pill sem-ok">✓ OK</span>
+                }
+              </div>
+
+              <div class="cur-grid">
+                <!-- Ingresos -->
+                <div class="tbl">
+                  <table class="g compact">
+                    <thead><tr><th colspan="3" class="c">Ingresos</th></tr><tr><th>Categoría</th><th class="r">#</th><th class="r">Monto</th></tr></thead>
+                    <tbody>
+                      <tr><td>Apertura</td><td class="r">—</td><td class="r">{{ cur.aperturaCaja | number:'1.2-2' }}</td></tr>
+                      <tr><td>Cambio Moneda</td><td class="r">{{ cur.cambioMonedaIngreso.count }}</td><td class="r">{{ cur.cambioMonedaIngreso.amount | number:'1.2-2' }}</td></tr>
+                      <tr><td>Envío Giro</td><td class="r">{{ cur.envioGiro.count }}</td><td class="r">{{ cur.envioGiro.amount | number:'1.2-2' }}</td></tr>
+                      <tr><td>Envío Remesa</td><td class="r">{{ cur.envioRemesa.count }}</td><td class="r">{{ cur.envioRemesa.amount | number:'1.2-2' }}</td></tr>
+                      <tr><td>Traspaso de Caja</td><td class="r">{{ cur.traspasoDeCaja.count }}</td><td class="r">{{ cur.traspasoDeCaja.amount | number:'1.2-2' }}</td></tr>
+                      <tr><td>Cobro Cheque</td><td class="r">{{ cur.cobroCheque.count }}</td><td class="r">{{ cur.cobroCheque.amount | number:'1.2-2' }}</td></tr>
+                      <tr><td>Ingreso Controlado</td><td class="r">{{ cur.ingresoControlado.count }}</td><td class="r">{{ cur.ingresoControlado.amount | number:'1.2-2' }}</td></tr>
+                      <tr><td>Transf. Bóveda</td><td class="r">{{ cur.transferenciaBovedaIngreso.count }}</td><td class="r">{{ cur.transferenciaBovedaIngreso.amount | number:'1.2-2' }}</td></tr>
+                    </tbody>
+                    <tfoot><tr><td><strong>Total Ingresos</strong></td><td></td><td class="r"><strong>{{ cur.totalIngreso | number:'1.2-2' }}</strong></td></tr></tfoot>
+                  </table>
+                </div>
+
+                <!-- Egresos -->
+                <div class="tbl">
+                  <table class="g compact">
+                    <thead><tr><th colspan="3" class="c">Egresos</th></tr><tr><th>Categoría</th><th class="r">#</th><th class="r">Monto</th></tr></thead>
+                    <tbody>
+                      <tr><td>Cambio Moneda</td><td class="r">{{ cur.cambioMonedaEgreso.count }}</td><td class="r">{{ cur.cambioMonedaEgreso.amount | number:'1.2-2' }}</td></tr>
+                      <tr><td>Pago Giro</td><td class="r">{{ cur.pagoGiro.count }}</td><td class="r">{{ cur.pagoGiro.amount | number:'1.2-2' }}</td></tr>
+                      <tr><td>Devolución Giro</td><td class="r">—</td><td class="r">{{ cur.devolucionGiro | number:'1.2-2' }}</td></tr>
+                      <tr><td>Pago Remesa</td><td class="r">{{ cur.pagoRemesa.count }}</td><td class="r">{{ cur.pagoRemesa.amount | number:'1.2-2' }}</td></tr>
+                      <tr><td>Devolución Remesa</td><td class="r">—</td><td class="r">{{ cur.devolucionRemesa | number:'1.2-2' }}</td></tr>
+                      <tr><td>Traspaso a Caja</td><td class="r">{{ cur.traspasoACaja.count }}</td><td class="r">{{ cur.traspasoACaja.amount | number:'1.2-2' }}</td></tr>
+                      <tr><td>Depósito Bancario</td><td class="r">{{ cur.depositoBancario.count }}</td><td class="r">{{ cur.depositoBancario.amount | number:'1.2-2' }}</td></tr>
+                      <tr><td>Egreso Controlado</td><td class="r">{{ cur.egresoControlado.count }}</td><td class="r">{{ cur.egresoControlado.amount | number:'1.2-2' }}</td></tr>
+                    </tbody>
+                    <tfoot><tr><td><strong>Total Egresos</strong></td><td></td><td class="r"><strong>{{ cur.totalEgreso | number:'1.2-2' }}</strong></td></tr></tfoot>
+                  </table>
+                </div>
+              </div>
+
+              <div class="cur-totals">
+                <div class="ct-item"><span>Saldo Teórico</span><strong>{{ cur.totalSaldo | number:'1.2-2' }}</strong></div>
+                <div class="ct-item"><span>Cierre Caja</span><strong>{{ cur.cierreCaja | number:'1.2-2' }}</strong></div>
+                <div class="ct-item" [class.ct-err]="cur.diferencia !== 0"><span>Diferencia</span><strong>{{ cur.diferencia | number:'1.2-2' }}</strong></div>
+              </div>
+
+              @if (cashier.fallasRegistradas[cur.idCaja]) {
+                <div class="falla-bar">
+                  <i class="ti ti-alert-triangle"></i>
+                  Falla registrada: {{ cashier.fallasRegistradas[cur.idCaja] | number:'1.2-2' }}
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  @if (!cashierReport.cashiers.length) {
+    <div class="empty">Sin datos de cajeros para esta fecha.</div>
+  }
+}
+
+<!-- ═══ RESUMEN DE MOVIMIENTOS ═══ -->
+@if (movementReport && selected === 'movement') {
+  <div class="sec-t"><i class="ti ti-arrows-exchange-2"></i>Resumen de Movimientos<span class="hint">{{ movementReport.fecha }}</span></div>
+
+  <div class="tbl scroll">
+    <table class="g">
+      <thead>
+        <tr>
+          <th>Moneda</th>
+          <th class="r">Apertura</th>
+          <th class="r">Cambio</th>
+          <th class="r">Envío Giro</th>
+          <th class="r">Pago Giro</th>
+          <th class="r">Envío Remesa</th>
+          <th class="r">Pago Remesa</th>
+          <th class="r">Egresos</th>
+          <th class="r">Transf.</th>
+          <th class="r">Fallas</th>
+          <th class="r">Cierre</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (c of movementReport.currencies; track c.moneda) {
+          <tr>
+            <td><strong>{{ c.moneda }}</strong></td>
+            <td class="r">{{ c.aperturaCaja | number:'1.2-2' }}</td>
+            <td class="r">{{ c.cambioMoneda | number:'1.2-2' }}</td>
+            <td class="r">{{ c.envioGiro | number:'1.2-2' }}</td>
+            <td class="r">{{ c.pagoGiro | number:'1.2-2' }}</td>
+            <td class="r">{{ c.envioRemesa | number:'1.2-2' }}</td>
+            <td class="r">{{ c.pagoRemesa | number:'1.2-2' }}</td>
+            <td class="r">{{ c.egresos | number:'1.2-2' }}</td>
+            <td class="r">{{ c.transferencias | number:'1.2-2' }}</td>
+            <td class="r" [class.sem-warn]="c.fallasCaja !== 0">{{ c.fallasCaja | number:'1.2-2' }}</td>
+            <td class="r"><strong>{{ c.cierreCaja | number:'1.2-2' }}</strong></td>
+          </tr>
+        }
+        @if (!movementReport.currencies.length) {
+          <tr><td colspan="11" class="empty">Sin movimientos para esta fecha.</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+<!-- ═══ CIERRES POR AGENCIA ═══ -->
+@if (agencyReport && selected === 'agency') {
+  <div class="sec-t"><i class="ti ti-building-store"></i>Cierres por Agencia<span class="hint">{{ agencyReport.fecha }}</span></div>
+
+  <div class="tbl scroll">
+    <table class="g">
+      <thead>
+        <tr>
+          <th>Agencia</th>
+          @for (m of currencyKeys(agencyReport.totals); track m) {
+            <th class="r">{{ m }}</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (ag of agencyReport.agencies; track ag.idAgencia) {
+          <tr>
+            <td><strong>{{ ag.agencia }}</strong></td>
+            @for (m of currencyKeys(agencyReport.totals); track m) {
+              <td class="r" [class.muted]="!ag.currencyClosings[m]">
+                {{ (ag.currencyClosings[m] || 0) | number:'1.2-2' }}
+              </td>
+            }
+          </tr>
+        }
+        <tr class="row-total">
+          <td><strong>TOTALES</strong></td>
+          @for (m of currencyKeys(agencyReport.totals); track m) {
+            <td class="r"><strong>{{ agencyReport.totals[m] | number:'1.2-2' }}</strong></td>
+          }
+        </tr>
+        @if (!agencyReport.agencies.length) {
+          <tr><td [attr.colspan]="1 + currencyKeys(agencyReport.totals).length" class="empty">Sin cierres para esta fecha.</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}

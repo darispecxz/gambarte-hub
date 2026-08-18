@@ -1,0 +1,63 @@
+<div class="ph">
+  <h1>Logs / Bitácoras de Auditoría</h1>
+  <i class="ti ti-chevron-right chev"></i>
+  <span class="view-chip"><i class="ti ti-table" style="font-size:14px"></i>Auditoría interna</span>
+</div>
+<p class="page-sub">Mismos reportes y formato de Excel/ZIP del sistema actual</p>
+
+@if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
+
+<div class="layout">
+  <aside class="list card">
+    @for (l of logs; track l.code) {
+      <button class="item" [class.active]="l.code === selected" (click)="select(l.code)">
+        <span class="code">{{ l.code }}</span>
+        <span class="t">{{ l.title }}</span>
+        <span class="tag">{{ l.db }}</span>
+      </button>
+    }
+  </aside>
+
+  <section class="main-col">
+    <div class="filters">
+      <div class="fdrop"><label>Período (mes)</label><input type="month" [(ngModel)]="periodo"></div>
+      <button class="obtn primary" (click)="load()" [disabled]="loading"><i class="ti ti-eye"></i>Ver</button>
+      <button class="obtn dark" (click)="downloadExcel()"><i class="ti ti-file-spreadsheet"></i>Excel</button>
+      <button class="obtn" (click)="downloadZip()"><i class="ti ti-file-zip"></i>ZIP mensual (7)</button>
+    </div>
+
+    @if (loading) {
+      <app-loading message="Consultando el reporte…"></app-loading>
+    } @else if (data) {
+      <div class="card">
+        <div class="rhead">
+          <strong>{{ data.title }}</strong>
+          <span class="muted">{{ data.label }} · base {{ data.db }} @if (data.ms) { · {{ data.ms }} ms }</span>
+        </div>
+
+        @if (data.sheets.length > 1) {
+          <div class="seg" style="margin-bottom:10px">
+            @for (s of data.sheets; track $index) {
+              <button [class.on]="$index === activeSheet" (click)="activeSheet = $index">{{ s.name }}</button>
+            }
+          </div>
+        }
+
+        @if (data.sheets[activeSheet]; as sh) {
+          <div class="tbl scroll">
+            <table class="g">
+              <thead><tr>@for (c of sh.columns; track $index) { <th>{{ c.label }}</th> }</tr></thead>
+              <tbody>
+                @for (row of sh.rows; track $index) {
+                  <tr>@for (cell of row; track $index) { <td>{{ cell }}</td> }</tr>
+                }
+                @if (!sh.rows.length) { <tr><td [attr.colspan]="sh.columns.length" class="empty">Sin registros en el período.</td></tr> }
+              </tbody>
+            </table>
+          </div>
+          <div class="muted" style="margin-top:6px;">{{ sh.rows.length }} fila(s)</div>
+        }
+      </div>
+    }
+  </section>
+</div>

@@ -1,0 +1,55 @@
+<mat-sidenav-container class="app">
+
+  <mat-sidenav #sidenav
+    [mode]="isMobile ? 'over' : 'side'"
+    [opened]="sidenavOpened"
+    (openedChange)="sidenavOpened = $event"
+    class="sidebar"
+    [fixedInViewport]="isMobile">
+
+    <div class="side-head">
+      <img class="logo" src="assets/gambarte-logo.png" alt="Gambarte">
+      <button class="toggle" (click)="toggle()" title="Colapsar menú">
+        <i class="ti ti-x"></i>
+      </button>
+    </div>
+
+    <nav class="side-nav">
+      @for (g of groups; track g.area) {
+        <div class="group">
+          <div class="group-h"><i class="ti {{ g.icon }}"></i><span>{{ g.area }}</span></div>
+          @for (item of g.items; track item.label) {
+            <a class="nav-item" [class.active]="isActive(item)"
+               [routerLink]="item.path" [queryParams]="item.query || null"
+               (click)="onNavClick()"
+               [title]="item.label">
+              <i class="ti {{ item.icon }}"></i><span class="lbl">{{ item.label }}</span>
+            </a>
+          }
+        </div>
+      }
+    </nav>
+
+    <div class="side-foot">
+      <div class="foot-user">
+        <div class="av">DA</div>
+        <div class="who"><div class="n">Dennis Arispe</div><div class="r">Sistemas</div></div>
+      </div>
+    </div>
+  </mat-sidenav>
+
+  <mat-sidenav-content class="main">
+    <header class="top">
+      <button class="menu-btn" (click)="toggle()" title="Menú"><i class="ti ti-menu-2"></i></button>
+      <div class="unit"><i class="ti ti-building-store lead"></i>Sucursal La Paz · Central<i class="ti ti-chevron-down tr"></i></div>
+      <div class="tsp"></div>
+      <div class="live-dot"><span class="dot"></span>Datos en vivo</div>
+      <div class="tbtn" title="Notificaciones"><i class="ti ti-bell"></i><span class="bd"></span></div>
+    </header>
+
+    <div class="page">
+      <router-outlet />
+    </div>
+  </mat-sidenav-content>
+
+</mat-sidenav-container>

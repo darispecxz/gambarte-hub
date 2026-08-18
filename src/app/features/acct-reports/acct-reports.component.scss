@@ -1,0 +1,245 @@
+.tabs {
+  display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap;
+  .tab {
+    border: 1px solid var(--line); background: var(--bg); border-radius: 8px;
+    padding: 7px 14px; font: inherit; font-size: 12.5px; font-weight: 600;
+    color: var(--tx2); cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    i { font-size: 16px; }
+    &:hover { background: var(--sub); }
+    &.active { background: var(--orange); border-color: var(--orange); color: #fff; }
+  }
+}
+
+/* ═══ Balance de Sumas y Saldos ═══ */
+.row-cuenta {
+  cursor: pointer;
+  &:hover td { background: var(--sub); }
+  td { border-bottom: 1px solid var(--line); }
+}
+
+.chev-sm {
+  font-size: 13px; color: var(--tx3); margin-right: 4px;
+  transition: transform .2s; display: inline-block;
+  &.open { transform: rotate(180deg); }
+}
+
+.row-sub td {
+  background: var(--bg); font-size: 12px; color: var(--tx2);
+}
+
+.pl-sub { padding-left: 28px !important; }
+
+.row-total td { background: var(--sub); border-top: 2px solid var(--line); }
+
+/* ═══ Balance wrapper ═══ */
+.bal-wrap {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+}
+
+.bal-scroll {
+  flex: 1 1 auto; min-height: 140px;
+  overflow-y: auto; overflow-x: auto;
+  border: none !important; border-radius: 0 !important;
+  max-height: calc(100vh - 380px) !important;
+}
+
+.bal-bottom-bar {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  padding: 10px 16px;
+  background: var(--sub); border-top: 2px solid var(--line);
+}
+
+/* ═══ Libro Mayor table wrapper ═══ */
+.lm-table-wrap {
+  position: relative;
+  display: flex; flex-direction: column;
+  border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+}
+
+.lm-overlay {
+  position: absolute; inset: 0; z-index: 10;
+  background: rgba(255,255,255,.65);
+  display: flex; align-items: center; justify-content: center;
+}
+
+.lm-spinner {
+  width: 28px; height: 28px; border: 3px solid var(--line);
+  border-top-color: var(--orange); border-radius: 50%;
+  animation: lm-spin .7s linear infinite;
+}
+@keyframes lm-spin { to { transform: rotate(360deg); } }
+
+.lm-scroll {
+  flex: 1 1 auto; min-height: 140px;
+  overflow-y: auto; overflow-x: auto;
+  border: none !important; border-radius: 0 !important;
+  max-height: calc(100vh - 480px) !important;
+}
+
+.lm-bottom-bar {
+  flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  padding: 10px 16px;
+  background: var(--sub); border-top: 2px solid var(--line);
+}
+
+.lm-totals {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+}
+
+.lm-totals-label {
+  font-size: 11px; font-weight: 800; color: var(--ink);
+  letter-spacing: .5px; text-transform: uppercase;
+}
+
+.lm-total-item {
+  font-size: 12px; color: var(--tx2); display: flex; align-items: center; gap: 5px;
+  strong { font-size: 14px; font-variant-numeric: tabular-nums; color: var(--ink); }
+}
+
+.lm-filters {
+  display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; align-items: center;
+}
+
+.lm-filter {
+  display: flex; align-items: center; gap: 6px;
+  i { font-size: 14px; color: var(--tx3); }
+  input, select {
+    padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px;
+    font: inherit; font-size: 12.5px; background: var(--bg); color: var(--ink);
+    &:focus { border-color: var(--orange); outline: none; }
+  }
+  input { min-width: 220px; }
+  select { min-width: 160px; }
+}
+
+/* ═══ Libro Mayor ═══ */
+.lm-header {
+  display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 14px;
+  padding: 12px 16px; background: var(--sub); border: 1px solid var(--line); border-radius: 10px;
+}
+
+.lm-stat {
+  display: flex; flex-direction: column; gap: 2px; min-width: 120px;
+  span { font-size: 11px; color: var(--tx3); font-weight: 600; text-transform: uppercase; letter-spacing: .3px; }
+  strong { font-size: 16px; font-variant-numeric: tabular-nums; color: var(--ink); }
+}
+
+.lm-debe { color: var(--green) !important; }
+.lm-haber { color: var(--red) !important; }
+
+.row-saldo-ini td { background: var(--sub); font-size: 12px; }
+
+.row-lm {
+  cursor: pointer;
+  &:hover td { background: var(--orange-soft); }
+}
+
+.tipo-badge {
+  display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10.5px;
+  font-weight: 700; background: var(--line); color: var(--tx2); letter-spacing: .3px;
+}
+
+.concepto-cell {
+  max-width: 380px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ═══ Paginacion ═══ */
+.pager {
+  display: flex; align-items: center; gap: 4px; justify-content: center;
+}
+
+.pager-btn {
+  border: 1px solid var(--line); background: var(--bg); border-radius: 6px;
+  padding: 6px 10px; font: inherit; font-size: 12px; font-weight: 600;
+  color: var(--tx2); cursor: pointer; min-width: 32px; text-align: center;
+  &:hover:not(:disabled) { background: var(--sub); }
+  &.active { background: var(--orange); border-color: var(--orange); color: #fff; }
+  &:disabled { opacity: .4; cursor: default; }
+  i { font-size: 14px; }
+}
+
+.pager-info {
+  font-size: 12px; color: var(--tx3); margin-left: 8px;
+}
+
+/* ═══ Subcuenta Search ═══ */
+.fdrop-wide { min-width: 300px; position: relative; }
+
+.subcuenta-search {
+  width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px;
+  font: inherit; font-size: 13px; background: var(--bg); color: var(--ink);
+  &:focus { border-color: var(--orange); outline: none; }
+}
+
+.subcuenta-dropdown {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12); max-height: 260px; overflow-y: auto;
+  margin-top: 4px; padding: 4px;
+}
+
+.subcuenta-opt {
+  width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  border: none; background: transparent; cursor: pointer; text-align: left; font: inherit;
+  border-radius: 6px;
+  &:hover { background: var(--orange-soft); }
+  .sc-code { font-size: 12px; font-weight: 700; color: var(--orange); min-width: 80px; }
+  .sc-desc { font-size: 12px; color: var(--tx2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+
+.subcuenta-empty { padding: 10px; font-size: 12px; color: var(--tx3); text-align: center; }
+
+/* ═══ Modal Detalle Asiento ═══ */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.4);
+}
+
+.modal-card {
+  position: fixed; z-index: 210; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%; max-width: 700px; max-height: 80vh; overflow-y: auto;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: 0 16px 48px rgba(0,0,0,.2); padding: 20px 24px;
+}
+
+.modal-head {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
+  h3 { font-size: 16px; font-weight: 700; color: var(--ink); margin: 0; }
+}
+
+.modal-close {
+  border: none; background: transparent; cursor: pointer; font-size: 20px; color: var(--tx3);
+  padding: 4px; border-radius: 6px;
+  &:hover { background: var(--sub); color: var(--ink); }
+}
+
+.modal-meta {
+  display: flex; gap: 16px; margin-bottom: 10px;
+  span { font-size: 12px; color: var(--tx2); display: flex; align-items: center; gap: 4px;
+    i { font-size: 14px; color: var(--tx3); }
+  }
+}
+
+.modal-loading {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  padding: 40px 20px;
+  span { font-size: 13px; color: var(--tx3); }
+}
+
+.modal-concepto { font-size: 13px; color: var(--tx2); margin: 0 0 14px; line-height: 1.4; }
+
+table.g.compact thead th { padding: 8px 10px; font-size: 10.5px; }
+table.g.compact tbody td { padding: 6px 10px; font-size: 12px; }
+table.g.compact tfoot td {
+  padding: 8px 10px; border-top: 2px solid var(--line); font-size: 12px;
+  background: var(--sub);
+}
+
+@media (max-width: 820px) {
+  .lm-header { gap: 10px; }
+  .modal-card { width: 95%; padding: 16px; }
+  .concepto-cell { max-width: 200px; }
+}
