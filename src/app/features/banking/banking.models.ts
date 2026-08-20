@@ -176,12 +176,20 @@ export interface MovementDetailFull {
   usuario: string;
 }
 
+export interface Comprobante {
+  tipo: 'deposito' | 'boleta_remesa' | 'cheque_anverso' | 'cheque_reverso' | 'comprobante_traspaso';
+  label: string;
+  comprobante?: string;
+  url: string;
+}
+
 export interface MovementDetailResponse {
   movimiento: MovementDetailFull;
   codsubcuenta: string | null;
   asiento: AsientoContable | null;
   traspaso: TraspasoRelacionado | null;
   comprobanteUrl: string | null;
+  comprobantes: Comprobante[];
 }
 
 // ── Resumen Diario ──

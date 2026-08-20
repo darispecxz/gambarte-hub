@@ -523,12 +523,34 @@
             }
           </div>
 
-          @if (comprobanteFullUrl) {
-            <div class="dp-comprobante">
-              <i class="ti ti-paperclip"></i>
-              <a [href]="comprobanteFullUrl" target="_blank" rel="noopener">
-                <i class="ti ti-download"></i> Descargar comprobante adjunto
-              </a>
+          @if (movDetail!.comprobantes?.length) {
+            <div class="dp-comprobantes">
+              <div class="dp-comprobantes-title"><i class="ti ti-paperclip"></i> Documentos Adjuntos ({{ movDetail!.comprobantes.length }})</div>
+              @for (doc of movDetail!.comprobantes; track doc.url) {
+                <a class="dp-comprobante-link" [href]="doc.url" target="_blank" rel="noopener">
+                  @if (doc.tipo === 'cheque_anverso' || doc.tipo === 'cheque_reverso') {
+                    <i class="ti ti-cash doc-icon cheque"></i>
+                  } @else if (doc.tipo === 'comprobante_traspaso') {
+                    <i class="ti ti-transfer-vertical doc-icon traspaso"></i>
+                  } @else if (doc.tipo === 'boleta_remesa') {
+                    <i class="ti ti-receipt doc-icon remesa"></i>
+                  } @else {
+                    <i class="ti ti-file-type-pdf doc-icon deposito"></i>
+                  }
+                  <div class="dp-comprobante-info">
+                    <span class="dp-comprobante-label">{{ doc.label }}</span>
+                    @if (doc.comprobante) {
+                      <span class="dp-comprobante-num">N° {{ doc.comprobante }}</span>
+                    }
+                  </div>
+                  <i class="ti ti-external-link"></i>
+                </a>
+              }
+            </div>
+          } @else if (isDocumentableMovement) {
+            <div class="dp-no-comprobante">
+              <i class="ti ti-file-off"></i>
+              <span>{{ noComprobanteMessage }}</span>
             </div>
           }
         </div>

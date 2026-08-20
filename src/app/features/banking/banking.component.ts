@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BankingService } from './banking.service';
 import { LoadingComponent } from '../../shared/loading.component';
-import { environment } from '../../../environments/environment';
 import { Agency } from '../accounting/accounting.models';
 import {
   BankMovement,
@@ -198,10 +197,25 @@ export class BankingComponent implements OnInit {
     this.detailError = '';
   }
 
-  get comprobanteFullUrl(): string | null {
-    const rel = this.movDetail?.comprobanteUrl;
-    if (!rel) return null;
-    return environment.legacyBase + rel;
+  get hasComprobantes(): boolean {
+    return (this.movDetail?.comprobantes?.length ?? 0) > 0;
+  }
+
+  private readonly documentableConciliaciones: Record<string, string> = {
+    DE: 'Sin comprobante de depósito adjunto',
+    DR: 'Sin boleta de remesa adjunta',
+    CC: 'Sin imagen de cheque adjunta',
+    ST: 'Sin comprobante de traspaso adjunto',
+  };
+
+  get isDocumentableMovement(): boolean {
+    const conc = this.movDetail?.movimiento?.conciliacion;
+    return !!conc && conc in this.documentableConciliaciones;
+  }
+
+  get noComprobanteMessage(): string {
+    const conc = this.movDetail?.movimiento?.conciliacion ?? '';
+    return this.documentableConciliaciones[conc] ?? 'Sin documento adjunto';
   }
 
   exportDetailPdf(): void {
