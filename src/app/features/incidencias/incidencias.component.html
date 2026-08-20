@@ -1,0 +1,358 @@
+<div class="ph">
+  <h1>Incidencias</h1>
+  <i class="ti ti-chevron-right chev"></i>
+  <span class="view-chip"><i class="ti ti-alert-triangle" style="font-size:14px"></i>Discrepancias detectadas</span>
+  <div class="pr">
+    <button class="obtn" (click)="runReconciliation()" [disabled]="running">
+      <i class="ti ti-refresh"></i>{{ running ? 'Ejecutando...' : 'Ejecutar reconciliacion' }}
+    </button>
+  </div>
+</div>
+<p class="page-sub">Registro de incidencias detectadas por el motor de reconciliacion automatica</p>
+
+@if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
+
+<!-- KPI cards -->
+@if (summary) {
+  <div class="kgrid">
+    <div class="kcard">
+      <div class="ktit"><i class="ti ti-alert-circle"></i>Abiertas</div>
+      <div class="kval">{{ summary.totalOpen }}</div>
+      <div class="ksub">Incidencias pendientes</div>
+      <div class="kchip"><i class="ti ti-list-check"></i></div>
+    </div>
+    <div class="kcard">
+      <div class="ktit"><i class="ti ti-alert-octagon"></i>Criticas</div>
+      <div class="kval sev-critical-text">{{ summaryBySev('CRITICAL') }}</div>
+      <div class="ksub">Requieren atencion inmediata</div>
+      <div class="kchip kchip-critical"><i class="ti ti-alert-octagon"></i></div>
+    </div>
+    <div class="kcard">
+      <div class="ktit"><i class="ti ti-alert-triangle"></i>Altas</div>
+      <div class="kval sev-high-text">{{ summaryBySev('HIGH') }}</div>
+      <div class="ksub">Prioridad alta</div>
+      <div class="kchip kchip-high"><i class="ti ti-alert-triangle"></i></div>
+    </div>
+    <div class="kcard">
+      <div class="ktit"><i class="ti ti-info-circle"></i>Medias / Bajas</div>
+      <div class="kval">{{ summaryBySev('MEDIUM') + summaryBySev('LOW') + summaryBySev('TOLERANCE') }}</div>
+      <div class="ksub">Revision no urgente</div>
+      <div class="kchip"><i class="ti ti-info-circle"></i></div>
+    </div>
+  </div>
+}
+
+<!-- Filters -->
+<div class="filters">
+  <div class="fdrop"><label>Desde</label><input type="date" [(ngModel)]="desde"></div>
+  <div class="fdrop"><label>Hasta</label><input type="date" [(ngModel)]="hasta"></div>
+  <div class="fdrop"><label>Tipo</label>
+    <select [(ngModel)]="filterType">
+      @for (o of typeOptions; track o.value) {
+        <option [value]="o.value">{{ o.label }}</option>
+      }
+    </select>
+  </div>
+  <div class="fdrop"><label>Severidad</label>
+    <select [(ngModel)]="filterSeverity">
+      @for (o of severityOptions; track o.value) {
+        <option [value]="o.value">{{ o.label }}</option>
+      }
+    </select>
+  </div>
+  <div class="fdrop"><label>Estado</label>
+    <select [(ngModel)]="filterStatus">
+      @for (o of statusOptions; track o.value) {
+        <option [value]="o.value">{{ o.label }}</option>
+      }
+    </select>
+  </div>
+  <div class="fdrop"><label>Operacion</label>
+    <select [(ngModel)]="filterOperationType">
+      @for (o of operationTypeOptions; track o.value) {
+        <option [value]="o.value">{{ o.label }}</option>
+      }
+    </select>
+  </div>
+  <button class="obtn primary" (click)="load()" [disabled]="loading"><i class="ti ti-eye"></i>Consultar</button>
+</div>
+
+@if (loading) {
+  <app-loading message="Cargando incidencias..."></app-loading>
+}
+
+@if (!loading && discrepancies.length > 0) {
+  <!-- Search bar -->
+  <div class="inc-toolbar">
+    <div class="inc-search">
+      <i class="ti ti-search"></i>
+      <input type="text" [(ngModel)]="searchText" placeholder="Buscar por codigo, descripcion, tipo...">
+    </div>
+    <span class="search-count">{{ filtered.length }} de {{ discrepancies.length }} incidencia(s)</span>
+  </div>
+
+  <!-- Table -->
+  <div class="tbl scroll">
+    <table class="g">
+      <thead>
+        <tr>
+          <th>Sev.</th>
+          <th>Codigo</th>
+          <th>Tipo</th>
+          <th>Descripcion</th>
+          <th>Operacion</th>
+          <th class="r">Diferencia</th>
+          <th class="c">Estado</th>
+          <th>Fecha</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (d of filtered; track d.id) {
+          <tr class="clickable-row" (click)="openDetail(d)">
+            <td>
+              <span class="sev-icon {{ sevOf(d).css }}" [title]="sevOf(d).label">
+                <i class="ti {{ sevOf(d).icon }}"></i>
+              </span>
+            </td>
+            <td><span class="mono">{{ d.code }}</span></td>
+            <td>
+              <div class="type-cell">
+                <span class="type-label">{{ typeLabel(d.type) }}</span>
+              </div>
+            </td>
+            <td><span class="desc-cell">{{ d.description }}</span></td>
+            <td>
+              @if (d.operation_type) {
+                <span class="pill op-pill">{{ opTypeLabel(d.operation_type) }}</span>
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td class="r">
+              @if (d.absolute_difference !== null) {
+                <span class="num">{{ d.absolute_difference | number:'1.2-2' }}</span>
+                <span class="unit-label">{{ d.unit }}</span>
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td class="c">
+              <span class="pill {{ statusOf(d).css }}">{{ statusOf(d).label }}</span>
+            </td>
+            <td><span class="mono small">{{ formatDate(d.created_at) }}</span></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+@if (!loading && discrepancies.length === 0) {
+  <div class="empty">
+    <i class="ti ti-circle-check" style="font-size:32px;color:var(--green)"></i>
+    <p>No se encontraron incidencias con los filtros actuales</p>
+  </div>
+}
+
+<!-- ═══════════════════════════════════════════════════════
+     DETAIL MODAL
+     ═══════════════════════════════════════════════════════ -->
+@if (detailOpen && selectedDisc) {
+  <div class="detail-overlay" (click)="closeDetail()"></div>
+  <div class="detail-panel">
+    <div class="dp-header">
+      <h3><i class="ti ti-file-alert"></i>Detalle de Incidencia</h3>
+      <div class="dp-actions">
+        @if (isResolvable(selectedDisc)) {
+          <button class="dp-btn resolve-btn" (click)="openResolve()">
+            <i class="ti ti-circle-check"></i>Resolver
+          </button>
+        }
+        <button class="dp-close" (click)="closeDetail()"><i class="ti ti-x"></i></button>
+      </div>
+    </div>
+
+    <div class="dp-body">
+      <!-- Header info -->
+      <div class="dp-section">
+        <div class="dp-disc-header">
+          <span class="sev-icon lg {{ sevOf(selectedDisc).css }}">
+            <i class="ti {{ sevOf(selectedDisc).icon }}"></i>
+          </span>
+          <div class="dp-disc-info">
+            <span class="dp-disc-code">{{ selectedDisc.code }}</span>
+            <span class="dp-disc-type">{{ typeLabel(selectedDisc.type) }}</span>
+          </div>
+          <span class="pill {{ statusOf(selectedDisc).css }}">{{ statusOf(selectedDisc).label }}</span>
+        </div>
+      </div>
+
+      <!-- Description -->
+      <div class="dp-section">
+        <div class="dp-sec-title"><i class="ti ti-info-circle"></i>Descripcion</div>
+        <p class="dp-desc">{{ selectedDisc.description }}</p>
+      </div>
+
+      <!-- Values comparison -->
+      <div class="dp-section">
+        <div class="dp-sec-title"><i class="ti ti-arrows-diff"></i>Comparacion de Valores</div>
+        <div class="dp-fields">
+          <div class="dp-field">
+            <span class="dp-label">Campo comparado</span>
+            <span class="dp-value">{{ selectedDisc.compared_field }}</span>
+          </div>
+          <div class="dp-field">
+            <span class="dp-label">Unidad</span>
+            <span class="dp-value">{{ selectedDisc.unit }}</span>
+          </div>
+          @if (selectedDisc.value_cgr_bo !== null) {
+            <div class="dp-field">
+              <span class="dp-label">Valor CGR (BO)</span>
+              <span class="dp-value num">{{ selectedDisc.value_cgr_bo | number:'1.2-6' }}</span>
+            </div>
+          }
+          @if (selectedDisc.value_conta !== null) {
+            <div class="dp-field">
+              <span class="dp-label">Valor Contabilidad</span>
+              <span class="dp-value num">{{ selectedDisc.value_conta | number:'1.2-6' }}</span>
+            </div>
+          }
+          @if (selectedDisc.absolute_difference !== null) {
+            <div class="dp-field">
+              <span class="dp-label">Diferencia absoluta</span>
+              <span class="dp-value num diff-val">{{ selectedDisc.absolute_difference | number:'1.2-6' }}</span>
+            </div>
+          }
+          @if (selectedDisc.percentage_difference !== null) {
+            <div class="dp-field">
+              <span class="dp-label">Diferencia porcentual</span>
+              <span class="dp-value num diff-val">{{ selectedDisc.percentage_difference | number:'1.2-4' }}%</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Operation info -->
+      <div class="dp-section">
+        <div class="dp-sec-title"><i class="ti ti-file-text"></i>Operacion Relacionada</div>
+        <div class="dp-fields">
+          <div class="dp-field">
+            <span class="dp-label">Tipo de operacion</span>
+            <span class="dp-value">{{ opTypeLabel(selectedDisc.operation_type) }}</span>
+          </div>
+          <div class="dp-field">
+            <span class="dp-label">ID Operacion</span>
+            <span class="dp-value mono">{{ selectedDisc.operation_id ?? '—' }}</span>
+          </div>
+          <div class="dp-field">
+            <span class="dp-label">Detectado por</span>
+            <span class="dp-value">{{ selectedDisc.detected_by }}</span>
+          </div>
+          <div class="dp-field">
+            <span class="dp-label">Auto-detectado</span>
+            <span class="dp-value">{{ selectedDisc.is_auto_detected ? 'Si' : 'No' }}</span>
+          </div>
+          <div class="dp-field">
+            <span class="dp-label">Requiere auditoria</span>
+            <span class="dp-value">
+              @if (selectedDisc.requires_audit) {
+                <span class="pill sem-warn">Si</span>
+              } @else {
+                <span class="muted">No</span>
+              }
+            </span>
+          </div>
+          <div class="dp-field">
+            <span class="dp-label">Recurrente</span>
+            <span class="dp-value">{{ selectedDisc.is_recurring ? 'Si' : 'No' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Technical detail -->
+      @if (selectedDisc.detail_technical) {
+        <div class="dp-section">
+          <div class="dp-sec-title"><i class="ti ti-code"></i>Detalle Tecnico</div>
+          <div class="tech-grid">
+            @for (e of detailTechnicalEntries(selectedDisc); track e.key) {
+              <div class="tech-row">
+                <span class="tech-key">{{ e.key }}</span>
+                <span class="tech-val mono">{{ e.value }}</span>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- Resolution info (if resolved) -->
+      @if (selectedDisc.status === 'RESOLVED' || selectedDisc.status === 'FALSE_POSITIVE' || selectedDisc.status === 'IGNORED') {
+        <div class="dp-section">
+          <div class="dp-sec-title"><i class="ti ti-circle-check"></i>Resolucion</div>
+          <div class="dp-fields">
+            <div class="dp-field">
+              <span class="dp-label">Tipo de resolucion</span>
+              <span class="dp-value">{{ selectedDisc.resolution_type ?? '—' }}</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Resuelto el</span>
+              <span class="dp-value mono">{{ formatDate(selectedDisc.resolved_at ?? '') }}</span>
+            </div>
+            <div class="dp-field full">
+              <span class="dp-label">Notas</span>
+              <span class="dp-value">{{ selectedDisc.resolution_notes ?? '—' }}</span>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Dates -->
+      <div class="dp-section">
+        <div class="dp-sec-title"><i class="ti ti-clock"></i>Fechas</div>
+        <div class="dp-fields">
+          <div class="dp-field">
+            <span class="dp-label">Creada</span>
+            <span class="dp-value mono">{{ formatDate(selectedDisc.created_at) }}</span>
+          </div>
+          <div class="dp-field">
+            <span class="dp-label">Actualizada</span>
+            <span class="dp-value mono">{{ formatDate(selectedDisc.updated_at) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ═══════════════════════════════════════════════════════
+     RESOLVE MODAL
+     ═══════════════════════════════════════════════════════ -->
+@if (resolveOpen && selectedDisc) {
+  <div class="modal-backdrop" (click)="cancelResolve()"></div>
+  <div class="modal-card resolve-modal">
+    <div class="modal-head">
+      <h3><i class="ti ti-circle-check"></i>Resolver Incidencia {{ selectedDisc.code }}</h3>
+      <button class="dp-close" (click)="cancelResolve()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="fdrop" style="margin-bottom:14px">
+        <label>Tipo de resolucion</label>
+        <select [(ngModel)]="resolveType">
+          @for (o of resolveTypeOptions; track o.value) {
+            <option [value]="o.value">{{ o.label }}</option>
+          }
+        </select>
+      </div>
+      <div class="fdrop">
+        <label>Notas de resolucion</label>
+        <textarea class="resolve-notes" [(ngModel)]="resolveNotes" rows="4"
+          placeholder="Describe la accion tomada para resolver esta incidencia..."></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="obtn" (click)="cancelResolve()">Cancelar</button>
+      <button class="obtn primary" (click)="confirmResolve()" [disabled]="resolving || !resolveNotes.trim()">
+        <i class="ti ti-check"></i>{{ resolving ? 'Resolviendo...' : 'Confirmar' }}
+      </button>
+    </div>
+  </div>
+}

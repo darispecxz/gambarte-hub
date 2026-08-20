@@ -36,6 +36,7 @@ export class AppComponent {
     ]},
     { area: 'Auditoría y Seguridad', icon: 'ti-clipboard-check', items: [
       { path: '/logs', icon: 'ti-clipboard-check', label: 'Logs / Bitácoras' },
+      { path: '/incidencias', icon: 'ti-alert-triangle', label: 'Incidencias' },
       { path: '/riesgos', query: { riesgo: 'seguridad' }, icon: 'ti-lock', label: 'Seguridad y Trazabilidad' },
     ]},
     { area: 'Operaciones', icon: 'ti-arrows-exchange-2', items: [

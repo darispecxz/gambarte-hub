@@ -38,5 +38,9 @@ export const routes: Routes = [
     path: 'bancos',
     loadComponent: () => import('./features/banking/banking.component').then(m => m.BankingComponent),
   },
+  {
+    path: 'incidencias',
+    loadComponent: () => import('./features/incidencias/incidencias.component').then(m => m.IncidenciasComponent),
+  },
   { path: '**', redirectTo: 'tablero' },
 ];
