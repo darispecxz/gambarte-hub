@@ -390,6 +390,28 @@
             </div>
           </div>
         }
+
+        <div class="dp-section dp-docs">
+          <div class="dp-sec-title"><i class="ti ti-printer"></i> Documentos</div>
+          <div class="dp-doc-list">
+            @if (cambioDetail.factura) {
+              <button class="dp-doc-btn" (click)="printCambioFactura()">
+                <i class="ti ti-file-invoice"></i>
+                <div class="dp-doc-info">
+                  <span class="dp-doc-label">Factura</span>
+                  <span class="dp-doc-num">N° {{ cambioDetail.factura.numero }}</span>
+                </div>
+                <i class="ti ti-external-link dp-doc-arrow"></i>
+              </button>
+            }
+            @if (!cambioDetail.factura) {
+              <div class="dp-no-docs">
+                <i class="ti ti-file-off"></i>
+                <span>No hay documentos disponibles para esta operacion.</span>
+              </div>
+            }
+          </div>
+        </div>
       </div>
     }
 
@@ -505,6 +527,40 @@
             </div>
           </div>
         }
+
+        <div class="dp-section dp-docs">
+          <div class="dp-sec-title"><i class="ti ti-printer"></i> Documentos</div>
+          <div class="dp-doc-list">
+            <button class="dp-doc-btn" (click)="printGiroEnvio()">
+              <i class="ti ti-send"></i>
+              <div class="dp-doc-info">
+                <span class="dp-doc-label">Comprobante de Envio</span>
+                <span class="dp-doc-num">EG-{{ giroDetail.codigo }}</span>
+              </div>
+              <i class="ti ti-external-link dp-doc-arrow"></i>
+            </button>
+            @if (giroDetail.factura) {
+              <button class="dp-doc-btn" (click)="printGiroFactura()">
+                <i class="ti ti-file-invoice"></i>
+                <div class="dp-doc-info">
+                  <span class="dp-doc-label">Factura</span>
+                  <span class="dp-doc-num">N° {{ giroDetail.factura.numero }}</span>
+                </div>
+                <i class="ti ti-external-link dp-doc-arrow"></i>
+              </button>
+            }
+            @if (giroDetail.pago) {
+              <button class="dp-doc-btn" (click)="printGiroPago()">
+                <i class="ti ti-checks"></i>
+                <div class="dp-doc-info">
+                  <span class="dp-doc-label">Comprobante de {{ giroDetail.pago.tipoPago === 'PAGO' ? 'Pago' : 'Devolucion' }}</span>
+                  <span class="dp-doc-num">PG-{{ giroDetail.codigo }}</span>
+                </div>
+                <i class="ti ti-external-link dp-doc-arrow"></i>
+              </button>
+            }
+          </div>
+        </div>
       </div>
     }
 
@@ -632,14 +688,45 @@
           </div>
         }
 
-        @if (!remesaDetail.factura && !remesaDetail.pago) {
-          <div class="dp-section">
-            <div class="dp-empty-block">
-              <i class="ti ti-file-off"></i>
-              <span>No se encontraron facturas ni comprobantes de pago para esta operacion.</span>
-            </div>
+        <div class="dp-section dp-docs">
+          <div class="dp-sec-title"><i class="ti ti-printer"></i> Documentos</div>
+          <div class="dp-doc-list">
+            <button class="dp-doc-btn" (click)="printRemesaEnvio()">
+              <i class="ti ti-send"></i>
+              <div class="dp-doc-info">
+                <span class="dp-doc-label">Comprobante de Envio</span>
+                <span class="dp-doc-num">ER-{{ remesaDetail.codigo }}</span>
+              </div>
+              <i class="ti ti-external-link dp-doc-arrow"></i>
+            </button>
+            @if (remesaDetail.factura) {
+              <button class="dp-doc-btn" (click)="printRemesaFactura()">
+                <i class="ti ti-file-invoice"></i>
+                <div class="dp-doc-info">
+                  <span class="dp-doc-label">Factura</span>
+                  <span class="dp-doc-num">N° {{ remesaDetail.factura.numero }}</span>
+                </div>
+                <i class="ti ti-external-link dp-doc-arrow"></i>
+              </button>
+            }
+            @if (remesaDetail.pago) {
+              <button class="dp-doc-btn" (click)="printRemesaPago()">
+                <i class="ti ti-checks"></i>
+                <div class="dp-doc-info">
+                  <span class="dp-doc-label">Comprobante de {{ remesaDetail.pago.tipoPago === 'PAGO' ? 'Pago' : 'Devolucion' }}</span>
+                  <span class="dp-doc-num">PR-{{ remesaDetail.codigo }}</span>
+                </div>
+                <i class="ti ti-external-link dp-doc-arrow"></i>
+              </button>
+            }
+            @if (!remesaDetail.factura && !remesaDetail.pago) {
+              <div class="dp-no-docs">
+                <i class="ti ti-file-off"></i>
+                <span>No hay facturas ni comprobantes de pago registrados.</span>
+              </div>
+            }
           </div>
-        }
+        </div>
       </div>
     }
   </div>

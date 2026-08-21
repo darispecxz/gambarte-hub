@@ -460,4 +460,335 @@ export class OpReportsComponent implements OnInit {
     if (!s) return '';
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
+
+  private num(v: number | null | undefined, decimals = 2): string {
+    if (v === null || v === undefined) return '0.00';
+    return v.toFixed(decimals);
+  }
+
+  private openPrint(title: string, html: string): void {
+    const page = `<!DOCTYPE html><html><head><title>${title}</title>
+<style>
+  @page { size: portrait; margin: 10mm; }
+  body { font-family: 'Courier New', monospace; font-size: 11px; color: #000; margin: 0; padding: 16px; max-width: 400px; margin: 0 auto; }
+  h2 { text-align: center; font-size: 14px; margin: 8px 0; padding-bottom: 6px; border-bottom: 1px solid #000; }
+  .logo { text-align: center; font-size: 16px; font-weight: bold; margin-bottom: 4px; }
+  .sub { text-align: center; font-size: 10px; margin-bottom: 8px; }
+  .sep { border-top: 1px solid #000; margin: 6px 0; }
+  .section-title { font-weight: bold; text-align: center; margin: 4px 0; font-size: 11px; }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { padding: 2px 4px; font-size: 11px; vertical-align: top; }
+  .r { text-align: right; }
+  .b { font-weight: bold; }
+  .c { text-align: center; }
+  .big { font-size: 20px; font-weight: bold; }
+  .code-box { text-align: center; margin: 8px 0; }
+  .signatures { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 60px; }
+  .sig { text-align: center; border-top: 1px solid #000; padding-top: 4px; width: 45%; font-weight: bold; font-size: 10px; }
+  .note { font-size: 8px; margin-top: 12px; text-align: justify; }
+  .footer-info { font-size: 9px; color: #555; margin-top: 8px; text-align: right; }
+</style></head><body>
+${html}
+<script>window.onload=function(){window.print();}</script>
+</body></html>`;
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(page); w.document.close(); }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // DOCUMENT PRINTING
+  // ═══════════════════════════════════════════════════════════
+
+  printCambioFactura(): void {
+    const d = this.cambioDetail;
+    if (!d?.factura) return;
+    const f = d.factura;
+    const html = `
+      <div class="logo">GAMBARTE S.R.L.</div>
+      <div class="sub">CASA DE CAMBIOS Y GIROS</div>
+      <h2>FACTURA</h2>
+      <table>
+        <tr><td class="b">Numero</td><td class="r">${this.esc(f.numero)}</td></tr>
+        <tr><td class="b">Autorizacion</td><td class="r" style="font-size:9px">${this.esc(f.autorizacion)}</td></tr>
+        <tr><td class="b">Fecha</td><td class="r">${this.esc(f.fecha)} ${this.esc(f.hora)}</td></tr>
+      </table>
+      <div class="sep"></div>
+      <table>
+        <tr><td class="b">NIT/CI</td><td class="r">${this.esc(f.nit)}</td></tr>
+        <tr><td class="b">Nombre</td><td class="r">${this.esc(f.nombre)}</td></tr>
+      </table>
+      <div class="sep"></div>
+      <table>
+        <tr><td class="b">Operacion</td><td class="r">${this.esc(d.tipoDesc)}</td></tr>
+        <tr><td class="b">Moneda</td><td class="r">${this.esc(d.monedaRecibida)} / ${this.esc(d.monedaEntregada)}</td></tr>
+        <tr><td class="b">Monto</td><td class="r">${this.num(d.monto)}</td></tr>
+        <tr><td class="b">T.C.</td><td class="r">${this.num(d.tipoCambio, 4)}</td></tr>
+      </table>
+      <div class="sep"></div>
+      <table>
+        <tr><td class="b">Detalle</td><td class="r" style="font-size:10px">${this.esc(f.detalle)}</td></tr>
+        <tr><td class="b">Importe</td><td class="r b">${this.num(f.importe)} BOB</td></tr>
+      </table>
+      <div class="sep"></div>
+      <div class="footer-info">Transaccion: ${d.id} | Operador: ${this.esc(d.operador)}</div>
+      <div class="footer-info">Agencia: ${this.esc(d.agencia)}</div>`;
+    this.openPrint(`Factura Cambio #${d.id}`, html);
+  }
+
+  printGiroEnvio(): void {
+    const d = this.giroDetail;
+    if (!d) return;
+    const html = `
+      <div class="logo">GAMBARTE S.R.L.</div>
+      <div class="sub">INFORMACION: 2200020 - 68355517</div>
+      <h2>COMPROBANTE DE ENVIO</h2>
+      <div class="code-box"><span class="big">CODIGO: ${d.codigo}</span></div>
+      <div class="c b">GIRO NACIONAL DESDE ${this.esc(d.agenciaOrigen)}</div>
+      <div class="sep"></div>
+      <table>
+        <tr><td class="b">Fecha</td><td>${this.esc(d.fecha)}</td></tr>
+        <tr><td class="b">Correlativo</td><td>${this.esc(d.correlativoOrigen)}</td></tr>
+        <tr><td class="b">Operador</td><td>${this.esc(d.operador)}</td></tr>
+      </table>
+      <div class="sep"></div>
+      <div class="section-title">DATOS DEL REMITENTE</div>
+      <div class="sep"></div>
+      <table>
+        <tr><td class="b">Nombre</td><td>${this.esc(d.remitente.nombre)}</td></tr>
+        <tr><td class="b">Documento</td><td>${this.esc(d.remitente.documento || '')}</td></tr>
+        <tr><td class="b">Telefono</td><td>${this.esc(d.remitente.telefono || '-')}</td></tr>
+      </table>
+      <div class="sep"></div>
+      <div class="section-title">DATOS DEL DESTINATARIO</div>
+      <div class="sep"></div>
+      <table>
+        <tr><td class="b">Nombre</td><td>${this.esc(d.destinatario.nombre)}</td></tr>
+        <tr><td class="b">Telefono</td><td>${this.esc(d.destinatario.telefono || '-')}</td></tr>
+        ${d.destinatario.domicilio ? `<tr><td class="b">Direccion</td><td>${this.esc(d.destinatario.domicilio)}</td></tr>` : ''}
+      </table>
+      <div class="sep"></div>
+      <div class="section-title">DATOS DE LA OPERACION</div>
+      <div class="sep"></div>
+      <table>
+        <tr><td class="b">Destino</td><td class="r">${this.esc(d.agenciaDestino)} ${this.esc(d.correlativoDestino || '')}</td></tr>
+        <tr><td class="b">Por Entregar [${this.esc(d.monedaEntregada)}]</td><td class="r b">${this.num(d.totalCambio)}</td></tr>
+        <tr><td class="b">Comision [${this.esc(d.monedaEntregada)}]</td><td class="r">${this.num(d.comision)}</td></tr>
+        ${d.itf > 0 ? `<tr><td class="b">ITF [${this.esc(d.monedaEntregada)}]</td><td class="r">${this.num(d.itf)}</td></tr>` : ''}
+      </table>
+      <div class="sep"></div>
+      <table>
+        <tr><td class="b">Total [${this.esc(d.monedaEntregada)}]</td><td class="r b">${this.num(d.total)}</td></tr>
+        <tr><td class="b">Total [BOB]</td><td class="r b">${this.num(d.totalBob)}</td></tr>
+      </table>
+      <div class="signatures">
+        <div class="sig">FIRMA CAJERO</div>
+        <div class="sig">FIRMA CLIENTE</div>
+      </div>
+      <div class="note"><b><u>NOTA</u>.-</b> AL FIRMAR ESTE DOCUMENTO SE ACEPTAN LOS TERMINOS Y CONDICIONES DE GAMBARTE S.R.L.</div>`;
+    this.openPrint(`Envio Giro ${d.codigo}`, html);
+  }
+
+  printGiroPago(): void {
+    const d = this.giroDetail;
+    if (!d?.pago) return;
+    const p = d.pago;
+    const html = `
+      <div class="logo">GAMBARTE S.R.L.</div>
+      <div class="sub">INFORMACION: 2200020 - 68355517</div>
+      <h2>COMPROBANTE DE PAGO</h2>
+      <div class="c b">GIRO NACIONAL DESDE ${this.esc(d.agenciaOrigen)}</div>
+      <div class="c">FECHA: ${this.esc(d.fecha)}</div>
+      <div class="sep"></div>
+      <div class="section-title">DATOS DEL REMITENTE</div>
+      <table>
+        <tr><td colspan="2">${this.esc(d.remitente.nombre)}</td></tr>
+        ${d.remitente.telefono ? `<tr><td class="b">Telefono</td><td>${this.esc(d.remitente.telefono)}</td></tr>` : ''}
+      </table>
+      <div class="sep"></div>
+      <div class="section-title">DATOS DEL DESTINATARIO</div>
+      <table>
+        <tr><td colspan="2">${this.esc(d.destinatario.nombre)}</td></tr>
+        ${d.destinatario.telefono ? `<tr><td class="b">Telefono</td><td>${this.esc(d.destinatario.telefono)}</td></tr>` : ''}
+        ${d.destinatario.domicilio ? `<tr><td class="b">Direccion</td><td>${this.esc(d.destinatario.domicilio)}</td></tr>` : ''}
+        ${p.documento ? `<tr><td class="b">Documento</td><td>${this.esc(p.documento)}</td></tr>` : ''}
+      </table>
+      <div class="sep"></div>
+      <div class="section-title">DATOS DEL PAGO</div>
+      <table>
+        <tr><td class="b">Tipo</td><td class="r">${this.esc(p.tipoPago)}</td></tr>
+        <tr><td class="b">Agencia</td><td class="r">${this.esc(p.agencia)}</td></tr>
+        <tr><td class="b">Operador</td><td class="r">${this.esc(p.operador)}</td></tr>
+        <tr><td class="b">Fecha</td><td class="r">${this.esc(p.fecha)}</td></tr>
+        <tr><td class="b">Codigo</td><td class="r b">${d.codigo}</td></tr>
+        <tr><td class="b">Monto [${this.esc(p.moneda)}]</td><td class="r b">${this.num(p.monto)}</td></tr>
+        ${p.comprobante ? `<tr><td class="b">Comprobante</td><td class="r">${this.esc(p.comprobante)}</td></tr>` : ''}
+        ${p.motivo ? `<tr><td class="b">Motivo</td><td class="r">${this.esc(p.motivo)}</td></tr>` : ''}
+      </table>
+      <div class="signatures">
+        <div class="sig">FIRMA CAJERO</div>
+        <div class="sig">FIRMA CLIENTE</div>
+      </div>
+      <div class="note"><b><u>NOTA</u>.-</b> AL FIRMAR ESTE DOCUMENTO SE ACEPTAN LOS TERMINOS Y CONDICIONES DE GAMBARTE S.R.L.</div>`;
+    this.openPrint(`Pago Giro ${d.codigo}`, html);
+  }
+
+  printGiroFactura(): void {
+    const d = this.giroDetail;
+    if (!d?.factura) return;
+    const f = d.factura;
+    const html = `
+      <div class="logo">GAMBARTE S.R.L.</div>
+      <div class="sub">CASA DE CAMBIOS Y GIROS</div>
+      <h2>FACTURA</h2>
+      <table>
+        <tr><td class="b">Numero</td><td class="r">${this.esc(f.numero)}</td></tr>
+        <tr><td class="b">Autorizacion</td><td class="r" style="font-size:9px">${this.esc(f.autorizacion)}</td></tr>
+        <tr><td class="b">Fecha</td><td class="r">${this.esc(f.fecha)} ${this.esc(f.hora)}</td></tr>
+      </table>
+      <div class="sep"></div>
+      <table>
+        <tr><td class="b">NIT/CI</td><td class="r">${this.esc(f.nit)}</td></tr>
+        <tr><td class="b">Nombre</td><td class="r">${this.esc(f.nombre)}</td></tr>
+      </table>
+      <div class="sep"></div>
+      <table>
+        <tr><td class="b">Detalle</td><td class="r" style="font-size:10px">${this.esc(f.detalle)}</td></tr>
+        <tr><td class="b">Importe</td><td class="r b">${this.num(f.importe)} BOB</td></tr>
+      </table>
+      <div class="sep"></div>
+      <div class="footer-info">Giro Codigo: ${d.codigo} | Operador: ${this.esc(d.operador)}</div>`;
+    this.openPrint(`Factura Giro ${d.codigo}`, html);
+  }
+
+  printRemesaEnvio(): void {
+    const d = this.remesaDetail;
+    if (!d) return;
+    const html = `
+      <div class="logo">GAMBARTE S.R.L.</div>
+      <div class="sub">www.gambarte.com.bo | INFORMES: 68355517</div>
+      <h2>COMPROBANTE DE ENVIO</h2>
+      <div class="code-box"><span class="big">CODIGO: ${d.codigo}</span></div>
+      <div class="c b">${this.esc(d.tipo)} - ${this.esc(d.agencia)}</div>
+      <div class="sep"></div>
+      <table>
+        <tr><td class="b">Fecha</td><td>${this.esc(d.fecha)}</td></tr>
+        <tr><td class="b">Correlativo</td><td>${this.esc(d.correlativo)}</td></tr>
+        <tr><td class="b">Operador</td><td>${this.esc(d.operador)}</td></tr>
+      </table>
+      <div class="sep"></div>
+      <div class="section-title">DATOS DEL REMITENTE</div>
+      <div class="sep"></div>
+      <table>
+        <tr><td class="b">Nombre</td><td>${this.esc(d.remitente.nombre)}</td></tr>
+        <tr><td class="b">Documento</td><td>${this.esc(d.remitente.documento || '')}</td></tr>
+        <tr><td class="b">Telefono</td><td>${this.esc(d.remitente.telefono || '-')}</td></tr>
+        ${d.remitente.domicilio ? `<tr><td class="b">Direccion</td><td>${this.esc(d.remitente.domicilio)}</td></tr>` : ''}
+      </table>
+      <div class="sep"></div>
+      <div class="section-title">DATOS DEL DESTINATARIO</div>
+      <div class="sep"></div>
+      <table>
+        <tr><td class="b">Nombre</td><td>${this.esc(d.destinatario.nombre)}</td></tr>
+        <tr><td class="b">Telefono</td><td>${this.esc(d.destinatario.telefono || '-')}</td></tr>
+        ${d.destinatario.domicilio ? `<tr><td class="b">Direccion</td><td>${this.esc(d.destinatario.domicilio)}</td></tr>` : ''}
+      </table>
+      <div class="sep"></div>
+      <div class="section-title">DATOS DE LA OPERACION</div>
+      <div class="sep"></div>
+      <table>
+        <tr><td class="b">Destino</td><td class="r">${this.esc(d.destino)}</td></tr>
+        <tr><td class="b">Por Entregar [${this.esc(d.monedaEntregada)}]</td><td class="r b">${this.num(d.monto)}</td></tr>
+      </table>
+      <div class="sep"></div>
+      <table>
+        <tr><td class="b">Recibido [${this.esc(d.monedaRecibida)}]</td><td class="r">${this.num(d.monto)}</td></tr>
+        <tr><td class="b">Comision [BOB]</td><td class="r">${this.num(d.comisionGambarte)}</td></tr>
+        ${d.gastosCorresponsal > 0 ? `<tr><td class="b">Corresponsal [BOB]</td><td class="r">${this.num(d.gastosCorresponsal)}</td></tr>` : ''}
+        <tr><td class="b">IVA [BOB]</td><td class="r">${this.num(d.iva)}</td></tr>
+        ${d.itf > 0 ? `<tr><td class="b">ITF [BOB]</td><td class="r">${this.num(d.itf)}</td></tr>` : ''}
+      </table>
+      <div class="sep"></div>
+      <table>
+        <tr><td class="b">Total Comision [BOB]</td><td class="r b">${this.num(d.comisionBob)}</td></tr>
+        <tr><td class="b">Total [BOB]</td><td class="r b">${this.num(d.totalBob)}</td></tr>
+      </table>
+      <div class="signatures">
+        <div class="sig">FIRMA CAJERO</div>
+        <div class="sig">FIRMA CLIENTE</div>
+      </div>
+      <div class="note"><b><u>NOTA</u>.-</b> AL FIRMAR ESTE DOCUMENTO SE ACEPTAN LOS TERMINOS Y CONDICIONES DE GAMBARTE S.R.L.</div>`;
+    this.openPrint(`Envio Remesa ${d.codigo}`, html);
+  }
+
+  printRemesaPago(): void {
+    const d = this.remesaDetail;
+    if (!d?.pago) return;
+    const p = d.pago;
+    const html = `
+      <div class="logo">GAMBARTE S.R.L.</div>
+      <div class="sub">INFORMACION: 2200020 - 68355517</div>
+      <h2>COMPROBANTE DE PAGO</h2>
+      <div class="c b">${this.esc(d.tipo)} - ${this.esc(d.agencia)}</div>
+      <div class="c">FECHA: ${this.esc(d.fecha)}</div>
+      <div class="sep"></div>
+      <div class="section-title">DATOS DEL REMITENTE</div>
+      <table>
+        <tr><td colspan="2">${this.esc(d.remitente.nombre)}</td></tr>
+        ${d.remitente.telefono ? `<tr><td class="b">Telefono</td><td>${this.esc(d.remitente.telefono)}</td></tr>` : ''}
+      </table>
+      <div class="sep"></div>
+      <div class="section-title">DATOS DEL DESTINATARIO</div>
+      <table>
+        <tr><td colspan="2">${this.esc(d.destinatario.nombre)}</td></tr>
+        ${d.destinatario.telefono ? `<tr><td class="b">Telefono</td><td>${this.esc(d.destinatario.telefono)}</td></tr>` : ''}
+        ${d.destinatario.domicilio ? `<tr><td class="b">Direccion</td><td>${this.esc(d.destinatario.domicilio)}</td></tr>` : ''}
+        ${p.documento ? `<tr><td class="b">Documento</td><td>${this.esc(p.documento)}</td></tr>` : ''}
+      </table>
+      <div class="sep"></div>
+      <div class="section-title">DATOS DEL PAGO</div>
+      <table>
+        <tr><td class="b">Tipo</td><td class="r">${this.esc(p.tipoPago)}</td></tr>
+        <tr><td class="b">Agencia</td><td class="r">${this.esc(p.agencia)}</td></tr>
+        <tr><td class="b">Operador</td><td class="r">${this.esc(p.operador)}</td></tr>
+        <tr><td class="b">Fecha</td><td class="r">${this.esc(p.fecha)}</td></tr>
+        <tr><td class="b">Codigo</td><td class="r b">${d.codigo}</td></tr>
+        <tr><td class="b">Monto [${this.esc(p.moneda)}]</td><td class="r b">${this.num(p.monto)}</td></tr>
+        ${p.comprobante ? `<tr><td class="b">Comprobante</td><td class="r">${this.esc(p.comprobante)}</td></tr>` : ''}
+        ${p.motivo ? `<tr><td class="b">Motivo</td><td class="r">${this.esc(p.motivo)}</td></tr>` : ''}
+      </table>
+      <div class="signatures">
+        <div class="sig">FIRMA CAJERO</div>
+        <div class="sig">FIRMA CLIENTE</div>
+      </div>
+      <div class="note"><b><u>NOTA</u>.-</b> AL FIRMAR ESTE DOCUMENTO SE ACEPTAN LOS TERMINOS Y CONDICIONES DE GAMBARTE S.R.L.</div>`;
+    this.openPrint(`Pago Remesa ${d.codigo}`, html);
+  }
+
+  printRemesaFactura(): void {
+    const d = this.remesaDetail;
+    if (!d?.factura) return;
+    const f = d.factura;
+    const html = `
+      <div class="logo">GAMBARTE S.R.L.</div>
+      <div class="sub">CASA DE CAMBIOS Y GIROS</div>
+      <h2>FACTURA</h2>
+      <table>
+        <tr><td class="b">Numero</td><td class="r">${this.esc(f.numero)}</td></tr>
+        <tr><td class="b">Autorizacion</td><td class="r" style="font-size:9px">${this.esc(f.autorizacion)}</td></tr>
+        <tr><td class="b">Fecha</td><td class="r">${this.esc(f.fecha)} ${this.esc(f.hora)}</td></tr>
+      </table>
+      <div class="sep"></div>
+      <table>
+        <tr><td class="b">NIT/CI</td><td class="r">${this.esc(f.nit)}</td></tr>
+        <tr><td class="b">Nombre</td><td class="r">${this.esc(f.nombre)}</td></tr>
+      </table>
+      <div class="sep"></div>
+      <table>
+        <tr><td class="b">Detalle</td><td class="r" style="font-size:10px">${this.esc(f.detalle)}</td></tr>
+        <tr><td class="b">Importe</td><td class="r b">${this.num(f.importe)} BOB</td></tr>
+      </table>
+      <div class="sep"></div>
+      <div class="footer-info">${this.esc(d.tipo)} Codigo: ${d.codigo} | Operador: ${this.esc(d.operador)}</div>`;
+    this.openPrint(`Factura Remesa ${d.codigo}`, html);
+  }
 }
