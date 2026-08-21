@@ -41,6 +41,7 @@ export class AppComponent {
     ]},
     { area: 'Operaciones', icon: 'ti-arrows-exchange-2', items: [
       { path: '/operaciones', icon: 'ti-arrows-exchange-2', label: 'Comercial' },
+      { path: '/reportes-operaciones', icon: 'ti-report-analytics', label: 'Reportes' },
       { path: '/saldos', icon: 'ti-wallet', label: 'Saldos' },
     ]},
     { area: 'Contabilidad', icon: 'ti-calculator', items: [

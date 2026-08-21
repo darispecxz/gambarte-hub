@@ -1,0 +1,724 @@
+<div class="ph">
+  <h1>Operaciones</h1>
+  <i class="ti ti-chevron-right chev"></i>
+  <span class="view-chip"><i class="ti ti-report-analytics" style="font-size:14px"></i>Reportes de Operaciones</span>
+</div>
+<p class="page-sub">Reportes centralizados de Cambios, Giros Nacionales y Remesas / Giros Internacionales</p>
+
+@if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
+
+<div class="tabs">
+  @for (t of tabs; track t.key) {
+    <button class="tab" [class.active]="t.key === selected" (click)="select(t.key)">
+      <i class="ti {{ t.icon }}"></i>{{ t.label }}
+    </button>
+  }
+</div>
+
+<div class="filters">
+  <div class="fdrop"><label>Desde</label><input type="date" [(ngModel)]="desde"></div>
+  <div class="fdrop"><label>Hasta</label><input type="date" [(ngModel)]="hasta"></div>
+  <div class="fdrop"><label>Agencia</label>
+    <select [(ngModel)]="agencia">
+      <option [ngValue]="null">Todas</option>
+      @for (ag of agencies; track ag.id_agencia) {
+        <option [ngValue]="ag.id_agencia">{{ ag.descripcion }}</option>
+      }
+    </select>
+  </div>
+
+  @if (selected === 'cambios') {
+    <div class="fdrop"><label>Tipo</label>
+      <select [(ngModel)]="tipoOperacion">
+        <option [ngValue]="null">Todos</option>
+        <option [ngValue]="1">Compra</option>
+        <option [ngValue]="2">Venta</option>
+      </select>
+    </div>
+  }
+
+  @if (selected === 'giros' || selected === 'remesas') {
+    <div class="fdrop"><label>Estado</label>
+      <select [(ngModel)]="estadoFilter">
+        <option value="">Todos</option>
+        <option value="0">Pendiente</option>
+        <option value="1">Pagado</option>
+        <option value="2">Devuelto</option>
+        @if (selected === 'remesas') {
+          <option value="5">Anulado</option>
+        }
+      </select>
+    </div>
+  }
+
+  @if (selected === 'remesas') {
+    <div class="fdrop"><label>Subtipo</label>
+      <select [(ngModel)]="subtipoFilter">
+        <option value="">Todos</option>
+        <option value="R">Remesa Familiar</option>
+        <option value="G">Giro Internacional</option>
+      </select>
+    </div>
+  }
+
+  @if (selected === 'giros' || selected === 'remesas') {
+    <div class="fdrop"><label>Codigo</label>
+      <input type="number" [(ngModel)]="codigoFilter" placeholder="Codigo..." style="width:100px">
+    </div>
+  }
+
+  <button class="obtn primary" (click)="load()" [disabled]="loading"><i class="ti ti-eye"></i>Consultar</button>
+</div>
+
+@if (loading) {
+  <app-loading message="Consultando reporte..."></app-loading>
+}
+
+<!-- ═══ CAMBIOS ═══ -->
+@if (!loading && selected === 'cambios' && cambiosData.length > 0) {
+  <div class="sec-t">
+    <i class="ti ti-currency-dollar"></i>Cambios de Moneda
+    <span class="hint">{{ totalRecords }} registro(s)</span>
+  </div>
+
+  <div class="mov-toolbar">
+    <div class="mov-search">
+      <i class="ti ti-search"></i>
+      <input type="text" placeholder="Buscar por cliente, agencia, operador..." [(ngModel)]="searchQuery">
+    </div>
+    <button class="obtn" (click)="openExport()"><i class="ti ti-download"></i>Exportar</button>
+  </div>
+
+  <div class="tbl scroll">
+    <table class="g">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Agencia</th>
+          <th>Operador</th>
+          <th>Usuario Financiero</th>
+          <th>Fecha</th>
+          <th>Tipo</th>
+          <th>Moneda</th>
+          <th class="r">Monto</th>
+          <th class="r">T.C.</th>
+          <th class="r">Total BOB</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (c of filteredCambios; track c.id) {
+          <tr class="clickable-row" (click)="openCambioDetail(c)">
+            <td class="muted">{{ c.id }}</td>
+            <td>{{ c.agencia }}</td>
+            <td>{{ c.operador }}</td>
+            <td>{{ c.usuarioFinanciero }}</td>
+            <td class="mono small">{{ c.fecha }}</td>
+            <td><span class="pill" [class]="tipoClass(c.tipo)">{{ c.tipo }}</span></td>
+            <td>{{ c.moneda }}</td>
+            <td class="r"><strong>{{ c.monto | number:'1.2-2' }}</strong></td>
+            <td class="r mono">{{ c.tipoCambio | number:'1.4-4' }}</td>
+            <td class="r"><strong>{{ c.totalOperacionBob | number:'1.2-2' }}</strong></td>
+          </tr>
+        }
+        @if (!filteredCambios.length) {
+          <tr><td colspan="10" class="empty">{{ searchQuery ? 'Sin resultados para la busqueda.' : 'Sin registros.' }}</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+<!-- ═══ GIROS ═══ -->
+@if (!loading && selected === 'giros' && girosData.length > 0) {
+  <div class="sec-t">
+    <i class="ti ti-transfer-vertical"></i>Giros Nacionales
+    <span class="hint">{{ totalRecords }} registro(s)</span>
+  </div>
+
+  <div class="mov-toolbar">
+    <div class="mov-search">
+      <i class="ti ti-search"></i>
+      <input type="text" placeholder="Buscar por remitente, destinatario, agencia, codigo..." [(ngModel)]="searchQuery">
+    </div>
+    <button class="obtn" (click)="openExport()"><i class="ti ti-download"></i>Exportar</button>
+  </div>
+
+  <div class="tbl scroll">
+    <table class="g">
+      <thead>
+        <tr>
+          <th>Codigo</th>
+          <th>Fecha</th>
+          <th>Remitente</th>
+          <th>Destinatario</th>
+          <th>Origen</th>
+          <th>Destino</th>
+          <th>Moneda</th>
+          <th class="r">Monto</th>
+          <th class="r">Comision BOB</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (g of filteredGiros; track g.id) {
+          <tr class="clickable-row" (click)="openGiroDetail(g)">
+            <td class="mono"><strong>{{ g.codigo }}</strong></td>
+            <td class="mono small">{{ g.fecha }}</td>
+            <td>{{ g.usuarioFinanciero }}</td>
+            <td>{{ g.destinatario }}</td>
+            <td>{{ g.agenciaOrigen }}</td>
+            <td>{{ g.agenciaDestino }}</td>
+            <td>{{ g.moneda }}</td>
+            <td class="r"><strong>{{ g.monto | number:'1.2-2' }}</strong></td>
+            <td class="r">{{ g.comisionBob | number:'1.2-2' }}</td>
+            <td><span class="pill" [class]="estadoClass(g.estado)">{{ g.estadoDesc }}</span></td>
+          </tr>
+        }
+        @if (!filteredGiros.length) {
+          <tr><td colspan="10" class="empty">{{ searchQuery ? 'Sin resultados para la busqueda.' : 'Sin registros.' }}</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+<!-- ═══ REMESAS ═══ -->
+@if (!loading && selected === 'remesas' && remesasData.length > 0) {
+  <div class="sec-t">
+    <i class="ti ti-world"></i>Remesas / Giros Internacionales
+    <span class="hint">{{ totalRecords }} registro(s)</span>
+  </div>
+
+  <div class="mov-toolbar">
+    <div class="mov-search">
+      <i class="ti ti-search"></i>
+      <input type="text" placeholder="Buscar por remitente, destinatario, destino, codigo..." [(ngModel)]="searchQuery">
+    </div>
+    <button class="obtn" (click)="openExport()"><i class="ti ti-download"></i>Exportar</button>
+  </div>
+
+  <div class="tbl scroll">
+    <table class="g">
+      <thead>
+        <tr>
+          <th>Codigo</th>
+          <th>Fecha</th>
+          <th>Tipo</th>
+          <th>Remitente</th>
+          <th>Destinatario</th>
+          <th>Agencia</th>
+          <th>Destino</th>
+          <th>Moneda</th>
+          <th class="r">Monto</th>
+          <th class="r">Comision BOB</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (r of filteredRemesas; track r.id) {
+          <tr class="clickable-row" (click)="openRemesaDetail(r)">
+            <td class="mono"><strong>{{ r.codigo }}</strong></td>
+            <td class="mono small">{{ r.fecha }}</td>
+            <td><span class="pill muted-pill">{{ r.subtipoDesc }}</span></td>
+            <td>{{ r.usuarioFinanciero }}</td>
+            <td>{{ r.destinatario }}</td>
+            <td>{{ r.agencia }}</td>
+            <td>{{ r.destino }}</td>
+            <td>{{ r.moneda }}</td>
+            <td class="r"><strong>{{ r.monto | number:'1.2-2' }}</strong></td>
+            <td class="r">{{ r.comisionBob | number:'1.2-2' }}</td>
+            <td><span class="pill" [class]="estadoClass(r.estado)">{{ r.estadoDesc }}</span></td>
+          </tr>
+        }
+        @if (!filteredRemesas.length) {
+          <tr><td colspan="11" class="empty">{{ searchQuery ? 'Sin resultados para la busqueda.' : 'Sin registros.' }}</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+<!-- Empty state (no data, not loading) -->
+@if (!loading && !error && totalRecords === 0) {
+  <div class="empty-state">
+    <i class="ti ti-database-off"></i>
+    <p>Sin datos para los filtros seleccionados.</p>
+  </div>
+}
+
+<!-- ═══════════════════════════════════════════════════════════
+     PANEL DE DETALLE
+     ═══════════════════════════════════════════════════════════ -->
+@if (detailOpen) {
+  <div class="detail-overlay" (click)="closeDetail()"></div>
+  <div class="detail-panel">
+    <div class="dp-header">
+      <h3>
+        @if (detailType === 'cambios') { <i class="ti ti-currency-dollar"></i> Detalle del Cambio }
+        @if (detailType === 'giros') { <i class="ti ti-transfer-vertical"></i> Detalle del Giro }
+        @if (detailType === 'remesas') { <i class="ti ti-world"></i> Detalle de la Remesa }
+      </h3>
+      <div class="dp-actions">
+        <button class="dp-close" (click)="closeDetail()"><i class="ti ti-x"></i></button>
+      </div>
+    </div>
+
+    @if (detailLoading) {
+      <div class="dp-body"><app-loading message="Cargando detalle..."></app-loading></div>
+    }
+
+    @if (detailError) {
+      <div class="dp-body"><div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ detailError }}</div></div>
+    }
+
+    <!-- ── CAMBIO DETAIL ── -->
+    @if (cambioDetail && !detailLoading) {
+      <div class="dp-body">
+        <div class="dp-section">
+          <div class="dp-sec-title"><i class="ti ti-receipt"></i> Datos de la Operacion</div>
+          <div class="dp-fields">
+            <div class="dp-field">
+              <span class="dp-label">ID</span>
+              <span class="dp-value mono">#{{ cambioDetail.id }}</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Tipo</span>
+              <span class="dp-value"><span class="pill" [class]="tipoClass(cambioDetail.tipo)">{{ cambioDetail.tipoDesc }}</span></span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Agencia</span>
+              <span class="dp-value">{{ cambioDetail.agencia }}</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Operador</span>
+              <span class="dp-value">{{ cambioDetail.operador }}</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Fecha</span>
+              <span class="dp-value mono">{{ cambioDetail.fecha }}</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Facturado</span>
+              <span class="dp-value"><span class="pill" [class.sem-ok]="cambioDetail.facturado === 1">{{ cambioDetail.facturado ? 'Si' : 'No' }}</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dp-section">
+          <div class="dp-sec-title"><i class="ti ti-user"></i> Cliente</div>
+          <div class="dp-fields">
+            <div class="dp-field full">
+              <span class="dp-label">Nombre</span>
+              <span class="dp-value"><strong>{{ cambioDetail.cliente.nombre }}</strong></span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Documento</span>
+              <span class="dp-value mono">{{ cambioDetail.cliente.documento }}</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Telefono</span>
+              <span class="dp-value">{{ cambioDetail.cliente.telefono || '-' }}</span>
+            </div>
+            @if (cambioDetail.cliente.domicilio) {
+              <div class="dp-field full">
+                <span class="dp-label">Domicilio</span>
+                <span class="dp-value">{{ cambioDetail.cliente.domicilio }}</span>
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="dp-section">
+          <div class="dp-sec-title"><i class="ti ti-arrows-exchange"></i> Detalle Financiero</div>
+          <div class="dp-fields">
+            <div class="dp-field">
+              <span class="dp-label">Moneda Recibida</span>
+              <span class="dp-value">{{ cambioDetail.monedaRecibidaDesc }} ({{ cambioDetail.monedaRecibida }})</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Moneda Entregada</span>
+              <span class="dp-value">{{ cambioDetail.monedaEntregadaDesc }} ({{ cambioDetail.monedaEntregada }})</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Recibido</span>
+              <span class="dp-value"><strong>{{ cambioDetail.recibido | number:'1.2-2' }}</strong></span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Entregado</span>
+              <span class="dp-value"><strong>{{ cambioDetail.entregado | number:'1.2-2' }}</strong></span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Tipo de Cambio</span>
+              <span class="dp-value mono">{{ cambioDetail.tipoCambio | number:'1.4-4' }}</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Cambio (vuelto)</span>
+              <span class="dp-value">{{ cambioDetail.cambio | number:'1.2-2' }}</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Total Operacion</span>
+              <span class="dp-value tx-highlight"><strong>{{ cambioDetail.totalOperacion | number:'1.2-2' }}</strong></span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Total BOB</span>
+              <span class="dp-value tx-highlight"><strong>{{ cambioDetail.totalOperacionBob | number:'1.2-2' }} BOB</strong></span>
+            </div>
+          </div>
+        </div>
+
+        @if (cambioDetail.origen || cambioDetail.destino) {
+          <div class="dp-section">
+            <div class="dp-sec-title"><i class="ti ti-map-pin"></i> Origen / Destino</div>
+            <div class="dp-fields">
+              <div class="dp-field"><span class="dp-label">Origen</span><span class="dp-value">{{ cambioDetail.origen || '-' }}</span></div>
+              <div class="dp-field"><span class="dp-label">Destino</span><span class="dp-value">{{ cambioDetail.destino || '-' }}</span></div>
+            </div>
+          </div>
+        }
+
+        @if (cambioDetail.factura) {
+          <div class="dp-section">
+            <div class="dp-sec-title"><i class="ti ti-file-invoice"></i> Factura</div>
+            <div class="dp-fields">
+              <div class="dp-field"><span class="dp-label">Numero</span><span class="dp-value mono">{{ cambioDetail.factura.numero }}</span></div>
+              <div class="dp-field"><span class="dp-label">Fecha</span><span class="dp-value mono">{{ cambioDetail.factura.fecha }} {{ cambioDetail.factura.hora }}</span></div>
+              <div class="dp-field"><span class="dp-label">NIT</span><span class="dp-value mono">{{ cambioDetail.factura.nit }}</span></div>
+              <div class="dp-field"><span class="dp-label">Nombre</span><span class="dp-value">{{ cambioDetail.factura.nombre }}</span></div>
+              <div class="dp-field full"><span class="dp-label">Detalle</span><span class="dp-value">{{ cambioDetail.factura.detalle }}</span></div>
+              <div class="dp-field"><span class="dp-label">Importe</span><span class="dp-value"><strong>{{ cambioDetail.factura.importe | number:'1.2-2' }} BOB</strong></span></div>
+              <div class="dp-field"><span class="dp-label">Autorizacion</span><span class="dp-value mono">{{ cambioDetail.factura.autorizacion }}</span></div>
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- ── GIRO DETAIL ── -->
+    @if (giroDetail && !detailLoading) {
+      <div class="dp-body">
+        <div class="dp-section">
+          <div class="dp-sec-title"><i class="ti ti-receipt"></i> Datos del Giro</div>
+          <div class="dp-fields">
+            <div class="dp-field">
+              <span class="dp-label">Codigo</span>
+              <span class="dp-value mono"><strong>{{ giroDetail.codigo }}</strong></span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Estado</span>
+              <span class="dp-value"><span class="pill" [class]="estadoClass(giroDetail.estado)">{{ giroDetail.estadoDesc }}</span></span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Agencia Origen</span>
+              <span class="dp-value">{{ giroDetail.agenciaOrigen }}</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Agencia Destino</span>
+              <span class="dp-value">{{ giroDetail.agenciaDestino }}</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Operador</span>
+              <span class="dp-value">{{ giroDetail.operador }}</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Fecha Registro</span>
+              <span class="dp-value mono">{{ giroDetail.fecha }}</span>
+            </div>
+            @if (giroDetail.fechaPago) {
+              <div class="dp-field">
+                <span class="dp-label">Fecha Pago</span>
+                <span class="dp-value mono">{{ giroDetail.fechaPago }}</span>
+              </div>
+            }
+            <div class="dp-field">
+              <span class="dp-label">Correlativo Origen</span>
+              <span class="dp-value mono">{{ giroDetail.correlativoOrigen }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dp-section">
+          <div class="dp-sec-title"><i class="ti ti-user"></i> Remitente</div>
+          <div class="dp-fields">
+            <div class="dp-field full"><span class="dp-label">Nombre</span><span class="dp-value"><strong>{{ giroDetail.remitente.nombre }}</strong></span></div>
+            <div class="dp-field"><span class="dp-label">Documento</span><span class="dp-value mono">{{ giroDetail.remitente.documento }}</span></div>
+            <div class="dp-field"><span class="dp-label">Telefono</span><span class="dp-value">{{ giroDetail.remitente.telefono || '-' }}</span></div>
+          </div>
+        </div>
+
+        <div class="dp-section">
+          <div class="dp-sec-title"><i class="ti ti-user-check"></i> Destinatario</div>
+          <div class="dp-fields">
+            <div class="dp-field full"><span class="dp-label">Nombre</span><span class="dp-value"><strong>{{ giroDetail.destinatario.nombre }}</strong></span></div>
+            <div class="dp-field"><span class="dp-label">Telefono</span><span class="dp-value">{{ giroDetail.destinatario.telefono || '-' }}</span></div>
+            @if (giroDetail.destinatario.domicilio) {
+              <div class="dp-field full"><span class="dp-label">Domicilio</span><span class="dp-value">{{ giroDetail.destinatario.domicilio }}</span></div>
+            }
+          </div>
+        </div>
+
+        <div class="dp-section">
+          <div class="dp-sec-title"><i class="ti ti-cash"></i> Detalle Financiero</div>
+          <div class="dp-fields">
+            <div class="dp-field"><span class="dp-label">Moneda</span><span class="dp-value">{{ giroDetail.monedaRecibidaDesc }} ({{ giroDetail.monedaRecibida }})</span></div>
+            <div class="dp-field"><span class="dp-label">Monto Enviado</span><span class="dp-value"><strong>{{ giroDetail.monto | number:'1.2-2' }}</strong></span></div>
+            <div class="dp-field"><span class="dp-label">Tipo de Cambio</span><span class="dp-value mono">{{ giroDetail.tipoCambio | number:'1.4-4' }}</span></div>
+            <div class="dp-field"><span class="dp-label">Total a Entregar</span><span class="dp-value"><strong>{{ giroDetail.totalCambio | number:'1.2-2' }}</strong></span></div>
+            <div class="dp-field"><span class="dp-label">Comision</span><span class="dp-value">{{ giroDetail.comision | number:'1.2-2' }}</span></div>
+            <div class="dp-field"><span class="dp-label">Comision BOB</span><span class="dp-value">{{ giroDetail.comisionBob | number:'1.2-2' }}</span></div>
+            <div class="dp-field"><span class="dp-label">ITF</span><span class="dp-value">{{ giroDetail.itf | number:'1.2-2' }}</span></div>
+            <div class="dp-field"><span class="dp-label">Total Cobrado</span><span class="dp-value tx-highlight"><strong>{{ giroDetail.total | number:'1.2-2' }}</strong></span></div>
+            <div class="dp-field"><span class="dp-label">Total BOB</span><span class="dp-value tx-highlight"><strong>{{ giroDetail.totalBob | number:'1.2-2' }} BOB</strong></span></div>
+          </div>
+        </div>
+
+        @if (giroDetail.factura) {
+          <div class="dp-section">
+            <div class="dp-sec-title"><i class="ti ti-file-invoice"></i> Factura</div>
+            <div class="dp-fields">
+              <div class="dp-field"><span class="dp-label">Numero</span><span class="dp-value mono">{{ giroDetail.factura.numero }}</span></div>
+              <div class="dp-field"><span class="dp-label">Fecha</span><span class="dp-value mono">{{ giroDetail.factura.fecha }} {{ giroDetail.factura.hora }}</span></div>
+              <div class="dp-field"><span class="dp-label">NIT</span><span class="dp-value mono">{{ giroDetail.factura.nit }}</span></div>
+              <div class="dp-field"><span class="dp-label">Nombre</span><span class="dp-value">{{ giroDetail.factura.nombre }}</span></div>
+              <div class="dp-field full"><span class="dp-label">Detalle</span><span class="dp-value">{{ giroDetail.factura.detalle }}</span></div>
+              <div class="dp-field"><span class="dp-label">Importe</span><span class="dp-value"><strong>{{ giroDetail.factura.importe | number:'1.2-2' }} BOB</strong></span></div>
+              <div class="dp-field"><span class="dp-label">Autorizacion</span><span class="dp-value mono">{{ giroDetail.factura.autorizacion }}</span></div>
+            </div>
+          </div>
+        }
+
+        @if (giroDetail.pago) {
+          <div class="dp-section">
+            <div class="dp-sec-title"><i class="ti ti-checks"></i> Comprobante de Pago</div>
+            <div class="dp-fields">
+              <div class="dp-field"><span class="dp-label">Tipo</span><span class="dp-value"><span class="pill" [class.sem-ok]="giroDetail.pago.tipoPago === 'PAGO'" [class.sem-bad]="giroDetail.pago.tipoPago === 'DEVOLUCION'">{{ giroDetail.pago.tipoPago }}</span></span></div>
+              <div class="dp-field"><span class="dp-label">Agencia</span><span class="dp-value">{{ giroDetail.pago.agencia }}</span></div>
+              <div class="dp-field"><span class="dp-label">Operador</span><span class="dp-value">{{ giroDetail.pago.operador }}</span></div>
+              <div class="dp-field"><span class="dp-label">Fecha</span><span class="dp-value mono">{{ giroDetail.pago.fecha }}</span></div>
+              <div class="dp-field"><span class="dp-label">Monto</span><span class="dp-value"><strong>{{ giroDetail.pago.monto | number:'1.2-2' }} {{ giroDetail.pago.moneda }}</strong></span></div>
+              @if (giroDetail.pago.comprobante) {
+                <div class="dp-field"><span class="dp-label">Comprobante</span><span class="dp-value mono">{{ giroDetail.pago.comprobante }}</span></div>
+              }
+              @if (giroDetail.pago.motivo) {
+                <div class="dp-field full"><span class="dp-label">Motivo</span><span class="dp-value">{{ giroDetail.pago.motivo }}</span></div>
+              }
+              <div class="dp-field"><span class="dp-label">Documento</span><span class="dp-value mono">{{ giroDetail.pago.documento }}</span></div>
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- ── REMESA DETAIL ── -->
+    @if (remesaDetail && !detailLoading) {
+      <div class="dp-body">
+        <div class="dp-section">
+          <div class="dp-sec-title"><i class="ti ti-receipt"></i> Datos de la Remesa</div>
+          <div class="dp-fields">
+            <div class="dp-field">
+              <span class="dp-label">Codigo</span>
+              <span class="dp-value mono"><strong>{{ remesaDetail.codigo }}</strong></span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Estado</span>
+              <span class="dp-value"><span class="pill" [class]="estadoClass(remesaDetail.estado)">{{ remesaDetail.estadoDesc }}</span></span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Tipo</span>
+              <span class="dp-value"><span class="pill muted-pill">{{ remesaDetail.tipo }}</span></span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Agencia</span>
+              <span class="dp-value">{{ remesaDetail.agencia }}</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Destino</span>
+              <span class="dp-value"><strong>{{ remesaDetail.destino }}</strong></span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Operador</span>
+              <span class="dp-value">{{ remesaDetail.operador }}</span>
+            </div>
+            <div class="dp-field">
+              <span class="dp-label">Fecha Registro</span>
+              <span class="dp-value mono">{{ remesaDetail.fecha }}</span>
+            </div>
+            @if (remesaDetail.fechaPago) {
+              <div class="dp-field">
+                <span class="dp-label">Fecha Pago</span>
+                <span class="dp-value mono">{{ remesaDetail.fechaPago }}</span>
+              </div>
+            }
+            <div class="dp-field">
+              <span class="dp-label">Correlativo</span>
+              <span class="dp-value mono">{{ remesaDetail.correlativo }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dp-section">
+          <div class="dp-sec-title"><i class="ti ti-user"></i> Remitente</div>
+          <div class="dp-fields">
+            <div class="dp-field full"><span class="dp-label">Nombre</span><span class="dp-value"><strong>{{ remesaDetail.remitente.nombre }}</strong></span></div>
+            <div class="dp-field"><span class="dp-label">Documento</span><span class="dp-value mono">{{ remesaDetail.remitente.documento }}</span></div>
+            <div class="dp-field"><span class="dp-label">Telefono</span><span class="dp-value">{{ remesaDetail.remitente.telefono || '-' }}</span></div>
+            @if (remesaDetail.remitente.domicilio) {
+              <div class="dp-field full"><span class="dp-label">Domicilio</span><span class="dp-value">{{ remesaDetail.remitente.domicilio }}</span></div>
+            }
+          </div>
+        </div>
+
+        <div class="dp-section">
+          <div class="dp-sec-title"><i class="ti ti-user-check"></i> Destinatario</div>
+          <div class="dp-fields">
+            <div class="dp-field full"><span class="dp-label">Nombre</span><span class="dp-value"><strong>{{ remesaDetail.destinatario.nombre }}</strong></span></div>
+            <div class="dp-field"><span class="dp-label">Telefono</span><span class="dp-value">{{ remesaDetail.destinatario.telefono || '-' }}</span></div>
+            @if (remesaDetail.destinatario.domicilio) {
+              <div class="dp-field full"><span class="dp-label">Domicilio</span><span class="dp-value">{{ remesaDetail.destinatario.domicilio }}</span></div>
+            }
+          </div>
+        </div>
+
+        <div class="dp-section">
+          <div class="dp-sec-title"><i class="ti ti-cash"></i> Detalle Financiero</div>
+          <div class="dp-fields">
+            <div class="dp-field"><span class="dp-label">Moneda Recibida</span><span class="dp-value">{{ remesaDetail.monedaRecibidaDesc }} ({{ remesaDetail.monedaRecibida }})</span></div>
+            <div class="dp-field"><span class="dp-label">Moneda Entregada</span><span class="dp-value">{{ remesaDetail.monedaEntregadaDesc }} ({{ remesaDetail.monedaEntregada }})</span></div>
+            <div class="dp-field"><span class="dp-label">Monto Enviado</span><span class="dp-value"><strong>{{ remesaDetail.monto | number:'1.2-2' }}</strong></span></div>
+            <div class="dp-field"><span class="dp-label">Tipo de Cambio</span><span class="dp-value mono">{{ remesaDetail.tipoCambio | number:'1.4-4' }}</span></div>
+            <div class="dp-field"><span class="dp-label">Total a Entregar</span><span class="dp-value"><strong>{{ remesaDetail.totalCambio | number:'1.2-2' }}</strong></span></div>
+            <div class="dp-field"><span class="dp-label">Comision</span><span class="dp-value">{{ remesaDetail.comision | number:'1.2-2' }}</span></div>
+            <div class="dp-field"><span class="dp-label">Comision BOB</span><span class="dp-value">{{ remesaDetail.comisionBob | number:'1.2-2' }}</span></div>
+            <div class="dp-field"><span class="dp-label">Comision Gambarte</span><span class="dp-value">{{ remesaDetail.comisionGambarte | number:'1.2-2' }}</span></div>
+            <div class="dp-field"><span class="dp-label">Costos Corresponsal</span><span class="dp-value">{{ remesaDetail.gastosCorresponsal | number:'1.2-2' }}</span></div>
+            <div class="dp-field"><span class="dp-label">IVA BOB</span><span class="dp-value">{{ remesaDetail.iva | number:'1.2-2' }}</span></div>
+            <div class="dp-field"><span class="dp-label">ITF BOB</span><span class="dp-value">{{ remesaDetail.itf | number:'1.2-2' }}</span></div>
+            <div class="dp-field"><span class="dp-label">Total Cobrado</span><span class="dp-value tx-highlight"><strong>{{ remesaDetail.total | number:'1.2-2' }}</strong></span></div>
+            <div class="dp-field"><span class="dp-label">Total BOB</span><span class="dp-value tx-highlight"><strong>{{ remesaDetail.totalBob | number:'1.2-2' }} BOB</strong></span></div>
+          </div>
+        </div>
+
+        @if (remesaDetail.factura) {
+          <div class="dp-section">
+            <div class="dp-sec-title"><i class="ti ti-file-invoice"></i> Factura</div>
+            <div class="dp-fields">
+              <div class="dp-field"><span class="dp-label">Numero</span><span class="dp-value mono">{{ remesaDetail.factura.numero }}</span></div>
+              <div class="dp-field"><span class="dp-label">Fecha</span><span class="dp-value mono">{{ remesaDetail.factura.fecha }} {{ remesaDetail.factura.hora }}</span></div>
+              <div class="dp-field"><span class="dp-label">NIT</span><span class="dp-value mono">{{ remesaDetail.factura.nit }}</span></div>
+              <div class="dp-field"><span class="dp-label">Nombre</span><span class="dp-value">{{ remesaDetail.factura.nombre }}</span></div>
+              <div class="dp-field full"><span class="dp-label">Detalle</span><span class="dp-value">{{ remesaDetail.factura.detalle }}</span></div>
+              <div class="dp-field"><span class="dp-label">Importe</span><span class="dp-value"><strong>{{ remesaDetail.factura.importe | number:'1.2-2' }} BOB</strong></span></div>
+              <div class="dp-field"><span class="dp-label">Autorizacion</span><span class="dp-value mono">{{ remesaDetail.factura.autorizacion }}</span></div>
+            </div>
+          </div>
+        }
+
+        @if (remesaDetail.pago) {
+          <div class="dp-section">
+            <div class="dp-sec-title"><i class="ti ti-checks"></i> Comprobante de Pago</div>
+            <div class="dp-fields">
+              <div class="dp-field"><span class="dp-label">Tipo</span><span class="dp-value"><span class="pill" [class.sem-ok]="remesaDetail.pago.tipoPago === 'PAGO'" [class.sem-bad]="remesaDetail.pago.tipoPago === 'DEVOLUCION'">{{ remesaDetail.pago.tipoPago }}</span></span></div>
+              <div class="dp-field"><span class="dp-label">Agencia</span><span class="dp-value">{{ remesaDetail.pago.agencia }}</span></div>
+              <div class="dp-field"><span class="dp-label">Operador</span><span class="dp-value">{{ remesaDetail.pago.operador }}</span></div>
+              <div class="dp-field"><span class="dp-label">Fecha</span><span class="dp-value mono">{{ remesaDetail.pago.fecha }}</span></div>
+              <div class="dp-field"><span class="dp-label">Monto</span><span class="dp-value"><strong>{{ remesaDetail.pago.monto | number:'1.2-2' }} {{ remesaDetail.pago.moneda }}</strong></span></div>
+              @if (remesaDetail.pago.comprobante) {
+                <div class="dp-field"><span class="dp-label">Comprobante</span><span class="dp-value mono">{{ remesaDetail.pago.comprobante }}</span></div>
+              }
+              @if (remesaDetail.pago.motivo) {
+                <div class="dp-field full"><span class="dp-label">Motivo</span><span class="dp-value">{{ remesaDetail.pago.motivo }}</span></div>
+              }
+              <div class="dp-field"><span class="dp-label">Documento</span><span class="dp-value mono">{{ remesaDetail.pago.documento }}</span></div>
+            </div>
+          </div>
+        }
+
+        @if (!remesaDetail.factura && !remesaDetail.pago) {
+          <div class="dp-section">
+            <div class="dp-empty-block">
+              <i class="ti ti-file-off"></i>
+              <span>No se encontraron facturas ni comprobantes de pago para esta operacion.</span>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </div>
+}
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL DE EXPORTACION
+     ═══════════════════════════════════════════════════════════ -->
+@if (exportOpen) {
+  <div class="export-overlay" (click)="closeExport()"></div>
+  <div class="export-modal">
+    <div class="export-header">
+      <h3><i class="ti ti-download"></i> Exportar {{ exportTitle }}</h3>
+      <button class="dp-close" (click)="closeExport()"><i class="ti ti-x"></i></button>
+    </div>
+
+    <div class="export-body">
+      <div class="export-cols-section">
+        <div class="export-cols-head">
+          <span class="export-cols-title">Seleccionar columnas</span>
+          <div class="export-cols-actions">
+            <button class="link-btn" (click)="selectAllColumns()">Todas</button>
+            <span class="divider">|</span>
+            <button class="link-btn" (click)="deselectAllColumns()">Ninguna</button>
+          </div>
+        </div>
+        <div class="export-cols-grid">
+          @for (col of exportColumns; track col.key) {
+            <label class="export-col-check">
+              <input type="checkbox" [(ngModel)]="col.selected">
+              <span>{{ col.label }}</span>
+            </label>
+          }
+        </div>
+      </div>
+
+      <div class="export-preview-section">
+        <div class="export-preview-title">
+          Vista previa
+          <span class="hint">{{ exportData.length }} registro(s) — mostrando {{ exportPreviewRows.length > exportData.length ? exportData.length : exportPreviewRows.length }}</span>
+        </div>
+        @if (selectedExportColumns.length === 0) {
+          <div class="export-preview-empty">Seleccione al menos una columna para previsualizar.</div>
+        } @else {
+          <div class="export-preview-tbl scroll">
+            <table class="g compact">
+              <thead>
+                <tr>
+                  @for (col of selectedExportColumns; track col.key) {
+                    <th [style.text-align]="col.align || 'left'">{{ col.label }}</th>
+                  }
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of exportPreviewRows; track $index) {
+                  <tr>
+                    @for (col of selectedExportColumns; track col.key) {
+                      <td [style.text-align]="col.align || 'left'">{{ formatCell(row[col.key], col) }}</td>
+                    }
+                  </tr>
+                }
+                @if (exportData.length > 10) {
+                  <tr><td [attr.colspan]="selectedExportColumns.length" class="empty">... y {{ exportData.length - 10 }} registro(s) mas</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="export-footer">
+      <button class="obtn" (click)="closeExport()">Cancelar</button>
+      <button class="obtn primary" (click)="exportExcel()" [disabled]="selectedExportColumns.length === 0">
+        <i class="ti ti-file-spreadsheet"></i>Excel
+      </button>
+      <button class="obtn primary" (click)="exportPdf()" [disabled]="selectedExportColumns.length === 0">
+        <i class="ti ti-file-type-pdf"></i>PDF
+      </button>
+    </div>
+  </div>
+}

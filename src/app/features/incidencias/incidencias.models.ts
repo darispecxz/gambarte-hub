@@ -6,6 +6,7 @@ export interface Discrepancy {
   status: 'OPEN' | 'IN_REVIEW' | 'RESOLVED' | 'FALSE_POSITIVE' | 'IGNORED';
   operation_id: number | null;
   operation_type: string | null;
+  operation_date: string | null;
   compared_field: string;
   value_cgr_bo: number | null;
   value_cgr_cl: number | null;

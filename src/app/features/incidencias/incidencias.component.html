@@ -101,9 +101,10 @@
           <th>Tipo</th>
           <th>Descripcion</th>
           <th>Operacion</th>
+          <th>Fecha Op.</th>
           <th class="r">Diferencia</th>
           <th class="c">Estado</th>
-          <th>Fecha</th>
+          <th>Detectada</th>
         </tr>
       </thead>
       <tbody>
@@ -128,6 +129,7 @@
                 <span class="muted">—</span>
               }
             </td>
+            <td><span class="mono small">{{ formatDate(d.operation_date ?? '') }}</span></td>
             <td class="r">
               @if (d.absolute_difference !== null) {
                 <span class="num">{{ d.absolute_difference | number:'1.2-2' }}</span>
@@ -243,6 +245,10 @@
           <div class="dp-field">
             <span class="dp-label">ID Operacion</span>
             <span class="dp-value mono">{{ selectedDisc.operation_id ?? '—' }}</span>
+          </div>
+          <div class="dp-field">
+            <span class="dp-label">Fecha de operacion</span>
+            <span class="dp-value mono">{{ formatDate(selectedDisc.operation_date ?? '') }}</span>
           </div>
           <div class="dp-field">
             <span class="dp-label">Detectado por</span>
