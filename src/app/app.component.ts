@@ -43,6 +43,7 @@ export class AppComponent {
       { path: '/operaciones', icon: 'ti-arrows-exchange-2', label: 'Comercial' },
       { path: '/reportes-operaciones', icon: 'ti-report-analytics', label: 'Reportes' },
       { path: '/saldos', icon: 'ti-wallet', label: 'Saldos' },
+      { path: '/pos-admin', icon: 'ti-device-desktop-analytics', label: 'Centro POS' },
     ]},
     { area: 'Contabilidad', icon: 'ti-calculator', items: [
       { path: '/contabilidad', icon: 'ti-calculator', label: 'Arqueos de Caja' },

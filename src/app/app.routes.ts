@@ -43,6 +43,10 @@ export const routes: Routes = [
     loadComponent: () => import('./features/op-reports/op-reports.component').then(m => m.OpReportsComponent),
   },
   {
+    path: 'pos-admin',
+    loadComponent: () => import('./features/pos-admin/pos-admin.component').then(m => m.PosAdminComponent),
+  },
+  {
     path: 'incidencias',
     loadComponent: () => import('./features/incidencias/incidencias.component').then(m => m.IncidenciasComponent),
   },

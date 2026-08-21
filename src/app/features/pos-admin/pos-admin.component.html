@@ -1,0 +1,352 @@
+<section class="page-header">
+  <div class="page-title">
+    <h1><i class="ti ti-device-desktop-analytics"></i> Centro POS</h1>
+    <p class="page-subtitle">Administración de Puntos de Venta y Cajeros</p>
+  </div>
+</section>
+
+<!-- ── Toolbar ── -->
+<div class="pos-toolbar">
+  <div class="filter-group">
+    <label>Fecha</label>
+    <input type="date" [(ngModel)]="fecha" />
+  </div>
+  <div class="filter-group">
+    <label>Agencia</label>
+    <select [(ngModel)]="agenciaFilter">
+      <option [ngValue]="null">Todas las agencias</option>
+      @for (a of agencies; track a.id) {
+        <option [ngValue]="a.id">{{ a.nombre }}</option>
+      }
+    </select>
+  </div>
+  <button class="obtn primary" (click)="load()">
+    <i class="ti ti-refresh"></i> Consultar
+  </button>
+  <div class="toolbar-spacer"></div>
+  <div class="pos-search">
+    <i class="ti ti-search"></i>
+    <input type="text" placeholder="Buscar cajero..." [(ngModel)]="searchQuery" />
+  </div>
+</div>
+
+<!-- ── Loading / Error ── -->
+@if (loading) {
+  <app-loading />
+}
+
+@if (error) {
+  <div class="error-banner">
+    <i class="ti ti-alert-triangle"></i> {{ error }}
+  </div>
+}
+
+<!-- ── Dashboard ── -->
+@if (!loading && !error) {
+  @if (filteredGroups.length === 0) {
+    <div class="empty-state">
+      <i class="ti ti-device-desktop-off"></i>
+      <p>No se encontraron cajas para esta fecha</p>
+    </div>
+  }
+
+  @for (ag of filteredGroups; track ag.idAgencia) {
+    <div class="agency-section">
+      <button class="agency-header" (click)="toggleAgency(ag.idAgencia)">
+        <div class="agency-title">
+          <i class="ti" [class.ti-chevron-down]="expandedAgencies.has(ag.idAgencia)" [class.ti-chevron-right]="!expandedAgencies.has(ag.idAgencia)"></i>
+          <i class="ti ti-building-store"></i>
+          <span class="agency-name">{{ ag.nombre }}</span>
+          <span class="agency-count">{{ ag.cashiers.length }} cajero{{ ag.cashiers.length !== 1 ? 's' : '' }}</span>
+        </div>
+        <div class="agency-badges">
+          @if (countByStatus(ag, 'activo') > 0) {
+            <span class="badge active">{{ countByStatus(ag, 'activo') }} activo{{ countByStatus(ag, 'activo') !== 1 ? 's' : '' }}</span>
+          }
+          @if (countByStatus(ag, 'cerrado') > 0) {
+            <span class="badge closed">{{ countByStatus(ag, 'cerrado') }} cerrado{{ countByStatus(ag, 'cerrado') !== 1 ? 's' : '' }}</span>
+          }
+          @if (countByStatus(ag, 'sin_apertura') > 0) {
+            <span class="badge inactive">{{ countByStatus(ag, 'sin_apertura') }} sin abrir</span>
+          }
+        </div>
+      </button>
+
+      @if (expandedAgencies.has(ag.idAgencia)) {
+        <div class="cashier-grid">
+          @for (c of ag.cashiers; track c.numCaja) {
+            <div class="cashier-card" [class.status-activo]="c.estado === 'activo'" [class.status-cerrado]="c.estado === 'cerrado'" [class.status-sin-apertura]="c.estado === 'sin_apertura'">
+              <!-- Card Header -->
+              <div class="card-header">
+                <div class="card-title">
+                  <span class="caja-num">Caja {{ c.numCaja }}</span>
+                  <span class="status-badge" [class.active]="c.estado === 'activo'" [class.closed]="c.estado === 'cerrado'" [class.inactive]="c.estado === 'sin_apertura'">
+                    <i class="ti" [ngClass]="statusIcon(c.estado)"></i>
+                    {{ statusLabel(c.estado) }}
+                  </span>
+                </div>
+                <div class="card-cajero">
+                  <i class="ti ti-user"></i>
+                  {{ c.nombreCajero }}
+                  <span class="login-tag">{{ c.loginUsuario }}</span>
+                </div>
+              </div>
+
+              <!-- Times -->
+              <div class="card-times">
+                <div class="time-item">
+                  <i class="ti ti-door-enter"></i>
+                  <span class="time-label">Apertura</span>
+                  <span class="time-value">{{ hora(c.horaApertura) }}</span>
+                </div>
+                <div class="time-item">
+                  <i class="ti ti-door-exit"></i>
+                  <span class="time-label">Cierre</span>
+                  <span class="time-value">{{ hora(c.horaCierre) }}</span>
+                </div>
+                <div class="time-item">
+                  <i class="ti ti-arrows-exchange"></i>
+                  <span class="time-label">Movs</span>
+                  <span class="time-value">{{ c.numMovimientos }}</span>
+                </div>
+              </div>
+
+              <!-- Balances -->
+              <div class="card-balances">
+                @for (b of c.balances; track b.idCaja) {
+                  <div class="balance-row" (click)="openSaldoHistory(ag, c, b)">
+                    <span class="bal-moneda">{{ b.moneda }}</span>
+                    <div class="bal-cols">
+                      <div class="bal-col">
+                        <span class="bal-label">Apert.</span>
+                        <span class="bal-val">{{ b.apertura !== null ? num(b.apertura) : '-' }}</span>
+                      </div>
+                      <div class="bal-col">
+                        <span class="bal-label">Saldo</span>
+                        <span class="bal-val highlight">{{ num(b.saldoActual) }}</span>
+                      </div>
+                      <div class="bal-col">
+                        <span class="bal-label">Cierre</span>
+                        <span class="bal-val">{{ b.cierre !== null ? num(b.cierre) : '-' }}</span>
+                      </div>
+                    </div>
+                    <i class="ti ti-chevron-right bal-arrow"></i>
+                  </div>
+                }
+              </div>
+
+              <!-- Actions -->
+              <div class="card-actions">
+                @if (c.estado !== 'sin_apertura') {
+                  <button class="action-btn" (click)="openArqueo(ag, c, 'apertura')" title="Ver arqueo de apertura">
+                    <i class="ti ti-door-enter"></i> Apertura
+                  </button>
+                }
+                @if (c.estado === 'cerrado') {
+                  <button class="action-btn" (click)="openArqueo(ag, c, 'cierre')" title="Ver arqueo de cierre">
+                    <i class="ti ti-door-exit"></i> Cierre
+                  </button>
+                }
+                @if (c.numMovimientos > 0) {
+                  <button class="action-btn" (click)="openMovements(ag, c)" title="Ver movimientos del día">
+                    <i class="ti ti-list-details"></i> Movimientos
+                  </button>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+}
+
+<!-- ── Detail Panel ── -->
+@if (detailOpen && detailCashier) {
+  <div class="detail-overlay" (click)="closeDetail()"></div>
+  <div class="detail-panel">
+    <div class="dp-header">
+      <h3>
+        @if (detailView === 'movements') {
+          <i class="ti ti-list-details"></i> Movimientos — Caja {{ detailCashier.numCaja }}
+        }
+        @if (detailView === 'arqueo') {
+          <i class="ti ti-coins"></i> {{ arqueoTipo === 'apertura' ? 'Apertura' : 'Cierre' }} — Caja {{ detailCashier.numCaja }}
+        }
+        @if (detailView === 'saldo') {
+          <i class="ti ti-chart-line"></i> Historial de Saldo — Caja {{ detailCashier.numCaja }}
+        }
+      </h3>
+      <div class="dp-actions">
+        @if (detailView === 'movements' && movements.length > 0) {
+          <button class="obtn sm" (click)="printMovements()"><i class="ti ti-printer"></i></button>
+        }
+        @if (detailView === 'arqueo' && arqueoData && arqueoData.currencies.length > 0) {
+          <button class="obtn sm" (click)="printArqueo()"><i class="ti ti-printer"></i></button>
+        }
+        @if (detailView === 'saldo' && saldoHistory.length > 0) {
+          <button class="obtn sm" (click)="printSaldoHistory()"><i class="ti ti-printer"></i></button>
+        }
+        <button class="dp-close" (click)="closeDetail()"><i class="ti ti-x"></i></button>
+      </div>
+    </div>
+
+    <div class="dp-sub-header">
+      <span><b>Cajero:</b> {{ detailCashier.nombreCajero }}</span>
+      <span><b>Agencia:</b> {{ detailAgency?.nombre }}</span>
+      <span><b>Fecha:</b> {{ fecha }}</span>
+    </div>
+
+    <div class="dp-body">
+      @if (detailLoading) {
+        <app-loading />
+      }
+
+      <!-- Movements View -->
+      @if (detailView === 'movements' && !detailLoading) {
+        @if (movements.length === 0) {
+          <div class="dp-empty">
+            <i class="ti ti-inbox-off"></i>
+            <p>No hay movimientos registrados</p>
+          </div>
+        } @else {
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Tipo</th>
+                <th>Nombre</th>
+                <th>Comprobante</th>
+                <th>Moneda</th>
+                <th class="r">Monto</th>
+                <th>Hora</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (m of movements; track m.id) {
+                <tr [class.ingreso]="m.tipo === 1" [class.egreso]="m.tipo !== 1">
+                  <td>{{ m.correlativo }}</td>
+                  <td>
+                    <span class="mov-badge" [class.in]="m.tipo === 1" [class.out]="m.tipo !== 1">
+                      {{ m.tipoDesc }}
+                    </span>
+                  </td>
+                  <td>{{ m.nombre }}</td>
+                  <td>{{ m.comprobante }}</td>
+                  <td class="c">{{ m.moneda }}</td>
+                  <td class="r mono">
+                    <span [class.text-green]="m.tipo === 1" [class.text-red]="m.tipo !== 1">
+                      {{ m.tipo === 1 ? '+' : '-' }}{{ num(m.monto) }}
+                    </span>
+                  </td>
+                  <td class="c">{{ hora(m.fechaHora) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      }
+
+      <!-- Arqueo View -->
+      @if (detailView === 'arqueo' && !detailLoading) {
+        @if (!arqueoData || arqueoData.currencies.length === 0) {
+          <div class="dp-empty">
+            <i class="ti ti-coins-off"></i>
+            <p>No hay datos de arqueo</p>
+          </div>
+        } @else {
+          @for (cur of arqueoData.currencies; track cur.moneda) {
+            <div class="arqueo-currency">
+              <h4><i class="ti ti-coin"></i> {{ cur.moneda }}</h4>
+              <table class="data-table compact">
+                <thead>
+                  <tr>
+                    <th class="r">Corte</th>
+                    <th class="c">Tipo</th>
+                    <th class="c">Mult.</th>
+                    <th class="r">Cant.</th>
+                    <th class="r">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of cur.items; track $index) {
+                    <tr>
+                      <td class="r mono">{{ num(item.valor) }}</td>
+                      <td class="c">{{ item.agrupacion }}</td>
+                      <td class="c">{{ item.multiplicador }}</td>
+                      <td class="r">{{ item.cantidad }}</td>
+                      <td class="r mono b">{{ num(item.subtotal) }}</td>
+                    </tr>
+                  }
+                </tbody>
+                <tfoot>
+                  <tr class="total-row">
+                    <td colspan="4" class="r b">TOTAL {{ cur.moneda }}</td>
+                    <td class="r mono b">{{ num(cur.total) }}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          }
+        }
+      }
+
+      <!-- Saldo History View -->
+      @if (detailView === 'saldo' && !detailLoading) {
+        @if (saldoHistory.length === 0) {
+          <div class="dp-empty">
+            <i class="ti ti-chart-line"></i>
+            <p>No hay historial de saldo</p>
+          </div>
+        } @else {
+          @if (saldoCaja) {
+            <div class="saldo-summary">
+              <div class="saldo-item">
+                <span class="saldo-label">Moneda</span>
+                <span class="saldo-val">{{ saldoCaja.moneda }}</span>
+              </div>
+              <div class="saldo-item">
+                <span class="saldo-label">Mínimo</span>
+                <span class="saldo-val">{{ num(saldoCaja.minimo) }}</span>
+              </div>
+              <div class="saldo-item">
+                <span class="saldo-label">Máximo</span>
+                <span class="saldo-val">{{ num(saldoCaja.maximo) }}</span>
+              </div>
+              <div class="saldo-item highlight">
+                <span class="saldo-label">Saldo Actual</span>
+                <span class="saldo-val">{{ num(saldoCaja.saldoActual) }}</span>
+              </div>
+            </div>
+          }
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Concepto</th>
+                <th class="c">Cod</th>
+                <th class="r">Monto</th>
+                <th class="r">Acumulado</th>
+                <th class="c">Hora</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (s of saldoHistory; track $index) {
+                <tr [class.apertura-row]="s.conciliacion === 'A'" [class.cierre-row]="s.conciliacion === 'C'">
+                  <td>{{ s.tipoDesc }}</td>
+                  <td class="c mono">{{ s.conciliacion }}</td>
+                  <td class="r mono">
+                    <span [class.text-green]="s.monto >= 0" [class.text-red]="s.monto < 0">
+                      {{ s.monto >= 0 ? '+' : '' }}{{ num(s.monto) }}
+                    </span>
+                  </td>
+                  <td class="r mono b">{{ num(s.acumulado) }}</td>
+                  <td class="c">{{ hora(s.fechaHora) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      }
+    </div>
+  </div>
+}
