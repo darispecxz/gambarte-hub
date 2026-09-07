@@ -14,6 +14,7 @@ import {
   BalanceSumasYSaldosReport,
   LibroMayorReport,
   AsientoDetalle,
+  ComprobantesReport,
 } from './accounting.models';
 
 interface AccountingEnvelope<T> {
@@ -137,6 +138,15 @@ export class AccountingService {
       }));
   }
 
+  getComprobantes(desde: string, hasta: string, page = 1, tipo?: string, codigo?: string, glosa?: string): Observable<ComprobantesReport> {
+    return this.unwrap(
+      this.http.get<Envelope<AccountingEnvelope<ComprobantesReport>>>(
+        `${this.base}/accounting/comprobantes`,
+        { params: this.qp({ desde, hasta, page, tipo, codigo, glosa }) }
+      )
+    );
+  }
+
   exportUrl(
     report: 'daily' | 'cashier' | 'movement' | 'agency',
     fecha: string,
@@ -144,5 +154,16 @@ export class AccountingService {
     agencia?: number | null
   ): string {
     return `${this.base}/accounting/export${this.queryString({ report, fecha, format, agencia })}`;
+  }
+
+  comprobantesExportUrl(
+    desde: string,
+    hasta: string,
+    format: 'xlsx' | 'pdf' = 'xlsx',
+    tipo?: string,
+    codigo?: string,
+    glosa?: string
+  ): string {
+    return `${this.base}/accounting/export${this.queryString({ report: 'comprobantes', desde, hasta, format, tipo, codigo, glosa })}`;
   }
 }

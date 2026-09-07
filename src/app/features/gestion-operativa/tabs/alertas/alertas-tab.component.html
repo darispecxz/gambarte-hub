@@ -1,0 +1,35 @@
+@if (loading) {
+  <div class="loading-block"><span class="spin lg"></span>Cargando alertas...</div>
+}
+
+@if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
+
+@if (!loading && alertas.length > 0) {
+  <div class="sec-t"><i class="ti ti-bell-ringing"></i>Alertas por agencia</div>
+  <div class="alert-grid">
+    @for (ag of alertas; track ag.idAgencia) {
+      <div class="card alert-card">
+        <div class="alert-card-head">
+          <div class="fw">
+            <div class="fw-ic"><i class="ti ti-building-store"></i></div>
+            <div><div class="fn">{{ ag.agencia }}</div></div>
+          </div>
+          <span class="pill p-bad">{{ ag.alertas.length }}</span>
+        </div>
+        @for (al of ag.alertas; track al.mensaje) {
+          <div class="alert-item">
+            <span class="pill {{ alertPill(al.tipo) }}"><i class="ti {{ alertIcon(al.tipo) }}"></i> {{ alertLabel(al.tipo) }}</span>
+            <span class="alert-msg">{{ al.mensaje }}</span>
+            @if (al.actual != null) {
+              <span class="muted">{{ fmt(al.actual) }} / {{ fmt(al.umbral) }}</span>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+}
+
+@if (!loading && alertas.length === 0) {
+  <div class="empty"><i class="ti ti-circle-check" style="font-size:32px;display:block;margin-bottom:8px;color:var(--green)"></i>Sin alertas — todas las agencias operan dentro de los parametros.</div>
+}

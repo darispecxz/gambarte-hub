@@ -1,6 +1,8 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
+import { ActivatedRoute } from '@angular/router';
 import { AccountingService } from '../accounting/accounting.service';
 import { LoadingComponent } from '../../shared/loading.component';
 import {
@@ -10,9 +12,11 @@ import {
   BalanceCuenta,
   LibroMayorReport,
   AsientoDetalle,
+  ComprobantesReport,
+  ComprobanteRow,
 } from '../accounting/accounting.models';
 
-type ReportType = 'balance' | 'libro-mayor';
+type ReportType = 'balance' | 'libro-mayor' | 'comprobantes';
 
 interface ReportTab {
   key: ReportType;
@@ -27,13 +31,11 @@ interface ReportTab {
   templateUrl: './acct-reports.component.html',
   styleUrl: './acct-reports.component.scss',
 })
-export class AcctReportsComponent implements OnInit {
+export class AcctReportsComponent implements OnInit, OnDestroy {
   private svc = inject(AccountingService);
-
-  tabs: ReportTab[] = [
-    { key: 'balance',     label: 'Balance Sumas y Saldos', icon: 'ti-scale' },
-    { key: 'libro-mayor', label: 'Libro Mayor',            icon: 'ti-book' },
-  ];
+  private http = inject(HttpClient);
+  private route = inject(ActivatedRoute);
+  private routeSub: any;
 
   selected: ReportType = 'balance';
 
@@ -56,7 +58,12 @@ export class AcctReportsComponent implements OnInit {
 
   balanceReport: BalanceSumasYSaldosReport | null = null;
   libroMayorReport: LibroMayorReport | null = null;
+  comprobantesReport: ComprobantesReport | null = null;
   asientoDetalle: AsientoDetalle | null = null;
+
+  cbGlosaFilter = '';
+  cbTipoFilter = '';
+  cbCodigoFilter = '';
 
   expandedCuentas = new Set<string>();
   page = 1;
@@ -68,12 +75,22 @@ export class AcctReportsComponent implements OnInit {
     this.svc.getSubcuentas(this.ejercicio).subscribe({
       next: (list) => (this.subcuentas = list),
     });
-    this.load();
+    this.routeSub = this.route.queryParams.subscribe(params => {
+      const tab = params['tab'] as ReportType;
+      if (tab && ['balance', 'libro-mayor', 'comprobantes'].includes(tab)) {
+        this.selected = tab;
+        if (tab === 'comprobantes') {
+          const today = new Date().toISOString().slice(0, 10);
+          this.desde = today;
+          this.hasta = today;
+        }
+      }
+      this.load();
+    });
   }
 
-  select(key: ReportType): void {
-    this.selected = key;
-    this.load();
+  ngOnDestroy(): void {
+    this.routeSub?.unsubscribe();
   }
 
   onEjercicioChange(): void {
@@ -104,6 +121,7 @@ export class AcctReportsComponent implements OnInit {
     this.error = '';
     this.balanceReport = null;
     this.libroMayorReport = null;
+    this.comprobantesReport = null;
     this.asientoDetalle = null;
     this.conceptoFilter = '';
     this.tipoFilter = '';
@@ -125,6 +143,10 @@ export class AcctReportsComponent implements OnInit {
         }
         this.page = 1;
         this.loadLibroMayor();
+        break;
+      case 'comprobantes':
+        this.page = 1;
+        this.loadComprobantes();
         break;
     }
   }
@@ -200,6 +222,63 @@ export class AcctReportsComponent implements OnInit {
 
   isCuentaOpen(c: BalanceCuenta): boolean {
     return this.expandedCuentas.has(c.codcuenta);
+  }
+
+  private loadComprobantes(): void {
+    const isPageChange = this.comprobantesReport !== null;
+    if (isPageChange) {
+      this.loadingPage = true;
+    } else {
+      this.loading = true;
+    }
+    this.svc.getComprobantes(this.desde, this.hasta, this.page, this.cbTipoFilter || undefined, this.cbCodigoFilter || undefined, this.cbGlosaFilter || undefined).subscribe({
+      next: (d) => {
+        this.comprobantesReport = d;
+        this.loading = false;
+        this.loadingPage = false;
+      },
+      error: (e: Error) => { this.loadingPage = false; this.fail(e); },
+    });
+  }
+
+  cbApplyFilters(): void {
+    this.page = 1;
+    this.comprobantesReport = null;
+    this.loadComprobantes();
+  }
+
+  cbGoToPage(p: number): void {
+    if (!this.comprobantesReport || p < 1 || p > this.comprobantesReport.totalPages) return;
+    this.page = p;
+    this.loadComprobantes();
+  }
+
+  get cbPageNumbers(): number[] {
+    if (!this.comprobantesReport) return [];
+    const total = this.comprobantesReport.totalPages;
+    const current = this.page;
+    const pages: number[] = [];
+    const start = Math.max(1, current - 2);
+    const end = Math.min(total, current + 2);
+    for (let i = start; i <= end; i++) pages.push(i);
+    return pages;
+  }
+
+  cbExport(format: 'xlsx' | 'pdf'): void {
+    const url = this.svc.comprobantesExportUrl(this.desde, this.hasta, format, this.cbTipoFilter || undefined, this.cbCodigoFilter || undefined, this.cbGlosaFilter || undefined);
+    this.http.get(url, { responseType: 'blob', observe: 'response' }).subscribe({
+      next: (resp) => {
+        const blob = resp.body!;
+        const cd = resp.headers.get('Content-Disposition') || '';
+        const match = cd.match(/filename="?([^"]+)"?/);
+        const filename = match ? match[1] : `Comprobantes_Contables.${format}`;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      },
+    });
   }
 
   showAsiento(id: number): void {

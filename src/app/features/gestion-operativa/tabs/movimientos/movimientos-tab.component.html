@@ -1,0 +1,90 @@
+@if (loading) {
+  <div class="loading-block"><span class="spin lg"></span>Cargando movimientos...</div>
+}
+
+@if (!loading && movimientosDia.length > 0) {
+  @for (ag of movimientosDia; track ag.idAgencia) {
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px">
+      <div class="mov-ag-head">
+        <div class="mov-ag-info">
+          <strong>{{ ag.agencia }}</strong>
+        </div>
+      </div>
+      <div style="padding:12px">
+        <div class="mov-grid">
+          @if (ag.cambios.compras.cant > 0 || ag.cambios.ventas.cant > 0) {
+            <div>
+              <div class="sec-t" style="font-size:12px"><i class="ti ti-arrows-exchange"></i>Cambios</div>
+              @if (ag.cambios.compras.cant > 0) {
+                <div class="mov-item">
+                  <span class="tag">Compras</span>
+                  <span>{{ ag.cambios.compras.cant }} ops</span>
+                  <span><strong>BOB {{ fmt(ag.cambios.compras.montoBob) }}</strong></span>
+                </div>
+              }
+              @if (ag.cambios.ventas.cant > 0) {
+                <div class="mov-item">
+                  <span class="tag">Ventas</span>
+                  <span>{{ ag.cambios.ventas.cant }} ops</span>
+                  <span><strong>BOB {{ fmt(ag.cambios.ventas.montoBob) }}</strong></span>
+                </div>
+              }
+            </div>
+          }
+          @if (ag.giros.length > 0) {
+            <div>
+              <div class="sec-t" style="font-size:12px"><i class="ti ti-send"></i>Giros</div>
+              @for (g of ag.giros; track g.moneda) {
+                <div class="mov-item">
+                  <span class="tag">{{ g.moneda }}</span>
+                  <span>{{ g.cant }} ops</span>
+                  <span><strong>{{ fmt(g.monto) }}</strong></span>
+                </div>
+              }
+            </div>
+          }
+          @if (ag.remesas.length > 0) {
+            <div>
+              <div class="sec-t" style="font-size:12px"><i class="ti ti-cash"></i>Remesas pagadas</div>
+              @for (r of ag.remesas; track r.formaPago) {
+                <div class="mov-item">
+                  <span class="pill" [class.p-info]="r.formaPago === 'TRANSFERENCIA'" [class.p-ok]="r.formaPago !== 'TRANSFERENCIA'">{{ r.formaPago }}</span>
+                  <span>{{ r.cant }} ops</span>
+                  <span><strong>BOB {{ fmt(r.monto) }}</strong></span>
+                </div>
+              }
+            </div>
+          }
+          @if (ag.depositos > 0) {
+            <div>
+              <div class="sec-t" style="font-size:12px"><i class="ti ti-building-bank"></i>Depositos bancarios</div>
+              <div class="mov-item">
+                <span>{{ ag.depositos }} depositos</span>
+                <span><strong>BOB {{ fmt(ag.montoDepositos) }}</strong></span>
+              </div>
+            </div>
+          }
+          @if (ag.transferencias.length > 0) {
+            <div>
+              <div class="sec-t" style="font-size:12px"><i class="ti ti-transfer-vertical"></i>Transferencias bancarias</div>
+              @for (t of ag.transferencias; track t.destino) {
+                <div class="mov-item">
+                  <span class="muted">a {{ t.destino }}</span>
+                  <span>{{ t.cant }} ops</span>
+                  <span><strong>BOB {{ fmt(t.monto) }}</strong></span>
+                </div>
+              }
+            </div>
+          }
+        </div>
+        @if (ag.cambios.compras.cant === 0 && ag.cambios.ventas.cant === 0 && ag.giros.length === 0 && ag.remesas.length === 0 && ag.depositos === 0 && ag.transferencias.length === 0) {
+          <div class="muted" style="text-align:center;padding:8px">Sin actividad registrada</div>
+        }
+      </div>
+    </div>
+  }
+}
+
+@if (!loading && movimientosDia.length === 0) {
+  <div class="empty"><i class="ti ti-activity-heartbeat" style="font-size:32px;display:block;margin-bottom:8px;color:var(--tx3)"></i>No hay movimientos registrados para esta fecha.</div>
+}

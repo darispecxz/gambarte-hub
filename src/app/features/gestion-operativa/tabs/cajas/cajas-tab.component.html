@@ -1,0 +1,217 @@
+@if (!detailOpen) {
+  <div class="filters" style="margin-bottom:12px">
+    <div class="fdrop">
+      <input type="text" [(ngModel)]="posSearch" placeholder="Buscar cajero o caja...">
+    </div>
+    <button class="obtn" (click)="loadCajas()" [disabled]="posLoading">
+      <i class="ti ti-refresh"></i> Recargar
+    </button>
+  </div>
+
+  @if (posLoading) {
+    <div class="loading-block"><span class="spin lg"></span>Cargando cajas...</div>
+  }
+
+  @for (ag of filteredPosGroups; track ag.idAgencia) {
+    <div class="card pos-agency" style="margin-bottom:12px;padding:0;overflow:hidden">
+      <div class="pos-agency-head" (click)="togglePosAgency(ag.idAgencia)">
+        <div class="fw">
+          <div class="fw-ic"><i class="ti ti-building-store"></i></div>
+          <div>
+            <div class="fn">{{ ag.nombre }}</div>
+            <div class="fv">{{ ag.cashiers.length }} cajeros</div>
+          </div>
+        </div>
+        <div class="pos-badges">
+          @if (posCountByEstado(ag, 'activo') > 0) {
+            <span class="pill p-ok">{{ posCountByEstado(ag, 'activo') }} activas</span>
+          }
+          @if (posCountByEstado(ag, 'cerrado') > 0) {
+            <span class="pill p-info">{{ posCountByEstado(ag, 'cerrado') }} cerradas</span>
+          }
+          @if (posCountByEstado(ag, 'sin_apertura') > 0) {
+            <span class="pill p-warn">{{ posCountByEstado(ag, 'sin_apertura') }} sin abrir</span>
+          }
+          <i class="ti" [class.ti-chevron-down]="!expandedAgencies.has(ag.idAgencia)"
+             [class.ti-chevron-up]="expandedAgencies.has(ag.idAgencia)"
+             style="font-size:16px;color:var(--tx3)"></i>
+        </div>
+      </div>
+
+      @if (expandedAgencies.has(ag.idAgencia)) {
+        <div class="pos-cashiers">
+          @for (c of ag.cashiers; track c.numCaja + c.codUsuario) {
+            <div class="pos-cashier-row">
+              <div class="pos-cashier-info">
+                <div class="fw">
+                  <div class="fw-ic"><i class="ti ti-user"></i></div>
+                  <div>
+                    <div class="fn">Caja #{{ c.numCaja }} · {{ c.nombreCajero }}</div>
+                    <div class="fv">
+                      <span class="pill {{ estadoCajaPill(c.estado) }}">{{ estadoCajaLabel(c.estado) }}</span>
+                      @if (c.horaApertura) { <span class="muted">Apertura: {{ c.horaApertura | date:'HH:mm' }}</span> }
+                      @if (c.horaCierre) { <span class="muted">Cierre: {{ c.horaCierre | date:'HH:mm' }}</span> }
+                      <span class="muted">{{ c.numMovimientos }} mov.</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="pos-cashier-balances">
+                @for (b of c.balances; track b.idCaja) {
+                  <div class="pos-bal-chip" (click)="selectSaldoCaja(b); openDetail(c, ag, 'saldo')">
+                    <span class="tag">{{ b.moneda }}</span>
+                    <strong>{{ fmt(b.saldoActual) }}</strong>
+                    @if (b.saldoActual < b.minimo) { <i class="ti ti-arrow-down-circle" style="color:var(--red);font-size:14px"></i> }
+                    @if (b.saldoActual > b.maximo) { <i class="ti ti-arrow-up-circle" style="color:var(--amber);font-size:14px"></i> }
+                  </div>
+                }
+              </div>
+              <div class="pos-cashier-actions">
+                <button class="obtn sm" (click)="openDetail(c, ag, 'movements')"><i class="ti ti-list-details"></i> Mov.</button>
+                <button class="obtn sm" (click)="openDetail(c, ag, 'arqueo')"><i class="ti ti-calculator"></i> Arqueo</button>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  @if (!posLoading && filteredPosGroups.length === 0) {
+    <div class="empty">No se encontraron cajas para esta fecha.</div>
+  }
+
+} @else {
+  <button class="obtn" (click)="closeDetail()" style="margin-bottom:14px">
+    <i class="ti ti-arrow-left"></i> Volver a cajas
+  </button>
+
+  @if (detailCashier && detailAgency) {
+    <div class="card summary-card">
+      <div class="fw">
+        <div class="fw-ic" style="width:48px;height:48px;font-size:22px;border-radius:12px">
+          <i class="ti ti-user"></i>
+        </div>
+        <div>
+          <div style="font-size:16px;font-weight:800">Caja #{{ detailCashier.numCaja }} · {{ detailCashier.nombreCajero }}</div>
+          <div class="muted">{{ detailAgency.nombre }} · <span class="pill {{ estadoCajaPill(detailCashier.estado) }}">{{ estadoCajaLabel(detailCashier.estado) }}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabs" style="margin-bottom:14px">
+      <button class="tab" [class.active]="detailView === 'movements'" (click)="setDetailView('movements')">
+        <i class="ti ti-list-details"></i> Movimientos
+      </button>
+      <button class="tab" [class.active]="detailView === 'arqueo'" (click)="setDetailView('arqueo')">
+        <i class="ti ti-calculator"></i> Arqueo
+      </button>
+      <button class="tab" [class.active]="detailView === 'saldo'" (click)="setDetailView('saldo')">
+        <i class="ti ti-chart-line"></i> Historial saldo
+      </button>
+    </div>
+
+    @if (detailLoading) {
+      <div class="loading-block"><span class="spin"></span>Cargando...</div>
+    }
+
+    @if (detailView === 'movements' && !detailLoading) {
+      @if (movements.length > 0) {
+        <div class="tbl scroll">
+          <table class="g">
+            <thead><tr><th>#</th><th>Tipo</th><th>Concepto</th><th>Moneda</th><th class="r">Monto</th><th>Hora</th></tr></thead>
+            <tbody>
+              @for (m of movements; track m.id) {
+                <tr>
+                  <td class="muted">{{ m.correlativo }}</td>
+                  <td><span class="tag">{{ m.tipoDesc }}</span></td>
+                  <td>{{ m.nombre }}</td>
+                  <td><span class="tag">{{ m.moneda }}</span></td>
+                  <td class="r"><strong>{{ fmt(m.monto) }}</strong></td>
+                  <td class="muted">{{ m.fechaHora | date:'HH:mm' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="empty">Sin movimientos registrados.</div>
+      }
+    }
+
+    @if (detailView === 'arqueo' && !detailLoading) {
+      <div class="filters" style="margin-bottom:12px">
+        <button class="obtn" [class.primary]="arqueoTipo === 'apertura'" (click)="changeArqueoTipo('apertura')">Apertura</button>
+        <button class="obtn" [class.primary]="arqueoTipo === 'cierre'" (click)="changeArqueoTipo('cierre')">Cierre</button>
+      </div>
+
+      @if (arqueoData && arqueoData.currencies.length > 0) {
+        @for (cur of arqueoData.currencies; track cur.moneda) {
+          <div class="sec-t"><i class="ti ti-coins"></i>{{ cur.moneda }}</div>
+          <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px">
+            <div class="tbl">
+              <table class="g">
+                <thead><tr><th>Denominacion</th><th>Tipo</th><th class="r">Cant.</th><th class="r">Subtotal</th></tr></thead>
+                <tbody>
+                  @for (item of cur.items; track item.valor + item.agrupacion) {
+                    <tr>
+                      <td><strong>{{ fmt(item.valor) }}</strong></td>
+                      <td>{{ item.agrupacion }}</td>
+                      <td class="r">{{ item.cantidad }}</td>
+                      <td class="r"><strong>{{ fmt(item.subtotal) }}</strong></td>
+                    </tr>
+                  }
+                </tbody>
+                <tfoot>
+                  <tr><td colspan="3"><strong>Total {{ cur.moneda }}</strong></td><td class="r"><strong>{{ fmt(cur.total) }}</strong></td></tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        }
+      } @else {
+        <div class="empty">Sin datos de arqueo para este tipo.</div>
+      }
+    }
+
+    @if (detailView === 'saldo' && !detailLoading) {
+      @if (detailCashier.balances.length > 1) {
+        <div class="filters" style="margin-bottom:12px">
+          @for (bal of detailCashier.balances; track bal.idCaja) {
+            <button class="obtn" [class.primary]="saldoCaja?.idCaja === bal.idCaja" (click)="selectSaldoCaja(bal)">
+              {{ bal.moneda }}
+            </button>
+          }
+        </div>
+      }
+
+      @if (saldoHistory.length > 0) {
+        <div class="tbl scroll">
+          <table class="g">
+            <thead><tr><th>Concepto</th><th class="r">Monto</th><th class="r">Acumulado</th><th>Hora</th></tr></thead>
+            <tbody>
+              @for (s of saldoHistory; track s.fechaHora + s.conciliacion) {
+                <tr>
+                  <td>
+                    <span class="tag">{{ s.conciliacion }}</span>
+                    {{ s.tipoDesc }}
+                  </td>
+                  <td class="r" [class.down]="s.monto < 0" [class.up]="s.monto > 0">
+                    {{ s.monto > 0 ? '+' : '' }}{{ fmt(s.monto) }}
+                  </td>
+                  <td class="r"><strong>{{ fmt(s.acumulado) }}</strong></td>
+                  <td class="muted">{{ s.fechaHora | date:'HH:mm:ss' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="empty">
+          @if (!saldoCaja) { Selecciona una moneda para ver el historial. }
+          @else { Sin movimientos de saldo. }
+        </div>
+      }
+    }
+  }
+}

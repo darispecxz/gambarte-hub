@@ -1,6 +1,7 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { BankingService } from './banking.service';
 import { LoadingComponent } from '../../shared/loading.component';
 import { Agency } from '../accounting/accounting.models';
@@ -30,15 +31,10 @@ interface ReportTab {
   templateUrl: './banking.component.html',
   styleUrl: './banking.component.scss',
 })
-export class BankingComponent implements OnInit {
+export class BankingComponent implements OnInit, OnDestroy {
   private svc = inject(BankingService);
-
-  tabs: ReportTab[] = [
-    { key: 'conciliacion', label: 'Conciliación Contable', icon: 'ti-scale' },
-    { key: 'daily',        label: 'Resumen Diario',        icon: 'ti-calendar-stats' },
-    { key: 'movements',    label: 'Movimientos',           icon: 'ti-list-details' },
-    { key: 'transfers',    label: 'Traspasos',             icon: 'ti-transfer-vertical' },
-  ];
+  private route = inject(ActivatedRoute);
+  private routeSub: any;
 
   selected: ReportType = 'conciliacion';
   desde = new Date().toISOString().slice(0, 10);
@@ -84,12 +80,17 @@ export class BankingComponent implements OnInit {
     this.svc.getAgencies().subscribe({
       next: (list) => (this.agencies = list),
     });
-    this.load();
+    this.routeSub = this.route.queryParams.subscribe(params => {
+      const tab = params['tab'] as ReportType;
+      if (tab && ['conciliacion', 'daily', 'movements', 'transfers'].includes(tab)) {
+        this.selected = tab;
+      }
+      this.load();
+    });
   }
 
-  select(key: ReportType): void {
-    this.selected = key;
-    this.load();
+  ngOnDestroy(): void {
+    this.routeSub?.unsubscribe();
   }
 
   load(): void {

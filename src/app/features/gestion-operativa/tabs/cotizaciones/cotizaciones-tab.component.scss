@@ -1,0 +1,41 @@
+:host { display: block; }
+
+.cotiz-filter {
+  display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap;
+}
+.cotiz-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px;
+}
+.cotiz-card {
+  padding: 14px 16px;
+  .cotiz-card-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
+    margin-bottom: 12px;
+  }
+  .cotiz-rates-row {
+    display: flex; gap: 16px; margin-bottom: 10px;
+  }
+  .cotiz-rate {
+    display: flex; flex-direction: column; gap: 2px; flex: 1;
+  }
+  .cotiz-rate-label {
+    font-size: 11px; color: var(--tx3); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+  }
+  .cotiz-rate-val {
+    font-size: 18px; font-weight: 800; font-family: 'Manrope', sans-serif;
+  }
+  .cotiz-spread-bar {
+    height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin-bottom: 10px;
+  }
+  .cotiz-spread-fill {
+    height: 100%; border-radius: 2px; transition: width .3s;
+  }
+  .cotiz-card-foot {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  }
+}
+
+@media (max-width: 640px) {
+  .cotiz-grid { grid-template-columns: 1fr; }
+  .cotiz-card .cotiz-rate-val { font-size: 15px; }
+}

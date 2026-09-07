@@ -3,17 +3,9 @@
   <i class="ti ti-chevron-right chev"></i>
   <span class="view-chip"><i class="ti ti-report-analytics" style="font-size:14px"></i>Reportes Contables</span>
 </div>
-<p class="page-sub">Balance de sumas y saldos, libro mayor por subcuenta</p>
+<p class="page-sub">Balance de sumas y saldos, libro mayor por subcuenta, comprobantes contables</p>
 
 @if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
-
-<div class="tabs">
-  @for (t of tabs; track t.key) {
-    <button class="tab" [class.active]="t.key === selected" (click)="select(t.key)">
-      <i class="ti {{ t.icon }}"></i>{{ t.label }}
-    </button>
-  }
-</div>
 
 <div class="filters">
   <div class="fdrop"><label>Ejercicio</label>
@@ -205,6 +197,89 @@
           }
           <button class="pager-btn" [disabled]="page >= libroMayorReport.totalPages || loadingPage" (click)="goToPage(page + 1)"><i class="ti ti-chevron-right"></i></button>
           <span class="pager-info">Pag. {{ page }} de {{ libroMayorReport.totalPages }}</span>
+        </div>
+      }
+    </div>
+  </div>
+}
+
+<!-- ═══ COMPROBANTES CONTABLES ═══ -->
+@if (comprobantesReport && selected === 'comprobantes') {
+  <div class="sec-t">
+    <i class="ti ti-file-invoice"></i>Comprobantes Contables
+    <span class="hint">{{ comprobantesReport.fechaDesde }} — {{ comprobantesReport.fechaHasta }}</span>
+    <span class="hint" style="margin-left:auto">{{ comprobantesReport.totalRows | number }} comprobante(s)</span>
+  </div>
+
+  <div class="lm-filters">
+    <div class="lm-filter">
+      <i class="ti ti-search"></i>
+      <input type="text" [(ngModel)]="cbGlosaFilter" placeholder="Buscar por glosa…" (keyup.enter)="cbApplyFilters()">
+    </div>
+    <div class="lm-filter">
+      <select [(ngModel)]="cbTipoFilter" (ngModelChange)="cbApplyFilters()">
+        <option value="">Todos los tipos</option>
+        @for (t of comprobantesReport.tipos; track t) {
+          <option [value]="t">{{ t }}</option>
+        }
+      </select>
+    </div>
+    <div class="lm-filter">
+      <i class="ti ti-hash"></i>
+      <input type="text" [(ngModel)]="cbCodigoFilter" placeholder="Código comprobante…" (keyup.enter)="cbApplyFilters()" style="min-width:160px">
+    </div>
+    <button class="obtn primary sm" (click)="cbApplyFilters()"><i class="ti ti-filter"></i>Filtrar</button>
+    <div class="cb-export">
+      <button class="obtn outline sm" (click)="cbExport('xlsx')"><i class="ti ti-file-spreadsheet"></i>Excel</button>
+      <button class="obtn outline sm" (click)="cbExport('pdf')"><i class="ti ti-file-type-pdf"></i>PDF</button>
+    </div>
+  </div>
+
+  <div class="lm-table-wrap" [class.lm-loading]="loadingPage">
+    @if (loadingPage) {
+      <div class="lm-overlay"><div class="lm-spinner"></div></div>
+    }
+    <div class="tbl scroll lm-scroll">
+      <table class="g lm-table">
+        <thead>
+          <tr>
+            <th>Comprobante</th>
+            <th class="r">ID</th>
+            <th>Fecha</th>
+            <th>Glosa</th>
+            <th class="r">Total Importe</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (c of comprobantesReport.comprobantes; track c.idasiento) {
+            <tr class="row-lm" (click)="showAsiento(c.idasiento)">
+              <td><span class="tipo-badge">{{ c.comprobante }}</span></td>
+              <td class="r">{{ c.idasiento }}</td>
+              <td>{{ c.fecha }}</td>
+              <td class="concepto-cell">{{ c.glosa }}</td>
+              <td class="r"><strong>{{ c.total_importe | number:'1.2-2' }}</strong></td>
+            </tr>
+          }
+          @if (!comprobantesReport.comprobantes.length) {
+            <tr><td colspan="5" class="empty">Sin comprobantes en este periodo.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="lm-bottom-bar">
+      <div class="lm-totals">
+        <span class="lm-totals-label">TOTALES</span>
+        <span class="lm-total-item">Importe <strong>{{ comprobantesReport.totalImporte | number:'1.2-2' }}</strong></span>
+        <span class="lm-total-item">Registros <strong>{{ comprobantesReport.totalRows | number }}</strong></span>
+      </div>
+      @if (comprobantesReport.totalPages > 1) {
+        <div class="pager">
+          <button class="pager-btn" [disabled]="page <= 1 || loadingPage" (click)="cbGoToPage(page - 1)"><i class="ti ti-chevron-left"></i></button>
+          @for (p of cbPageNumbers; track p) {
+            <button class="pager-btn" [class.active]="p === page" [disabled]="loadingPage" (click)="cbGoToPage(p)">{{ p }}</button>
+          }
+          <button class="pager-btn" [disabled]="page >= comprobantesReport.totalPages || loadingPage" (click)="cbGoToPage(page + 1)"><i class="ti ti-chevron-right"></i></button>
+          <span class="pager-info">Pag. {{ page }} de {{ comprobantesReport.totalPages }}</span>
         </div>
       }
     </div>

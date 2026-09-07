@@ -1,0 +1,102 @@
+<div class="kgrid" style="margin-bottom:16px">
+  <div class="kcard">
+    <div class="ktit"><i class="ti ti-alert-octagon"></i>Criticas</div>
+    <div class="kval" [class.down]="notiConteo.critica > 0">{{ notiConteo.critica }}</div>
+    <div class="kchip" style="background:#FCE8E8;color:var(--red)"><i class="ti ti-alert-octagon"></i></div>
+  </div>
+  <div class="kcard">
+    <div class="ktit"><i class="ti ti-alert-triangle"></i>Altas</div>
+    <div class="kval" [class.down]="notiConteo.alta > 0">{{ notiConteo.alta }}</div>
+    <div class="kchip" style="background:var(--amber-soft);color:var(--amber)"><i class="ti ti-alert-triangle"></i></div>
+  </div>
+  <div class="kcard">
+    <div class="ktit"><i class="ti ti-info-circle"></i>Medias</div>
+    <div class="kval">{{ notiConteo.media }}</div>
+    <div class="kchip" style="background:var(--blue-soft);color:var(--blue)"><i class="ti ti-info-circle"></i></div>
+  </div>
+  <div class="kcard">
+    <div class="ktit"><i class="ti ti-info-square"></i>Bajas</div>
+    <div class="kval">{{ notiConteo.baja }}</div>
+    <div class="kchip"><i class="ti ti-info-square"></i></div>
+  </div>
+</div>
+
+<div class="filters" style="margin-bottom:12px">
+  <div class="fdrop">
+    <label>Tipo</label>
+    <select [(ngModel)]="filterTipo" (ngModelChange)="loadNotificaciones()">
+      <option value="">Todos</option>
+      <option value="fondeo">Fondeo</option>
+      <option value="operacion">Operacion</option>
+      <option value="riesgo">Riesgo</option>
+      <option value="reporte">Reporte</option>
+      <option value="cumplimiento">Cumplimiento</option>
+    </select>
+  </div>
+  <div class="fdrop">
+    <label>Urgencia</label>
+    <select [(ngModel)]="filterUrgencia" (ngModelChange)="loadNotificaciones()">
+      <option value="">Todas</option>
+      <option value="critica">Critica</option>
+      <option value="alta">Alta</option>
+      <option value="media">Media</option>
+      <option value="baja">Baja</option>
+    </select>
+  </div>
+  <div class="fdrop">
+    <label>Estado</label>
+    <select [(ngModel)]="filterLeida" (ngModelChange)="loadNotificaciones()">
+      <option value="0">No leidas</option>
+      <option value="1">Leidas</option>
+      <option value="">Todas</option>
+    </select>
+  </div>
+  <button class="obtn" (click)="leerTodasNotificaciones()" [disabled]="notiConteo.total === 0">
+    <i class="ti ti-checks"></i> Marcar todas leidas
+  </button>
+</div>
+
+@if (loading) {
+  <div class="loading-block"><span class="spin lg"></span>Cargando notificaciones...</div>
+}
+
+@if (!loading && notificaciones.length > 0) {
+  <div class="noti-list">
+    @for (n of notificaciones; track n.id) {
+      <div class="card noti-card" [class.noti-read]="n.leida" (click)="leerNotificacion(n)">
+        <div class="noti-head">
+          <div class="noti-icon-wrap {{ urgenciaPill(n.urgencia) }}">
+            <i class="ti {{ tipoIcon(n.tipo) }}"></i>
+          </div>
+          <div class="noti-body">
+            <div class="noti-title-row">
+              <strong class="noti-title">{{ n.titulo }}</strong>
+              <span class="noti-time">{{ timeAgo(n.fechaCreacion) }}</span>
+            </div>
+            <div class="noti-msg">{{ n.mensaje }}</div>
+            <div class="noti-tags">
+              <span class="pill {{ urgenciaPill(n.urgencia) }}">
+                <i class="ti {{ urgenciaIcon(n.urgencia) }}"></i> {{ urgenciaLabel(n.urgencia) }}
+              </span>
+              <span class="tag">{{ tipoLabel(n.tipo) }}</span>
+              @if (n.agencia) { <span class="tag">{{ n.agencia }}</span> }
+              @if (!n.leida) { <span class="noti-dot"></span> }
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+  @if (notiTotal > notificaciones.length) {
+    <div class="muted" style="text-align:center;padding:12px">
+      Mostrando {{ notificaciones.length }} de {{ notiTotal }} notificaciones
+    </div>
+  }
+}
+
+@if (!loading && notificaciones.length === 0) {
+  <div class="empty">
+    <i class="ti ti-bell-off" style="font-size:32px;display:block;margin-bottom:8px;color:var(--tx3)"></i>
+    No hay notificaciones{{ filterLeida === '0' ? ' sin leer' : '' }}.
+  </div>
+}

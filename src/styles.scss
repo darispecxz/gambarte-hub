@@ -53,6 +53,7 @@ a { color: inherit; }
 .kcard .kval { font-family:'Manrope',sans-serif; font-size:27px; font-weight:700; letter-spacing:-1px; line-height:1; color:var(--ink); }
 .kcard .ksub { font-size:11.5px; color:var(--tx3); margin-top:6px; display:flex; align-items:center; gap:5px; }
 .kcard .kchip { position:absolute; top:14px; right:14px; width:34px; height:34px; border-radius:9px; background:var(--orange-soft); color:var(--orange-deep); display:flex; align-items:center; justify-content:center; font-size:18px; }
+.kcard-loading .kval { display:flex; align-items:center; min-height:27px; }
 .delta-up { color:var(--green); font-weight:600; } .delta-down { color:var(--red); font-weight:600; }
 
 /* Section title */
@@ -130,3 +131,33 @@ a:focus-visible, button:focus-visible { outline:2px solid var(--orange); outline
 
 html, body { height: 100%; }
 body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+
+/* ── Cronograma fullscreen: escape sidenav stacking context ── */
+body.crono-open {
+  mat-sidenav, .mat-drawer, .mat-sidenav { z-index: 0 !important; }
+  .mat-drawer-content, mat-sidenav-content { transform: none !important; overflow: visible !important; }
+}
+
+/* ── Print: hide app shell, full-width content ── */
+@media print {
+  @page { size: landscape; margin: 6mm; }
+
+  body { background: #fff !important; }
+
+  /* Hide sidebar, top header, navigation */
+  .sidebar, mat-sidenav, .top, .menu-btn,
+  .side-head, .side-nav, .side-foot,
+  .mat-drawer, .mat-sidenav { display: none !important; width: 0 !important; }
+
+  /* Make content full width */
+  mat-sidenav-container, .mat-drawer-container,
+  mat-sidenav-content, .mat-drawer-content,
+  .main, .page, .app {
+    margin: 0 !important; padding: 0 !important;
+    width: 100% !important; max-width: 100% !important;
+    overflow: visible !important;
+    transform: none !important;
+  }
+
+  .mat-drawer-content { margin-left: 0 !important; }
+}

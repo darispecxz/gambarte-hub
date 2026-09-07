@@ -1,0 +1,144 @@
+@if (loading) {
+  <div class="loading-block"><span class="spin lg"></span>Cargando fondeos...</div>
+}
+
+@if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
+
+@if (!loading && solicitudes.length > 0) {
+  <div class="sec-t"><i class="ti ti-clock-pause"></i>Solicitudes pendientes de aprobacion</div>
+  <div class="tbl scroll">
+    <table class="g">
+      <thead>
+        <tr><th>Agencia</th><th>Caja</th><th>Cajero</th><th>Moneda</th><th class="r">Monto</th><th>Fecha</th></tr>
+      </thead>
+      <tbody>
+        @for (s of solicitudes; track s.id) {
+          <tr>
+            <td>
+              <div class="fw"><div class="fw-ic"><i class="ti ti-building-store"></i></div><div class="fn">{{ s.agencia }}</div></div>
+            </td>
+            <td>#{{ s.numCaja }}</td>
+            <td>{{ s.cajero }}</td>
+            <td><span class="tag">{{ s.moneda }}</span></td>
+            <td class="r"><strong>{{ fmt(s.monto) }}</strong></td>
+            <td class="muted">{{ s.fecha | date:'short' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+@if (!loading && fondeoRemesas.length > 0) {
+  <div class="sec-t"><i class="ti ti-alert-triangle" style="color:var(--red)"></i>Fondeos por remesas pendientes</div>
+  <div class="recom-list">
+    @for (fr of fondeoRemesas; track fr.destino.agencia + fr.destino.moneda) {
+      <div class="card recom-card" [style.border-left-color]="fr.destino.autoFondeable ? 'var(--amber)' : 'var(--red)'">
+        <div class="recom-head">
+          <div class="fw">
+            <div class="fw-ic" [style.background]="fr.destino.autoFondeable ? 'var(--amber-soft)' : '#FCE8E8'" [style.border-color]="fr.destino.autoFondeable ? 'var(--amber)' : '#f5c6cb'" [style.color]="fr.destino.autoFondeable ? 'var(--amber)' : 'var(--red)'">
+              <i class="ti" [class.ti-building-bank]="!fr.destino.autoFondeable" [class.ti-arrows-transfer-down]="fr.destino.autoFondeable"></i>
+            </div>
+            <div>
+              <div class="fn">
+                {{ fr.destino.agencia }}
+                @if (fr.destino.redirigida) {
+                  <span class="pill p-info" style="margin-left:6px">destino: {{ fr.destino.agenciaDestino }}</span>
+                }
+              </div>
+              <div class="fv">
+                <strong>{{ fr.destino.cantRemesas }}</strong> remesa{{ fr.destino.cantRemesas > 1 ? 's' : '' }} pendiente{{ fr.destino.cantRemesas > 1 ? 's' : '' }} por
+                <strong class="down">{{ fr.destino.moneda }} {{ fmt(fr.destino.totalRemesas) }}</strong>
+              </div>
+              <div class="fv" style="margin-top:2px">
+                Banco: <strong>{{ fr.destino.moneda }} {{ fmt(fr.destino.saldoBanco) }}</strong>
+                · Boveda: <strong>{{ fmt(fr.destino.saldoBoveda) }}</strong>
+                · Caja: <strong>{{ fmt(fr.destino.saldoCaja) }}</strong>
+                · Pago: <span class="pill" [class.p-info]="fr.destino.formaPago === 'transferencia'" [class.p-ok]="fr.destino.formaPago === 'efectivo'">{{ fr.destino.formaPago === 'transferencia' ? 'Deposito bancario' : 'Efectivo en caja' }}</span>
+              </div>
+              <div class="fv" style="margin-top:2px">
+                @if (fr.destino.autoFondeable) {
+                  @if (fr.destino.formaPago === 'transferencia') {
+                    <span class="pill p-warn">Puede auto-fondearse · Depositar {{ fr.destino.moneda }} {{ fmt(fr.destino.deficitCanal) }} de boveda/caja a banco</span>
+                  } @else {
+                    <span class="pill p-warn">Puede auto-fondearse · Transferir {{ fr.destino.moneda }} {{ fmt(fr.destino.deficitCanal) }} de banco a boveda/caja</span>
+                  }
+                } @else {
+                  @if (fr.destino.formaPago === 'transferencia') {
+                    Deficit bancario: <strong class="down">{{ fr.destino.moneda }} {{ fmt(fr.destino.deficitCanal) }}</strong>
+                  } @else {
+                    Deficit efectivo: <strong class="down">{{ fr.destino.moneda }} {{ fmt(fr.destino.deficitCanal) }}</strong>
+                  }
+                  · Fondos propios: <strong>{{ fmt(fr.destino.fondosPropios) }}</strong>
+                  · Deficit real: <strong class="down">{{ fr.destino.moneda }} {{ fmt(fr.destino.deficit) }}</strong>
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+        @if (!fr.destino.autoFondeable) {
+          @if (fr.origenesPosibles.length > 0) {
+            <div class="sec-t" style="margin:10px 0 6px;font-size:12px">
+              <i class="ti ti-arrow-up-circle" style="font-size:16px;color:var(--green)"></i>Agencias que pueden fondear
+            </div>
+            @for (src of fr.origenesPosibles; track src.agencia) {
+              <div class="source-row">
+                <strong>{{ src.agencia }}</strong>
+                <span class="muted">Banco: {{ fmt(src.enBanco) }}</span>
+                <span class="muted">· Boveda: {{ fmt(src.enBoveda) }}</span>
+                <span class="muted">· Caja: {{ fmt(src.enCaja) }}</span>
+                <span class="up" style="margin-left:auto">{{ fr.destino.moneda }} {{ fmt(src.disponible) }}</span>
+              </div>
+            }
+          } @else {
+            <div class="msg-err" style="margin-top:10px">
+              <i class="ti ti-alert-circle"></i>Sin agencias con disponibilidad en {{ fr.destino.moneda }}
+            </div>
+          }
+        }
+      </div>
+    }
+  </div>
+}
+
+@if (!loading) {
+<div class="sec-t"><i class="ti ti-bulb"></i>Recomendaciones por limites de caja</div>
+@if (recomendaciones.length > 0) {
+  <div class="recom-list">
+    @for (rec of recomendaciones; track rec.destino.agencia + rec.destino.moneda) {
+      <div class="card recom-card">
+        <div class="recom-head">
+          <div class="fw">
+            <div class="fw-ic" style="background:#FCE8E8;border-color:#f5c6cb;color:var(--red)">
+              <i class="ti ti-arrow-down-circle"></i>
+            </div>
+            <div>
+              <div class="fn">{{ rec.destino.agencia }}</div>
+              <div class="fv">necesita <strong class="down">{{ rec.destino.moneda }} {{ fmt(rec.destino.deficit) }}</strong></div>
+            </div>
+          </div>
+        </div>
+        @if (rec.origenesPosibles.length > 0) {
+          <div class="sec-t" style="margin:10px 0 6px;font-size:12px">
+            <i class="ti ti-arrow-up-circle" style="font-size:16px;color:var(--green)"></i>Pueden fondear
+          </div>
+          @for (src of rec.origenesPosibles; track src.agencia) {
+            <div class="source-row">
+              <strong>{{ src.agencia }}</strong>
+              <span class="muted">Boveda: {{ fmt(src.disponibleBoveda) }}</span>
+              @if (src.excedenteCaja > 0) { <span class="muted">· Exc: {{ fmt(src.excedenteCaja) }}</span> }
+              <span class="up" style="margin-left:auto">{{ src.moneda }} {{ fmt(src.totalDisponible) }}</span>
+            </div>
+          }
+        } @else {
+          <div class="msg-err" style="margin-top:10px">
+            <i class="ti ti-alert-circle"></i>Sin disponibilidad en {{ rec.destino.moneda }}
+          </div>
+        }
+      </div>
+    }
+  </div>
+} @else {
+  <div class="empty"><i class="ti ti-circle-check" style="font-size:32px;display:block;margin-bottom:8px;color:var(--green)"></i>Todas las cajas dentro de limites.</div>
+}
+}

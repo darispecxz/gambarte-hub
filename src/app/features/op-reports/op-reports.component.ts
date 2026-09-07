@@ -1,7 +1,12 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, HostListener, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
+import { Workbook } from 'exceljs';
+import { saveAs } from 'file-saver';
 import { OpReportsService } from './op-reports.service';
+import { AuthService } from '../../core/auth.service';
+import { LOGO_GAMBARTE_BASE64 } from '../../shared/logo-base64';
 import { LoadingComponent } from '../../shared/loading.component';
 import {
   OpReportType, OpReportTab, Agency,
@@ -25,21 +30,26 @@ export interface ExportColumn {
   templateUrl: './op-reports.component.html',
   styleUrl: './op-reports.component.scss',
 })
-export class OpReportsComponent implements OnInit {
+export class OpReportsComponent implements OnInit, OnDestroy {
   private svc = inject(OpReportsService);
+  private auth = inject(AuthService);
+  private route = inject(ActivatedRoute);
+  private el = inject(ElementRef);
+  private routeSub: any;
 
-  tabs: OpReportTab[] = [
-    { key: 'cambios', label: 'Cambios', icon: 'ti-currency-dollar' },
-    { key: 'giros',   label: 'Giros Nacionales', icon: 'ti-transfer-vertical' },
-    { key: 'remesas', label: 'Remesas / Giros Int.', icon: 'ti-world' },
-  ];
+  @HostListener('document:click', ['$event'])
+  onDocClick(e: Event): void {
+    if (this.estadoDropdownOpen && !this.el.nativeElement.querySelector('.estado-drop')?.contains(e.target))
+      this.estadoDropdownOpen = false;
+  }
 
   selected: OpReportType = 'cambios';
   desde = new Date().toISOString().slice(0, 10);
   hasta = '';
   agencia: number | null = null;
   tipoOperacion: number | null = null;
-  estadoFilter = '';
+  estadoFilter: number[] = [];
+  estadoDropdownOpen = false;
   subtipoFilter = '';
   codigoFilter = '';
   searchQuery = '';
@@ -128,6 +138,7 @@ export class OpReportsComponent implements OnInit {
     { key: 'totalCambio', label: 'Total a Entregar', selected: false, align: 'right', format: 'number' },
     { key: 'comision', label: 'Comision', selected: false, align: 'right', format: 'number' },
     { key: 'comisionBob', label: 'Comision BOB', selected: true, align: 'right', format: 'number' },
+    { key: 'porcentajeComision', label: '% Comision', selected: false, align: 'right', format: 'number' },
     { key: 'comisionGambarte', label: 'Com. Gambarte BOB', selected: false, align: 'right', format: 'number' },
     { key: 'gastosCorresponsal', label: 'Costos Corresp. BOB', selected: false, align: 'right', format: 'number' },
     { key: 'iva', label: 'IVA BOB', selected: false, align: 'right', format: 'number' },
@@ -143,13 +154,18 @@ export class OpReportsComponent implements OnInit {
     this.svc.getAgencies().subscribe({
       next: (list) => (this.agencies = list),
     });
-    this.load();
+    this.routeSub = this.route.queryParams.subscribe(params => {
+      const tab = params['tab'] as OpReportType;
+      if (tab && ['cambios', 'giros', 'remesas'].includes(tab)) {
+        this.selected = tab;
+        this.searchQuery = '';
+      }
+      this.load();
+    });
   }
 
-  select(key: OpReportType): void {
-    this.selected = key;
-    this.searchQuery = '';
-    this.load();
+  ngOnDestroy(): void {
+    this.routeSub?.unsubscribe();
   }
 
   load(): void {
@@ -173,7 +189,7 @@ export class OpReportsComponent implements OnInit {
       case 'giros':
         this.svc.getGiros(
           this.desde, hasta, ag,
-          this.estadoFilter || undefined,
+          this.estadoFilter.length ? this.estadoFilter.join(',') : undefined,
           this.codigoFilter ? parseInt(this.codigoFilter) : undefined
         ).subscribe({
           next: (d) => { this.girosData = d.records; this.totalRecords = d.total; this.loading = false; },
@@ -183,7 +199,7 @@ export class OpReportsComponent implements OnInit {
       case 'remesas':
         this.svc.getRemesas(
           this.desde, hasta, ag,
-          this.estadoFilter || undefined,
+          this.estadoFilter.length ? this.estadoFilter.join(',') : undefined,
           this.subtipoFilter || undefined,
           this.codigoFilter ? parseInt(this.codigoFilter) : undefined
         ).subscribe({
@@ -290,6 +306,18 @@ export class OpReportsComponent implements OnInit {
     }
   }
 
+  toggleEstado(val: number): void {
+    const idx = this.estadoFilter.indexOf(val);
+    if (idx >= 0) this.estadoFilter.splice(idx, 1);
+    else this.estadoFilter.push(val);
+  }
+
+  get estadoLabel(): string {
+    if (!this.estadoFilter.length) return 'Todos';
+    const map: Record<number, string> = { 0: 'Pendiente', 1: 'Pagado', 2: 'Devuelto', 5: 'Anulado' };
+    return this.estadoFilter.map(e => map[e] || e).join(', ');
+  }
+
   tipoClass(tipo: string): string {
     return tipo === 'COMPRA' ? 'sem-ok' : 'sem-warn';
   }
@@ -351,54 +379,225 @@ export class OpReportsComponent implements OnInit {
     return String(value);
   }
 
-  exportExcel(): void {
+  async exportExcel(): Promise<void> {
     const cols = this.selectedExportColumns;
     const rows = this.exportData;
     if (!cols.length || !rows.length) return;
 
     const periodo = this.hasta ? `${this.desde} al ${this.hasta}` : this.desde;
+    const now = new Date();
+    const fechaLarga = now.toLocaleDateString('es-BO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const hora = now.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const usuario = this.auth.user;
+    const agenciaSesion = this.auth.agencia;
+    const nombreUsuario = usuario ? `${usuario.nombre} (${usuario.login.toUpperCase()})` : '';
+    const agenciaDesc = agenciaSesion?.descripcion || 'OFICINA CENTRAL';
 
-    const headerRow = `<Row ss:StyleID="hdr">${cols.map(c =>
-      `<Cell><Data ss:Type="String">${this.esc(c.label)}</Data></Cell>`
-    ).join('')}</Row>`;
+    const totalCols = cols.length + 1;
+    const wb = new Workbook();
+    const ws = wb.addWorksheet(this.exportTitle.replace(/[*?:\\/\[\]]/g, '-').substring(0, 31));
 
-    const dataRows = rows.map(row => {
-      const cells = cols.map(col => {
+    const hdrFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8E8E8' } };
+    const hdrFont: any = { bold: true, size: 9, name: 'Courier New' };
+    const hdrFontWhite: any = { bold: true, size: 9, color: { argb: 'FFFFFFFF' }, name: 'Courier New' };
+    const darkFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF333333' } };
+    const bodyFont: any = { size: 9, name: 'Courier New' };
+    const boldFont: any = { bold: true, size: 9, name: 'Courier New' };
+    const thinBorder: any = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+
+    // Logo image
+    const logoBase64Data = LOGO_GAMBARTE_BASE64.split(',')[1];
+    const logoId = wb.addImage({ base64: logoBase64Data, extension: 'png' });
+    ws.addImage(logoId, { tl: { col: 0, row: 0 }, ext: { width: 200, height: 55 } });
+
+    // Company header (offset rows for logo)
+    const r1 = ws.addRow(['', '', '', 'GAMBARTE BOLIVIA S.R.L.']);
+    r1.font = { bold: true, size: 14, name: 'Courier New', color: { argb: 'FFE8860C' } };
+    r1.height = 22;
+
+    const r2 = ws.addRow(['', '', '', 'Casa Matriz - Calle Mercado N° 1335, Edificio América, PB Oficina 102, Zona Central.']);
+    r2.font = { size: 8, name: 'Courier New' };
+
+    const r3 = ws.addRow(['', '', '', 'Servicio al cliente: +591 68355517  |  www.gambarte.com.bo']);
+    r3.font = { size: 8, name: 'Courier New' };
+
+    ws.addRow([]);
+
+    // Report title
+    const titleRow = ws.addRow([this.exportTitle]);
+    titleRow.font = { bold: true, size: 12, name: 'Courier New' };
+    titleRow.alignment = { horizontal: 'center' };
+    ws.mergeCells(ws.rowCount, 1, ws.rowCount, totalCols);
+
+    ws.addRow([]);
+
+    // Metadata
+    const m1 = ws.addRow([`Agencia: ${agenciaDesc}    Usuario: ${nombreUsuario}    ${fechaLarga} - ${hora}`]);
+    m1.font = boldFont;
+    ws.mergeCells(ws.rowCount, 1, ws.rowCount, totalCols);
+
+    const m2 = ws.addRow([`Periodo: ${this.desde} al ${this.hasta || this.desde}`]);
+    m2.font = boldFont;
+    ws.mergeCells(ws.rowCount, 1, ws.rowCount, totalCols);
+
+    ws.addRow([]);
+
+    // Section label
+    const secRow = ws.addRow(['DATOS DE OPERACIONES']);
+    secRow.font = { bold: true, size: 10, name: 'Courier New' };
+    ws.mergeCells(ws.rowCount, 1, ws.rowCount, totalCols);
+
+    // Column headers
+    const hdrLabels = ['N°', ...cols.map(c => c.label)];
+    const hdrRow = ws.addRow(hdrLabels);
+    hdrRow.eachCell(cell => {
+      cell.font = hdrFontWhite;
+      cell.fill = darkFill;
+      cell.alignment = { horizontal: 'center', wrapText: true };
+      cell.border = thinBorder;
+    });
+
+    // Data rows
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const vals: any[] = [i + 1];
+      cols.forEach(col => {
         const v = (row as Record<string, unknown>)[col.key];
-        const isNum = col.format === 'number' || col.format === 'number4';
-        const type = isNum ? 'Number' : 'String';
-        const val = this.formatCell(v, col);
-        return `<Cell><Data ss:Type="${type}">${isNum ? val : this.esc(val)}</Data></Cell>`;
-      }).join('');
-      return `<Row>${cells}</Row>`;
-    }).join('\n');
+        if (col.format === 'number' || col.format === 'number4') vals.push(Number(v) || 0);
+        else vals.push(v == null ? '' : String(v));
+      });
+      const dataRow = ws.addRow(vals);
+      dataRow.getCell(1).alignment = { horizontal: 'center' };
+      dataRow.getCell(1).font = bodyFont;
+      dataRow.getCell(1).border = thinBorder;
+      cols.forEach((col, idx) => {
+        const cell = dataRow.getCell(idx + 2);
+        cell.font = bodyFont;
+        cell.border = thinBorder;
+        if (col.format === 'number') cell.numFmt = '#,##0.00';
+        if (col.format === 'number4') cell.numFmt = '#,##0.0000';
+        if (col.align === 'right') cell.alignment = { horizontal: 'right' };
+      });
+    }
 
-    const workbook = `<?xml version="1.0"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-<Styles>
- <Style ss:ID="hdr"><Font ss:Bold="1" ss:Size="10"/><Interior ss:Color="#F3F4F6" ss:Pattern="Solid"/></Style>
- <Style ss:ID="title"><Font ss:Bold="1" ss:Size="12"/></Style>
-</Styles>
-<Worksheet ss:Name="${this.esc(this.exportTitle)}">
-<Table>
- <Row ss:StyleID="title"><Cell ss:MergeAcross="${cols.length - 1}"><Data ss:Type="String">${this.esc(this.exportTitle)} - ${periodo}</Data></Cell></Row>
- <Row><Cell><Data ss:Type="String"></Data></Cell></Row>
- ${headerRow}
- ${dataRows}
-</Table>
-</Worksheet>
-</Workbook>`;
+    // Column widths
+    ws.getColumn(1).width = 5;
+    cols.forEach((_, i) => { ws.getColumn(i + 2).width = 18; });
 
-    const blob = new Blob([workbook], { type: 'application/vnd.ms-excel' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const slug = this.selected;
-    a.download = `reporte_${slug}_${this.desde}.xls`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // Summary tables
+    ws.addRow([]);
+
+    if (this.selected === 'remesas') {
+      const byAgencia: Record<string, { count: number; totalBob: number }> = {};
+      const byEstado: Record<string, { count: number; totalBob: number; totalEnvUsd: number }> = {};
+      for (const r of rows) {
+        const ag = String((r as any).agencia || 'SIN AGENCIA');
+        if (!byAgencia[ag]) byAgencia[ag] = { count: 0, totalBob: 0 };
+        byAgencia[ag].count++;
+        byAgencia[ag].totalBob += Number((r as any).totalBob) || 0;
+
+        const est = String((r as any).estadoDesc || 'DESCONOCIDO');
+        if (!byEstado[est]) byEstado[est] = { count: 0, totalBob: 0, totalEnvUsd: 0 };
+        byEstado[est].count++;
+        byEstado[est].totalBob += Number((r as any).totalBob) || 0;
+        if (String((r as any).moneda || '').toUpperCase() === 'USD') byEstado[est].totalEnvUsd += Number((r as any).monto) || 0;
+      }
+
+      // Agency summary
+      const agLabel = ws.addRow(['RESUMEN POR AGENCIA DESTINO (ENVÍOS BOB)']);
+      agLabel.font = { bold: true, size: 10, name: 'Courier New' };
+      ws.mergeCells(ws.rowCount, 1, ws.rowCount, totalCols);
+
+      const agHdr = ws.addRow(['AGENCIA DESTINO', '', 'N° OPER.', 'MONTO [BOB]']);
+      agHdr.eachCell(cell => { cell.font = hdrFont; cell.fill = hdrFill; cell.border = thinBorder; cell.alignment = { horizontal: 'center' }; });
+
+      for (const [ag, v] of Object.entries(byAgencia)) {
+        const r = ws.addRow([ag, '', v.count, v.totalBob]);
+        r.getCell(1).font = bodyFont; r.getCell(1).border = thinBorder;
+        r.getCell(2).border = thinBorder;
+        r.getCell(3).font = bodyFont; r.getCell(3).alignment = { horizontal: 'center' }; r.getCell(3).border = thinBorder;
+        r.getCell(4).font = bodyFont; r.getCell(4).numFmt = '#,##0.00'; r.getCell(4).alignment = { horizontal: 'right' }; r.getCell(4).border = thinBorder;
+      }
+      const agTotal = Object.values(byAgencia).reduce((s, v) => s + v.totalBob, 0);
+      const agCount = Object.values(byAgencia).reduce((s, v) => s + v.count, 0);
+      const agTot = ws.addRow(['TOTAL GENERAL', '', agCount, agTotal]);
+      agTot.eachCell(cell => { cell.font = boldFont; cell.border = thinBorder; });
+      agTot.getCell(3).alignment = { horizontal: 'center' };
+      agTot.getCell(4).numFmt = '#,##0.00'; agTot.getCell(4).alignment = { horizontal: 'right' };
+
+      ws.addRow([]);
+
+      // Estado summary
+      const estLabel = ws.addRow(['RESUMEN TOTAL PAGADOS Y PENDIENTES']);
+      estLabel.font = { bold: true, size: 10, name: 'Courier New' };
+      ws.mergeCells(ws.rowCount, 1, ws.rowCount, totalCols);
+
+      const estHdr = ws.addRow(['ESTADO', 'N° REMESAS', 'TOTAL MONTO [BOB]', 'TOTAL ENVÍO [USD]']);
+      estHdr.eachCell(cell => { cell.font = hdrFont; cell.fill = hdrFill; cell.border = thinBorder; cell.alignment = { horizontal: 'center' }; });
+
+      for (const [est, v] of Object.entries(byEstado)) {
+        const r = ws.addRow([est, v.count, v.totalBob, v.totalEnvUsd]);
+        r.getCell(1).font = bodyFont; r.getCell(1).border = thinBorder;
+        r.getCell(2).font = bodyFont; r.getCell(2).alignment = { horizontal: 'center' }; r.getCell(2).border = thinBorder;
+        r.getCell(3).font = bodyFont; r.getCell(3).numFmt = '#,##0.00'; r.getCell(3).alignment = { horizontal: 'right' }; r.getCell(3).border = thinBorder;
+        r.getCell(4).font = bodyFont; r.getCell(4).numFmt = '#,##0.00'; r.getCell(4).alignment = { horizontal: 'right' }; r.getCell(4).border = thinBorder;
+      }
+      const estTotalBob = Object.values(byEstado).reduce((s, v) => s + v.totalBob, 0);
+      const estTotalUsd = Object.values(byEstado).reduce((s, v) => s + v.totalEnvUsd, 0);
+      const estCount = Object.values(byEstado).reduce((s, v) => s + v.count, 0);
+      const estTot = ws.addRow(['TOTAL GENERAL', estCount, estTotalBob, estTotalUsd]);
+      estTot.eachCell(cell => { cell.font = boldFont; cell.border = thinBorder; });
+      estTot.getCell(2).alignment = { horizontal: 'center' };
+      estTot.getCell(3).numFmt = '#,##0.00'; estTot.getCell(3).alignment = { horizontal: 'right' };
+      estTot.getCell(4).numFmt = '#,##0.00'; estTot.getCell(4).alignment = { horizontal: 'right' };
+    } else if (this.selected === 'cambios') {
+      const byTipo: Record<string, { count: number; totalBob: number }> = {};
+      for (const r of rows) {
+        const tipo = String((r as any).tipoOperacion || 'SIN TIPO');
+        if (!byTipo[tipo]) byTipo[tipo] = { count: 0, totalBob: 0 };
+        byTipo[tipo].count++;
+        byTipo[tipo].totalBob += Number((r as any).totalBob) || 0;
+      }
+      const tLabel = ws.addRow(['RESUMEN POR TIPO DE OPERACIÓN']);
+      tLabel.font = { bold: true, size: 10, name: 'Courier New' };
+      ws.mergeCells(ws.rowCount, 1, ws.rowCount, totalCols);
+
+      const tHdr = ws.addRow(['TIPO OPERACIÓN', '', 'N° OPER.', 'TOTAL [BOB]']);
+      tHdr.eachCell(cell => { cell.font = hdrFont; cell.fill = hdrFill; cell.border = thinBorder; cell.alignment = { horizontal: 'center' }; });
+
+      for (const [t, v] of Object.entries(byTipo)) {
+        const r = ws.addRow([t, '', v.count, v.totalBob]);
+        r.getCell(1).font = bodyFont; r.getCell(1).border = thinBorder;
+        r.getCell(2).border = thinBorder;
+        r.getCell(3).font = bodyFont; r.getCell(3).alignment = { horizontal: 'center' }; r.getCell(3).border = thinBorder;
+        r.getCell(4).font = bodyFont; r.getCell(4).numFmt = '#,##0.00'; r.getCell(4).alignment = { horizontal: 'right' }; r.getCell(4).border = thinBorder;
+      }
+      const tTotal = Object.values(byTipo).reduce((s, v) => s + v.totalBob, 0);
+      const tCount = Object.values(byTipo).reduce((s, v) => s + v.count, 0);
+      const tTot = ws.addRow(['TOTAL GENERAL', '', tCount, tTotal]);
+      tTot.eachCell(cell => { cell.font = boldFont; cell.border = thinBorder; });
+      tTot.getCell(3).alignment = { horizontal: 'center' };
+      tTot.getCell(4).numFmt = '#,##0.00'; tTot.getCell(4).alignment = { horizontal: 'right' };
+    }
+
+    // Footer
+    ws.addRow([]);
+    ws.addRow([]);
+    const nameRow = ws.addRow(['NOMBRE:', '', '', '', 'RUN:']);
+    nameRow.font = boldFont;
+
+    ws.addRow([]);
+    const firmaRow = ws.addRow(['FIRMA:']);
+    firmaRow.font = boldFont;
+
+    ws.addRow([]);
+    ws.addRow([]);
+    const genRow = ws.addRow([`GENERADO POR: ${nombreUsuario}`, '', '', '', `REVISADO POR:`]);
+    genRow.font = boldFont;
+
+    const buf = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+      `reporte_${this.selected}_${this.desde}.xlsx`);
   }
 
   exportPdf(): void {
@@ -407,8 +606,18 @@ export class OpReportsComponent implements OnInit {
     if (!cols.length || !rows.length) return;
 
     const periodo = this.hasta ? `${this.desde} al ${this.hasta}` : this.desde;
+    const now = new Date();
+    const fechaLarga = now.toLocaleDateString('es-BO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const hora = now.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const usuario = this.auth.user;
+    const agenciaSesion = this.auth.agencia;
+    const nombreUsuario = usuario ? `${usuario.nombre} (${usuario.login.toUpperCase()})` : '';
+    const agenciaDesc = agenciaSesion?.descripcion || 'OFICINA CENTRAL';
+    const totalPages = 1;
 
-    const ths = cols.map(c => {
+    const numCols = cols.length + 1;
+
+    const ths = `<th>N&deg;</th>` + cols.map(c => {
       const align = c.align === 'right' ? 'text-align:right' : c.align === 'center' ? 'text-align:center' : 'text-align:left';
       return `<th style="${align}">${this.esc(c.label)}</th>`;
     }).join('');
@@ -420,35 +629,180 @@ export class OpReportsComponent implements OnInit {
         const align = col.align === 'right' ? 'text-align:right' : col.align === 'center' ? 'text-align:center' : '';
         return `<td style="${align}">${this.esc(val)}</td>`;
       }).join('');
-      return `<tr>${tds}</tr>`;
+      return `<tr><td class="c">${i + 1}</td>${tds}</tr>`;
     }).join('\n');
+
+    const fmtMoney = (n: number) => n.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    let summaryHtml = '';
+    if (this.selected === 'remesas') {
+      const byAgencia: Record<string, { count: number; totalBob: number }> = {};
+      const byEstado: Record<string, { count: number; totalBob: number; totalEnvUsd: number }> = {};
+      for (const r of rows) {
+        const ag = String((r as any).agencia || 'SIN AGENCIA');
+        if (!byAgencia[ag]) byAgencia[ag] = { count: 0, totalBob: 0 };
+        byAgencia[ag].count++;
+        byAgencia[ag].totalBob += Number((r as any).totalBob) || 0;
+
+        const est = String((r as any).estadoDesc || 'DESCONOCIDO');
+        if (!byEstado[est]) byEstado[est] = { count: 0, totalBob: 0, totalEnvUsd: 0 };
+        byEstado[est].count++;
+        byEstado[est].totalBob += Number((r as any).totalBob) || 0;
+        const moneda = String((r as any).moneda || '').toUpperCase();
+        if (moneda === 'USD') byEstado[est].totalEnvUsd += Number((r as any).monto) || 0;
+      }
+
+      const agRows = Object.entries(byAgencia).map(([ag, v]) =>
+        `<tr><td>${this.esc(ag)}</td><td class="c">${v.count}</td><td class="r">${fmtMoney(v.totalBob)}</td></tr>`
+      ).join('');
+      const agTotal = Object.values(byAgencia).reduce((s, v) => s + v.totalBob, 0);
+      const agCount = Object.values(byAgencia).reduce((s, v) => s + v.count, 0);
+
+      summaryHtml += `
+      <div class="summary-title">RESUMEN POR AGENCIA DESTINO (ENV&Iacute;OS BOB)</div>
+      <table class="summary"><thead><tr><th>AGENCIA DESTINO</th><th>N&deg; OPER.</th><th class="r">MONTO [BOB]</th></tr></thead><tbody>
+        ${agRows}
+        <tr class="total-row"><td>TOTAL GENERAL</td><td class="c">${agCount}</td><td class="r">${fmtMoney(agTotal)}</td></tr>
+      </tbody></table>`;
+
+      const estRows = Object.entries(byEstado).map(([est, v]) =>
+        `<tr><td>${this.esc(est)}</td><td class="c">${v.count}</td><td class="r">${fmtMoney(v.totalBob)}</td><td class="r">${fmtMoney(v.totalEnvUsd)}</td></tr>`
+      ).join('');
+      const estTotalBob = Object.values(byEstado).reduce((s, v) => s + v.totalBob, 0);
+      const estTotalUsd = Object.values(byEstado).reduce((s, v) => s + v.totalEnvUsd, 0);
+      const estCount = Object.values(byEstado).reduce((s, v) => s + v.count, 0);
+
+      summaryHtml += `
+      <div class="summary-title">RESUMEN TOTAL PAGADOS Y PENDIENTES</div>
+      <table class="summary"><thead><tr><th>ESTADO</th><th>N&deg; REMESAS</th><th class="r">TOTAL MONTO [BOB]</th><th class="r">TOTAL ENV&Iacute;O [USD]</th></tr></thead><tbody>
+        ${estRows}
+        <tr class="total-row"><td>TOTAL GENERAL</td><td class="c">${estCount}</td><td class="r">${fmtMoney(estTotalBob)}</td><td class="r">${fmtMoney(estTotalUsd)}</td></tr>
+      </tbody></table>`;
+    } else if (this.selected === 'cambios') {
+      const byTipo: Record<string, { count: number; totalBob: number }> = {};
+      for (const r of rows) {
+        const tipo = String((r as any).tipoOperacion || 'SIN TIPO');
+        if (!byTipo[tipo]) byTipo[tipo] = { count: 0, totalBob: 0 };
+        byTipo[tipo].count++;
+        byTipo[tipo].totalBob += Number((r as any).totalBob) || 0;
+      }
+      const tRows = Object.entries(byTipo).map(([t, v]) =>
+        `<tr><td>${this.esc(t)}</td><td class="c">${v.count}</td><td class="r">${fmtMoney(v.totalBob)}</td></tr>`
+      ).join('');
+      const tTotal = Object.values(byTipo).reduce((s, v) => s + v.totalBob, 0);
+      const tCount = Object.values(byTipo).reduce((s, v) => s + v.count, 0);
+
+      summaryHtml += `
+      <div class="summary-title">RESUMEN POR TIPO DE OPERACI&Oacute;N</div>
+      <table class="summary"><thead><tr><th>TIPO OPERACI&Oacute;N</th><th>N&deg; OPER.</th><th class="r">TOTAL [BOB]</th></tr></thead><tbody>
+        ${tRows}
+        <tr class="total-row"><td>TOTAL GENERAL</td><td class="c">${tCount}</td><td class="r">${fmtMoney(tTotal)}</td></tr>
+      </tbody></table>`;
+    }
 
     const html = `<!DOCTYPE html><html><head><title>${this.esc(this.exportTitle)} ${periodo}</title>
 <style>
-  @page { size: landscape; margin: 12mm; }
-  body { font-family: Arial, sans-serif; font-size: 10px; color: #1a1a1a; margin: 0; padding: 20px; }
-  .header { text-align: center; margin-bottom: 16px; }
-  .header h1 { font-size: 16px; margin: 0 0 4px; }
-  .header p { font-size: 11px; color: #555; margin: 0; }
-  table { width: 100%; border-collapse: collapse; }
-  th { background: #f3f4f6; font-size: 9px; text-transform: uppercase; letter-spacing: .5px;
-       padding: 6px 8px; border-bottom: 2px solid #d1d5db; }
-  td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; font-size: 10px; }
-  tr:nth-child(even) { background: #f9fafb; }
-  .footer { margin-top: 20px; font-size: 9px; color: #888; display: flex; justify-content: space-between; }
+  @page { size: landscape; margin: 10mm 12mm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Courier New', Courier, monospace; font-size: 10px; color: #000; margin: 0; padding: 10px 15px; }
+
+  .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 2px; }
+  .logo-block { display: flex; align-items: center; gap: 8px; }
+  .logo-block img { height: 50px; width: auto; }
+  .company-info { text-align: center; font-size: 9px; line-height: 1.4; flex: 1; }
+  .company-name { font-size: 12px; font-weight: 700; }
+  .company-contact { color: #333; }
+  .report-title { font-size: 12px; font-weight: 700; text-align: center; margin: 2px 0; text-transform: uppercase; }
+  .report-subtitle { font-size: 10px; text-align: center; margin-bottom: 4px; }
+  .page-num { text-align: right; font-size: 9px; white-space: nowrap; }
+
+  .meta { font-size: 9px; margin-bottom: 8px; line-height: 1.5; }
+  .meta b { font-weight: 700; }
+
+  .section-label { font-size: 10px; font-weight: 700; margin: 12px 0 4px; text-transform: uppercase; }
+
+  table.data { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+  table.data th {
+    background: #E8E8E8; font-size: 8px; font-weight: 700; text-transform: uppercase;
+    padding: 4px 5px; border: 1px solid #999; text-align: center;
+  }
+  table.data td {
+    padding: 3px 5px; border: 1px solid #ccc; font-size: 9px; vertical-align: top;
+  }
+
+  table.summary { width: auto; min-width: 400px; border-collapse: collapse; margin-bottom: 14px; }
+  table.summary th {
+    background: #E8E8E8; font-size: 9px; font-weight: 700; text-transform: uppercase;
+    padding: 4px 8px; border: 1px solid #999; text-align: center;
+  }
+  table.summary td { padding: 3px 8px; border: 1px solid #ccc; font-size: 9px; }
+
+  .total-row td { font-weight: 700; background: #f0f0f0; border-top: 2px solid #999; }
+  .summary-title { font-size: 10px; font-weight: 700; margin: 14px 0 4px; text-transform: uppercase; }
+
+  .r { text-align: right; } .c { text-align: center; }
+
+  .signatures { margin-top: 40px; font-size: 10px; font-weight: 700; }
+  .sig-row { display: flex; justify-content: space-between; margin-top: 6px; }
+  .sig-block { width: 45%; }
+  .sig-line { border-bottom: 1px solid #000; margin-top: 40px; margin-bottom: 2px; }
+  .sig-label { font-weight: 700; }
+
+  .gen-footer { margin-top: 30px; font-size: 9px; display: flex; justify-content: space-between; }
+  .gen-footer span { font-weight: 700; }
 </style></head><body>
-<div class="header">
-  <h1>${this.esc(this.exportTitle)}</h1>
-  <p>Periodo: ${periodo} &nbsp;|&nbsp; ${rows.length} registro(s)</p>
+<div class="page-header">
+  <div class="logo-block">
+    <img src="${LOGO_GAMBARTE_BASE64}" alt="Gambarte">
+  </div>
+  <div class="company-info">
+    <div class="company-contact">Casa Matriz &ndash; Calle Mercado N&deg; 1335, Edificio Am&eacute;rica, PB Oficina 102, Zona Central.</div>
+    <div class="company-name">GAMBARTE BOLIVIA S.R.L.</div>
+    <div class="company-contact">Servicio al cliente: +591 68355517</div>
+    <div class="company-contact">Sitio web: www.gambarte.com.bo</div>
+  </div>
+  <div class="page-num">${this.esc(this.exportTitle)}<br>P&aacute;gina 1 de 1</div>
 </div>
-<table>
+
+<div class="report-title">${this.esc(this.exportTitle)}</div>
+
+<div class="meta">
+  <b>Agencia:</b> ${this.esc(agenciaDesc)} &nbsp;&nbsp;
+  <b>Usuario:</b> ${this.esc(nombreUsuario)} &nbsp;&nbsp;
+  ${this.esc(fechaLarga)} &ndash; ${hora}<br>
+  <b>Periodo:</b> ${this.desde} al ${this.hasta || this.desde}
+</div>
+
+<div class="section-label">DATOS DE OPERACIONES</div>
+<table class="data">
   <thead><tr>${ths}</tr></thead>
   <tbody>${trs}</tbody>
 </table>
-<div class="footer">
-  <span>Generado: ${new Date().toLocaleString()}</span>
-  <span>CGR - Sistema de Gestion y Reportes</span>
+
+${summaryHtml}
+
+<div class="signatures">
+  <div class="sig-row">
+    <div class="sig-block">
+      <div class="sig-label">NOMBRE:</div>
+      <div class="sig-line"></div>
+    </div>
+    <div class="sig-block">
+      <div class="sig-label">RUN:</div>
+      <div class="sig-line"></div>
+    </div>
+  </div>
+  <div style="margin-top: 20px;">
+    <div class="sig-label">FIRMA:</div>
+    <div class="sig-line" style="width: 45%;"></div>
+  </div>
 </div>
+
+<div class="gen-footer">
+  <span>GENERADO POR: ${this.esc(nombreUsuario)}</span>
+  <span>REVISADO POR:</span>
+</div>
+
 <script>window.onload=function(){window.print();}</script>
 </body></html>`;
 

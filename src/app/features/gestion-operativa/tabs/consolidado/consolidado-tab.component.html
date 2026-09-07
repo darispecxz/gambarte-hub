@@ -1,0 +1,181 @@
+@if (loading) {
+  <div class="loading-block"><span class="spin lg"></span>Cargando consolidado...</div>
+}
+
+@if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
+
+@if (!loading && !selectedAgency) {
+  <div class="filters" style="margin-bottom:12px">
+    <div class="fdrop">
+      <input type="text" [(ngModel)]="searchTerm" placeholder="Buscar agencia...">
+    </div>
+  </div>
+
+  <div class="ag-list">
+    @for (ag of filteredAgencias; track ag.idAgencia) {
+      <div class="card ag-row" (click)="selectAgency(ag)"
+           [class.has-alerts]="ag.alertas.length > 0">
+        <div class="ag-left">
+          <div class="ag-name-row">
+            <strong>{{ ag.agencia }}</strong>
+            <span class="tag">{{ ag.abreviatura }}</span>
+            @if (ag.alertas.length > 0) {
+              <span class="pill p-bad">{{ ag.alertas.length }}</span>
+            }
+            @if (ag.pendientes.length > 0) {
+              <span class="pill p-warn"><i class="ti ti-clock"></i> {{ ag.pendientes.length }}</span>
+            }
+            @if (comparativaAgencia(ag.idAgencia); as comp) {
+              @if (comp.deltaPct !== 0) {
+                <span class="pill {{ comp.delta > 0 ? 'p-ok' : 'p-bad' }}" style="font-size:9px">
+                  <i class="ti {{ comp.delta > 0 ? 'ti-trending-up' : 'ti-trending-down' }}"></i>
+                  {{ comp.delta > 0 ? '+' : '' }}{{ comp.deltaPct }}%
+                </span>
+              }
+            }
+          </div>
+          <div class="ag-breakdown">
+            <span><i class="ti ti-cash"></i> Efectivo <strong>{{ fmtCompact(agTotalEfectivo(ag)) }}</strong></span>
+            <span><i class="ti ti-coins"></i> Boveda <strong>{{ fmtCompact(agTotalBoveda(ag)) }}</strong></span>
+            <span><i class="ti ti-building-bank"></i> Banco <strong>{{ fmtCompact(agTotalBanco(ag)) }}</strong></span>
+          </div>
+        </div>
+        <div class="ag-right">
+          <div class="ag-total-val">BOB {{ fmtCompact(ag.totalBOB) }}</div>
+          <div class="bar blue"><i [style.width.%]="barPct(ag.totalBOB)"></i></div>
+        </div>
+        <i class="ti ti-chevron-right ag-chevron"></i>
+      </div>
+    }
+    @if (!filteredAgencias.length && searchTerm) {
+      <div class="empty">No se encontraron agencias para "{{ searchTerm }}"</div>
+    }
+  </div>
+
+} @else {
+  <button class="obtn" (click)="backToList()" style="margin-bottom:14px">
+    <i class="ti ti-arrow-left"></i> Volver a agencias
+  </button>
+
+  @if (detalleLoading) {
+    <div class="loading-block"><span class="spin lg"></span>Cargando detalle...</div>
+  }
+
+  @if (detalle) {
+    <div class="card summary-card">
+      <div class="fw">
+        <div class="fw-ic" style="width:48px;height:48px;font-size:22px;border-radius:12px">
+          <i class="ti ti-building-store"></i>
+        </div>
+        <div>
+          <div style="font-size:16px;font-weight:800">{{ detalle.agencia }}</div>
+          <div class="muted">{{ detalle.abreviatura }} · Total: <strong style="color:var(--ink)">BOB {{ fmt(selectedAgency!.totalBOB) }}</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-grid">
+      <div>
+        <div class="sec-t"><i class="ti ti-cash"></i>Cajas (Efectivo)</div>
+        @if (detalle.cajas.length > 0) {
+          @for (caja of detalle.cajas; track caja.numCaja) {
+            <div class="card caja-card">
+              <div class="caja-head">
+                <div class="fw">
+                  <div class="fw-ic"><i class="ti ti-user"></i></div>
+                  <div>
+                    <div class="fn">Caja #{{ caja.numCaja }}</div>
+                    <div class="fv">{{ caja.cajero }}</div>
+                  </div>
+                </div>
+                <div class="score" style="font-size:14px">{{ fmtCompact(caja.totalBOB) }}</div>
+              </div>
+              @for (m of caja.monedas; track m.moneda) {
+                <div class="caja-mon">
+                  <span class="tag">{{ m.moneda }}</span>
+                  <span class="caja-saldo">{{ fmt(m.saldo) }}</span>
+                  @if (m.minimo !== null && m.saldo < m.minimo) {
+                    <span class="pill p-bad" style="font-size:9px">bajo min</span>
+                  }
+                  @if (m.maximo !== null && m.saldo > m.maximo) {
+                    <span class="pill p-warn" style="font-size:9px">sobre max</span>
+                  }
+                </div>
+              }
+            </div>
+          }
+        } @else {
+          <div class="empty">Sin cajas abiertas</div>
+        }
+      </div>
+
+      <div>
+        <div class="sec-t"><i class="ti ti-coins"></i>Bovedas</div>
+        @if (detalle.bovedas.length > 0) {
+          <div class="card" style="padding:0;overflow:hidden">
+            <div class="tbl">
+              <table class="g">
+                <thead><tr><th>Moneda</th><th class="r">Saldo</th><th class="r">BOB</th></tr></thead>
+                <tbody>
+                  @for (b of detalle.bovedas; track b.moneda) {
+                    <tr>
+                      <td><span class="tag">{{ b.moneda }}</span></td>
+                      <td class="r">{{ fmt(b.saldo) }}</td>
+                      <td class="r"><strong>{{ fmt(b.totalBOB) }}</strong></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        } @else {
+          <div class="empty">Sin saldos en boveda</div>
+        }
+      </div>
+
+      <div>
+        <div class="sec-t"><i class="ti ti-building-bank"></i>Bancos</div>
+        @if (detalle.bancos.length > 0) {
+          <div class="card" style="padding:0;overflow:hidden">
+            <div class="tbl">
+              <table class="g">
+                <thead><tr><th>Cuenta</th><th>Moneda</th><th class="r">Saldo</th></tr></thead>
+                <tbody>
+                  @for (b of detalle.bancos; track b.cuenta + b.moneda) {
+                    <tr>
+                      <td>
+                        <div class="fw">
+                          <div class="fw-ic"><i class="ti ti-building-bank"></i></div>
+                          <div><div class="fn">{{ b.banco }}</div><div class="fv">{{ b.cuenta }}</div></div>
+                        </div>
+                      </td>
+                      <td><span class="tag">{{ b.moneda }}</span></td>
+                      <td class="r"><strong>{{ fmt(b.saldo) }}</strong></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        } @else {
+          <div class="empty">Sin cuentas bancarias</div>
+        }
+      </div>
+    </div>
+
+    @if (selectedAgency!.alertas.length > 0) {
+      <div class="sec-t"><i class="ti ti-alert-triangle"></i>Alertas</div>
+      <div class="inline-alerts">
+        @for (al of selectedAgency!.alertas; track al.mensaje) {
+          <div class="alert-row {{ alertPill(al.tipo) }}">
+            <i class="ti {{ alertIcon(al.tipo) }}"></i>
+            <span>{{ al.mensaje }}</span>
+            @if (al.actual != null) {
+              <span class="muted">Actual: <strong>{{ fmt(al.actual) }}</strong> · Umbral: <strong>{{ fmt(al.umbral) }}</strong></span>
+            }
+          </div>
+        }
+      </div>
+    }
+  }
+}

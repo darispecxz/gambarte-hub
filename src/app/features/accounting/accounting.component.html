@@ -7,14 +7,6 @@
 
 @if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
 
-<div class="tabs">
-  @for (t of tabs; track t.key) {
-    <button class="tab" [class.active]="t.key === selected" (click)="select(t.key)">
-      <i class="ti {{ t.icon }}"></i>{{ t.label }}
-    </button>
-  }
-</div>
-
 <div class="filters">
   <div class="fdrop"><label>Fecha</label><input type="date" [(ngModel)]="fecha"></div>
   @if (selected === 'cashier') {

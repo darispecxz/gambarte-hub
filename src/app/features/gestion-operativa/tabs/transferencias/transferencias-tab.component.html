@@ -1,0 +1,32 @@
+@if (loading) {
+  <div class="loading-block"><span class="spin lg"></span>Cargando transferencias...</div>
+}
+
+@if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
+
+@if (!loading) {
+<div class="sec-t"><i class="ti ti-transfer-vertical"></i>Transferencias entre bovedas — {{ fecha }}</div>
+@if (transferencias.length > 0) {
+  <div class="tbl scroll">
+    <table class="g">
+      <thead>
+        <tr><th>Origen</th><th>Destino</th><th>Moneda</th><th class="r">Monto</th><th>Fecha</th><th class="c">Estado</th></tr>
+      </thead>
+      <tbody>
+        @for (t of transferencias; track t.id) {
+          <tr>
+            <td><div class="fw"><div class="fw-ic"><i class="ti ti-building-store"></i></div><div class="fn">{{ t.agenciaOrigen }}</div></div></td>
+            <td>{{ t.agenciaDestino }}</td>
+            <td><span class="tag">{{ t.moneda }}</span></td>
+            <td class="r"><strong>{{ fmt(t.monto) }}</strong></td>
+            <td class="muted">{{ t.fecha | date:'short' }}</td>
+            <td class="c"><span class="pill {{ estadoPill(t.estado) }}">{{ t.estadoDesc }}</span></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+} @else {
+  <div class="empty"><i class="ti ti-transfer-vertical" style="font-size:32px;display:block;margin-bottom:8px;color:var(--tx3)"></i>No hay transferencias registradas hoy.</div>
+}
+}

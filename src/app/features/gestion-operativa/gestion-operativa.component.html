@@ -1,0 +1,219 @@
+<!-- Header -->
+<div class="ph">
+  <h1>Gestion Operativa</h1>
+  <i class="ti ti-chevron-right chev"></i>
+  <span class="view-chip"><i class="ti ti-command" style="font-size:14px"></i>Panel de decision</span>
+  <div class="pr">
+    <button class="obtn" (click)="load()" [disabled]="loading">
+      @if (loading) { <span class="spin"></span> } @else { <i class="ti ti-refresh"></i> }
+      Actualizar
+    </button>
+    <button class="obtn sm" (click)="toggleAutoRefresh()" [class.primary]="autoRefresh"
+            [title]="autoRefresh ? 'Auto-refresh activo (cada 3 min)' : 'Auto-refresh desactivado'">
+      <i class="ti" [class.ti-player-pause]="autoRefresh" [class.ti-player-play]="!autoRefresh"></i>
+      {{ autoRefresh ? 'Auto' : 'Manual' }}
+    </button>
+    <span class="muted" style="font-size:11px">{{ lastRefresh | date:'HH:mm:ss' }}</span>
+  </div>
+</div>
+
+<div class="filters">
+  <div class="fdrop"><label>Fecha</label><input type="date" [(ngModel)]="fecha"></div>
+  <button class="obtn primary" (click)="load()" [disabled]="loading"><i class="ti ti-filter"></i>Aplicar</button>
+</div>
+
+@if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
+
+@if (loading && !consolidado) {
+  <div class="loading-block"><span class="spin lg"></span>Cargando datos consolidados...</div>
+}
+
+@if (consolidado) {
+
+  <!-- KPIs: always visible on desktop, hidden on mobile (shown via "resumen" tab) -->
+  <div class="kpi-desktop">
+    <div class="kgrid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+      <div class="kcard" [class.kcard-loading]="loading">
+        <div class="ktit"><i class="ti ti-wallet"></i>Total Gambarte Bolivia</div>
+        @if (loading) { <div class="kval"><span class="spin"></span></div> } @else {
+          <div class="kval">{{ fmtCompact(consolidado.totales['BOB'] || 0) }}</div>
+          <div class="ksub">
+            @if (resumen && resumen.comparativa.deltaPct !== 0) {
+              <span [class.up]="resumen.comparativa.delta > 0" [class.down]="resumen.comparativa.delta < 0">
+                {{ resumen.comparativa.delta > 0 ? '+' : '' }}{{ resumen.comparativa.deltaPct }}% vs ayer
+              </span>
+            } @else { BOB equivalente }
+          </div>
+        }
+        <div class="kchip"><i class="ti ti-wallet"></i></div>
+      </div>
+      <div class="kcard" [class.kcard-loading]="loading">
+        <div class="ktit"><i class="ti ti-cash"></i>Efectivo</div>
+        @if (loading) { <div class="kval"><span class="spin"></span></div> } @else {
+          <div class="kval">{{ fmtCompact(kpiEfectivo) }}</div>
+          <div class="ksub">en cajas (BOB)</div>
+        }
+        <div class="kchip" style="background:var(--green-track);color:var(--green)"><i class="ti ti-cash"></i></div>
+      </div>
+      <div class="kcard" [class.kcard-loading]="loading">
+        <div class="ktit"><i class="ti ti-coins"></i>Bovedas</div>
+        @if (loading) { <div class="kval"><span class="spin"></span></div> } @else {
+          <div class="kval">{{ fmtCompact(kpiBoveda) }}</div>
+          <div class="ksub">BOB equiv.</div>
+        }
+        <div class="kchip" style="background:var(--blue-soft);color:var(--blue)"><i class="ti ti-coins"></i></div>
+      </div>
+      <div class="kcard" [class.kcard-loading]="loading">
+        <div class="ktit"><i class="ti ti-building-bank"></i>Bancos</div>
+        @if (loading) { <div class="kval"><span class="spin"></span></div> } @else {
+          <div class="kval">{{ fmtCompact(kpiBanco) }}</div>
+          <div class="ksub">BOB equiv.</div>
+        }
+        <div class="kchip" style="background:var(--amber-soft);color:var(--amber)"><i class="ti ti-building-bank"></i></div>
+      </div>
+      <div class="kcard">
+        <div class="ktit"><i class="ti ti-alert-triangle"></i>Alertas</div>
+        <div class="kval" [class.down]="totalAlertas > 0">{{ totalAlertas }}</div>
+        <div class="ksub">requieren atencion</div>
+        <div class="kchip"><i class="ti ti-alert-triangle"></i></div>
+      </div>
+      <div class="kcard">
+        <div class="ktit"><i class="ti ti-bell"></i>Notificaciones</div>
+        <div class="kval" [class.down]="notiConteo.critica > 0">{{ notiConteo.total }}</div>
+        <div class="ksub">
+          @if (notiConteo.critica > 0) { <span style="color:var(--red)">{{ notiConteo.critica }} criticas</span> }
+          @else { sin leer }
+        </div>
+        <div class="kchip"><i class="ti ti-bell"></i></div>
+      </div>
+    </div>
+
+    @if (resumen && resumen.cotizaciones.length > 0) {
+      <div class="cotiz-strip">
+        @for (c of resumen.cotizaciones; track c.moneda) {
+          <div class="cotiz-item">
+            <span class="cotiz-mon">{{ c.moneda }}</span>
+            <span class="cotiz-rates">
+              <span class="muted">C:</span> {{ fmt(c.compra, 4) }}
+              <span class="muted" style="margin-left:4px">V:</span> {{ fmt(c.venta, 4) }}
+            </span>
+            <span class="cotiz-spread">spread {{ fmt(c.spread, 4) }}</span>
+            <i class="ti {{ tendenciaIcon(c.tendencia) }} {{ tendenciaClass(c.tendencia) }}" style="font-size:16px"></i>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- TAB: Resumen (mobile only) -->
+  @if (activeTab === 'resumen') {
+    <div class="kpi-mobile-tab">
+      <div class="kgrid" style="grid-template-columns:repeat(2,1fr)">
+        <div class="kcard" [class.kcard-loading]="loading">
+          <div class="ktit"><i class="ti ti-wallet"></i>Total Bolivia</div>
+          @if (loading) { <div class="kval"><span class="spin"></span></div> } @else {
+            <div class="kval">{{ fmtCompact(consolidado.totales['BOB'] || 0) }}</div>
+            <div class="ksub">
+              @if (resumen && resumen.comparativa.deltaPct !== 0) {
+                <span [class.up]="resumen.comparativa.delta > 0" [class.down]="resumen.comparativa.delta < 0">
+                  {{ resumen.comparativa.delta > 0 ? '+' : '' }}{{ resumen.comparativa.deltaPct }}% vs ayer
+                </span>
+              } @else { BOB equivalente }
+            </div>
+          }
+          <div class="kchip"><i class="ti ti-wallet"></i></div>
+        </div>
+        <div class="kcard" [class.kcard-loading]="loading">
+          <div class="ktit"><i class="ti ti-cash"></i>Efectivo</div>
+          @if (loading) { <div class="kval"><span class="spin"></span></div> } @else {
+            <div class="kval">{{ fmtCompact(kpiEfectivo) }}</div>
+            <div class="ksub">en cajas (BOB)</div>
+          }
+          <div class="kchip" style="background:var(--green-track);color:var(--green)"><i class="ti ti-cash"></i></div>
+        </div>
+        <div class="kcard" [class.kcard-loading]="loading">
+          <div class="ktit"><i class="ti ti-coins"></i>Bovedas</div>
+          @if (loading) { <div class="kval"><span class="spin"></span></div> } @else {
+            <div class="kval">{{ fmtCompact(kpiBoveda) }}</div>
+            <div class="ksub">BOB equiv.</div>
+          }
+          <div class="kchip" style="background:var(--blue-soft);color:var(--blue)"><i class="ti ti-coins"></i></div>
+        </div>
+        <div class="kcard" [class.kcard-loading]="loading">
+          <div class="ktit"><i class="ti ti-building-bank"></i>Bancos</div>
+          @if (loading) { <div class="kval"><span class="spin"></span></div> } @else {
+            <div class="kval">{{ fmtCompact(kpiBanco) }}</div>
+            <div class="ksub">BOB equiv.</div>
+          }
+          <div class="kchip" style="background:var(--amber-soft);color:var(--amber)"><i class="ti ti-building-bank"></i></div>
+        </div>
+        <div class="kcard">
+          <div class="ktit"><i class="ti ti-alert-triangle"></i>Alertas</div>
+          <div class="kval" [class.down]="totalAlertas > 0">{{ totalAlertas }}</div>
+          <div class="ksub">requieren atencion</div>
+          <div class="kchip"><i class="ti ti-alert-triangle"></i></div>
+        </div>
+        <div class="kcard">
+          <div class="ktit"><i class="ti ti-bell"></i>Notificaciones</div>
+          <div class="kval" [class.down]="notiConteo.critica > 0">{{ notiConteo.total }}</div>
+          <div class="ksub">
+            @if (notiConteo.critica > 0) { <span style="color:var(--red)">{{ notiConteo.critica }} criticas</span> }
+            @else { sin leer }
+          </div>
+          <div class="kchip"><i class="ti ti-bell"></i></div>
+        </div>
+      </div>
+
+      @if (resumen && resumen.cotizaciones.length > 0) {
+        <div class="cotiz-strip" style="margin-top:12px">
+          @for (c of resumen.cotizaciones; track c.moneda) {
+            <div class="cotiz-item">
+              <span class="cotiz-mon">{{ c.moneda }}</span>
+              <span class="cotiz-rates">
+                <span class="muted">C:</span> {{ fmt(c.compra, 4) }}
+                <span class="muted" style="margin-left:4px">V:</span> {{ fmt(c.venta, 4) }}
+              </span>
+              <span class="cotiz-spread">spread {{ fmt(c.spread, 4) }}</span>
+              <i class="ti {{ tendenciaIcon(c.tendencia) }} {{ tendenciaClass(c.tendencia) }}" style="font-size:16px"></i>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Tab content via child components -->
+  @switch (activeTab) {
+    @case ('consolidado') {
+      <app-consolidado-tab [fecha]="fecha" [version]="tabVersion" />
+    }
+    @case ('cajas') {
+      <app-cajas-tab [fecha]="fecha" [version]="tabVersion" />
+    }
+    @case ('alertas') {
+      <app-alertas-tab [fecha]="fecha" [version]="tabVersion" />
+    }
+    @case ('fondeos') {
+      <app-fondeos-tab [fecha]="fecha" [version]="tabVersion" />
+    }
+    @case ('transferencias') {
+      <app-transferencias-tab [fecha]="fecha" [version]="tabVersion" />
+    }
+    @case ('rendimiento') {
+      <app-rendimiento-tab [fecha]="fecha" [version]="tabVersion" />
+    }
+    @case ('conciliacion') {
+      <app-conciliacion-tab [fecha]="fecha" [version]="tabVersion" />
+    }
+    @case ('movimientos') {
+      <app-movimientos-tab [fecha]="fecha" [version]="tabVersion" />
+    }
+    @case ('cotizaciones') {
+      <app-cotizaciones-tab [version]="tabVersion" />
+    }
+    @case ('notificaciones') {
+      <app-notificaciones-tab [fecha]="fecha" [version]="tabVersion" [notiConteo]="notiConteo" (navigate)="onNotificacionNavigate($event)" />
+    }
+  }
+
+}

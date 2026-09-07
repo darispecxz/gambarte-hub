@@ -159,6 +159,7 @@ export interface RemesaRow {
   estado: number;
   estadoDesc: string;
   correlativo: string;
+  porcentajeComision: number;
 }
 
 export interface RemesaDetail {

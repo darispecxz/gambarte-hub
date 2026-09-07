@@ -3,13 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import Chart from 'chart.js/auto';
 import { ApiService } from '../../core/api.service';
-import { LoadingComponent } from '../../shared/loading.component';
 import { currencyFlag, currencyName } from '../../core/currency';
 
 @Component({
   selector: 'app-operations',
   standalone: true,
-  imports: [CommonModule, FormsModule, LoadingComponent],
+  imports: [CommonModule, FormsModule],
   templateUrl: './operations.component.html',
   styleUrl: './operations.component.scss',
 })

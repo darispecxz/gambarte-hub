@@ -7,14 +7,6 @@
 
 @if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
 
-<div class="tabs">
-  @for (t of tabs; track t.key) {
-    <button class="tab" [class.active]="t.key === selected" (click)="select(t.key)">
-      <i class="ti {{ t.icon }}"></i>{{ t.label }}
-    </button>
-  }
-</div>
-
 <div class="filters">
   <div class="fdrop"><label>Desde</label><input type="date" [(ngModel)]="desde"></div>
   <div class="fdrop"><label>Hasta</label><input type="date" [(ngModel)]="hasta"></div>
@@ -38,16 +30,22 @@
   }
 
   @if (selected === 'giros' || selected === 'remesas') {
-    <div class="fdrop"><label>Estado</label>
-      <select [(ngModel)]="estadoFilter">
-        <option value="">Todos</option>
-        <option value="0">Pendiente</option>
-        <option value="1">Pagado</option>
-        <option value="2">Devuelto</option>
-        @if (selected === 'remesas') {
-          <option value="5">Anulado</option>
-        }
-      </select>
+    <div class="fdrop estado-drop">
+      <label>Estado</label>
+      <button class="estado-btn" type="button" (click)="estadoDropdownOpen = !estadoDropdownOpen">
+        {{ estadoLabel }}
+        <i class="ti ti-chevron-down" [class.open]="estadoDropdownOpen"></i>
+      </button>
+      @if (estadoDropdownOpen) {
+        <div class="estado-menu">
+          <label class="estado-check"><input type="checkbox" [checked]="estadoFilter.includes(0)" (change)="toggleEstado(0)"> Pendiente</label>
+          <label class="estado-check"><input type="checkbox" [checked]="estadoFilter.includes(1)" (change)="toggleEstado(1)"> Pagado</label>
+          <label class="estado-check"><input type="checkbox" [checked]="estadoFilter.includes(2)" (change)="toggleEstado(2)"> Devuelto</label>
+          @if (selected === 'remesas') {
+            <label class="estado-check"><input type="checkbox" [checked]="estadoFilter.includes(5)" (change)="toggleEstado(5)"> Anulado</label>
+          }
+        </div>
+      }
     </div>
   }
 

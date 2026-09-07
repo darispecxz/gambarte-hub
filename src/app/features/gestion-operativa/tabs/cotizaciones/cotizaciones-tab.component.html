@@ -1,0 +1,96 @@
+@if (loading) {
+  <div class="loading-block"><span class="spin lg"></span>Cargando cotizaciones...</div>
+}
+
+@if (!loading && cotizacionesAgencia.length > 0) {
+  <div class="cotiz-filter">
+    <button class="obtn sm" [class.primary]="selectedMoneda === ''" (click)="selectedMoneda = ''">Todas</button>
+    @for (m of monedas; track m) {
+      <button class="obtn sm" [class.primary]="selectedMoneda === m" (click)="selectedMoneda = m">{{ m }}</button>
+    }
+  </div>
+
+  <div class="kgrid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-bottom:16px">
+    <div class="kcard">
+      <div class="ktit"><i class="ti ti-arrow-down-left"></i>Prom. compra</div>
+      <div class="kval" style="font-size:22px">{{ fmt(promedioCompra, 4) }}</div>
+      <div class="ksub">{{ selectedMoneda || 'todas' }}</div>
+      <div class="kchip" style="background:var(--green-track);color:var(--green)"><i class="ti ti-arrow-down-left"></i></div>
+    </div>
+    <div class="kcard">
+      <div class="ktit"><i class="ti ti-arrow-up-right"></i>Prom. venta</div>
+      <div class="kval" style="font-size:22px">{{ fmt(promedioVenta, 4) }}</div>
+      <div class="ksub">{{ selectedMoneda || 'todas' }}</div>
+      <div class="kchip" style="background:var(--blue-soft);color:var(--blue)"><i class="ti ti-arrow-up-right"></i></div>
+    </div>
+    <div class="kcard">
+      <div class="ktit"><i class="ti ti-arrows-diff"></i>Spread prom.</div>
+      <div class="kval" style="font-size:22px">{{ fmt(promedioSpread, 4) }}</div>
+      <div class="ksub">margen</div>
+      <div class="kchip" style="background:var(--amber-soft);color:var(--amber)"><i class="ti ti-arrows-diff"></i></div>
+    </div>
+    @if (oficial.compra != null) {
+      <div class="kcard">
+        <div class="ktit"><i class="ti ti-building-bank"></i>Oficial BCB</div>
+        <div class="kval" style="font-size:22px">{{ fmt(oficial.compra, 4) }}</div>
+        <div class="ksub">tasa referencia</div>
+        <div class="kchip"><i class="ti ti-building-bank"></i></div>
+      </div>
+    }
+  </div>
+
+  <div class="cotiz-grid">
+    @for (c of filtered; track c.idAgencia + c.moneda) {
+      <div class="card cotiz-card">
+        <div class="cotiz-card-head">
+          <div class="fw">
+            <div class="fw-ic"><i class="ti ti-building-store"></i></div>
+            <div>
+              <div class="fn">{{ c.agencia }}</div>
+              <div class="fv"><span class="tag">{{ c.moneda }}</span></div>
+            </div>
+          </div>
+          @if (c.diffCompra != null && c.diffCompra !== 0) {
+            <span class="pill" [class.p-bad]="c.diffCompra < -0.2" [class.p-warn]="c.diffCompra >= -0.2 && c.diffCompra < 0" [class.p-ok]="c.diffCompra >= 0">
+              {{ c.diffCompra > 0 ? '+' : '' }}{{ fmt(c.diffCompra, 4) }} vs oficial
+            </span>
+          }
+        </div>
+
+        <div class="cotiz-rates-row">
+          <div class="cotiz-rate">
+            <span class="cotiz-rate-label">Compra</span>
+            <span class="cotiz-rate-val up">{{ fmt(c.compra, 4) }}</span>
+          </div>
+          <div class="cotiz-rate">
+            <span class="cotiz-rate-label">Venta</span>
+            <span class="cotiz-rate-val down">{{ fmt(c.venta, 4) }}</span>
+          </div>
+          <div class="cotiz-rate">
+            <span class="cotiz-rate-label">Spread</span>
+            <span class="cotiz-rate-val">{{ fmt(c.spread, 4) }}</span>
+          </div>
+        </div>
+
+        <div class="cotiz-spread-bar">
+          <div class="cotiz-spread-fill" [style.width.%]="spreadPct(c.spread)" [style.background]="spreadColor(c)"></div>
+        </div>
+
+        <div class="cotiz-card-foot">
+          <span class="muted" style="font-size:11px">
+            <i class="ti ti-clock" style="font-size:13px"></i> {{ c.ultimaModif }}
+          </span>
+          @if (c.oficialCompra != null) {
+            <span class="muted" style="font-size:11px">
+              Oficial: {{ fmt(c.oficialCompra, 4) }} / {{ fmt(c.oficialVenta, 4) }}
+            </span>
+          }
+        </div>
+      </div>
+    }
+  </div>
+}
+
+@if (!loading && cotizacionesAgencia.length === 0) {
+  <div class="empty"><i class="ti ti-currency-dollar-off" style="font-size:32px;display:block;margin-bottom:8px;color:var(--tx3)"></i>No hay cotizaciones activas.</div>
+}

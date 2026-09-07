@@ -1,3 +1,4 @@
+@if (auth.isLoggedIn) {
 <mat-sidenav-container class="app">
 
   <mat-sidenav #sidenav
@@ -19,12 +20,32 @@
         <div class="group">
           <div class="group-h"><i class="ti {{ g.icon }}"></i><span>{{ g.area }}</span></div>
           @for (item of g.items; track item.label) {
-            <a class="nav-item" [class.active]="isActive(item)"
-               [routerLink]="item.path" [queryParams]="item.query || null"
-               (click)="onNavClick()"
-               [title]="item.label">
-              <i class="ti {{ item.icon }}"></i><span class="lbl">{{ item.label }}</span>
-            </a>
+            @if (item.children) {
+              <button class="nav-item nav-parent" [class.active]="isActive(item)"
+                (click)="toggleChildren(item)" [title]="item.label">
+                <i class="ti {{ item.icon }}"></i><span class="lbl">{{ item.label }}</span>
+                <i class="ti ti-chevron-down chev" [class.open]="isExpanded(item)"></i>
+              </button>
+              @if (isExpanded(item)) {
+                <div class="sub-items">
+                  @for (child of item.children; track child.label) {
+                    <a class="nav-item sub-item" [class.active]="isActive(child)"
+                       [class.mobile-only]="child.mobileOnly"
+                       [routerLink]="child.path" [queryParams]="child.query || null"
+                       (click)="onNavClick()" [title]="child.label">
+                      <i class="ti {{ child.icon }}"></i><span class="lbl">{{ child.label }}</span>
+                    </a>
+                  }
+                </div>
+              }
+            } @else {
+              <a class="nav-item" [class.active]="isActive(item)"
+                 [routerLink]="item.path" [queryParams]="item.query || null"
+                 (click)="onNavClick()"
+                 [title]="item.label">
+                <i class="ti {{ item.icon }}"></i><span class="lbl">{{ item.label }}</span>
+              </a>
+            }
           }
         </div>
       }
@@ -32,8 +53,14 @@
 
     <div class="side-foot">
       <div class="foot-user">
-        <div class="av">DA</div>
-        <div class="who"><div class="n">Dennis Arispe</div><div class="r">Sistemas</div></div>
+        <div class="av">{{ userInitials }}</div>
+        <div class="who">
+          <div class="n">{{ auth.user?.nombre }}</div>
+          <div class="r">{{ auth.rol?.descripcion }}</div>
+        </div>
+        <button class="logout-btn" (click)="logout()" title="Cerrar sesión">
+          <i class="ti ti-logout"></i>
+        </button>
       </div>
     </div>
   </mat-sidenav>
@@ -41,7 +68,7 @@
   <mat-sidenav-content class="main">
     <header class="top">
       <button class="menu-btn" (click)="toggle()" title="Menú"><i class="ti ti-menu-2"></i></button>
-      <div class="unit"><i class="ti ti-building-store lead"></i>Sucursal La Paz · Central<i class="ti ti-chevron-down tr"></i></div>
+      <div class="unit"><i class="ti ti-building-store lead"></i>{{ agenciaLabel }}<i class="ti ti-chevron-down tr"></i></div>
       <div class="tsp"></div>
       <div class="live-dot"><span class="dot"></span>Datos en vivo</div>
       <div class="tbtn" title="Notificaciones"><i class="ti ti-bell"></i><span class="bd"></span></div>
@@ -53,3 +80,6 @@
   </mat-sidenav-content>
 
 </mat-sidenav-container>
+} @else {
+  <router-outlet />
+}

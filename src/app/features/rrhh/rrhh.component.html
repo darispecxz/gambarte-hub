@@ -1,0 +1,2823 @@
+<section class="page-header">
+  <div class="page-title">
+    <h1><i class="ti ti-users-group"></i> Recursos Humanos</h1>
+    <p class="page-subtitle">Gestión de personal, planillas y beneficios sociales — Bolivia</p>
+  </div>
+</section>
+
+<!-- ── Loading / Error ── -->
+@if (loading) { <app-loading /> }
+@if (error) {
+  <div class="error-banner"><i class="ti ti-alert-triangle"></i> {{ error }}</div>
+}
+
+<!-- ═══════════════════════════════════════════════════════ DASHBOARD ═══ -->
+@if (tab === 'dashboard' && dash && !loading) {
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="kpi-value">{{ dash.total_activos }}</div>
+      <div class="kpi-label">Empleados activos</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value">{{ dash.contratos_prox_vencer.length }}</div>
+      <div class="kpi-label">Contratos por vencer (60d)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value">{{ dash.vacaciones_pendientes.length }}</div>
+      <div class="kpi-label">Vacaciones por aprobar</div>
+    </div>
+    <div class="kpi-card warn">
+      <div class="kpi-value">{{ dash.capacitaciones_obligatorias_pendientes }}</div>
+      <div class="kpi-label">Capacitaciones obligatorias pend.</div>
+    </div>
+  </div>
+
+  <div class="dash-grid">
+    <!-- Distribución por tipo de contrato -->
+    <div class="dash-card">
+      <h3><i class="ti ti-file-description"></i> Por tipo de contrato</h3>
+      <div class="stat-list">
+        @for (t of dash.por_tipo_contrato; track t.tipo_contrato) {
+          <div class="stat-row">
+            <span class="stat-label">{{ tipoContratoLabel(t.tipo_contrato) }}</span>
+            <span class="stat-value">{{ t.total }}</span>
+          </div>
+        }
+        @if (dash.por_tipo_contrato.length === 0) {
+          <div class="empty-inline">Sin datos</div>
+        }
+      </div>
+    </div>
+
+    <!-- Distribución por área -->
+    <div class="dash-card">
+      <h3><i class="ti ti-building"></i> Por área</h3>
+      <div class="stat-list">
+        @for (a of dash.por_area; track a.area) {
+          <div class="stat-row">
+            <span class="stat-label">{{ a.area || 'Sin área' }}</span>
+            <span class="stat-value">{{ a.total }}</span>
+          </div>
+        }
+        @if (dash.por_area.length === 0) {
+          <div class="empty-inline">Sin datos</div>
+        }
+      </div>
+    </div>
+
+    <!-- Contratos próximos a vencer -->
+    <div class="dash-card full">
+      <h3><i class="ti ti-alert-circle"></i> Contratos próximos a vencer</h3>
+      @if (dash.contratos_prox_vencer.length === 0) {
+        <div class="empty-inline">No hay contratos próximos a vencer</div>
+      } @else {
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Empleado</th>
+                <th>Cargo</th>
+                <th>Agencia</th>
+                <th>Tipo</th>
+                <th>Vence</th>
+                <th>Días rest.</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (c of dash.contratos_prox_vencer; track c.id) {
+                <tr [class.urgent]="c.dias_restantes <= 15">
+                  <td>{{ c.empleado }}</td>
+                  <td>{{ c.cargo || '-' }}</td>
+                  <td>{{ c.agencia || '-' }}</td>
+                  <td>{{ tipoContratoLabel(c.tipo_contrato) }}</td>
+                  <td>{{ c.fecha_fin }}</td>
+                  <td><span class="badge" [class.closed]="c.dias_restantes <= 15" [class.inactive]="c.dias_restantes > 15">{{ c.dias_restantes }}d</span></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+
+    <!-- Vacaciones pendientes -->
+    <div class="dash-card full">
+      <h3><i class="ti ti-beach"></i> Solicitudes de vacación pendientes</h3>
+      @if (dash.vacaciones_pendientes.length === 0) {
+        <div class="empty-inline">No hay solicitudes pendientes</div>
+      } @else {
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Empleado</th>
+                <th>Tipo</th>
+                <th>Desde</th>
+                <th>Hasta</th>
+                <th>Días</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (v of dash.vacaciones_pendientes; track v.id) {
+                <tr>
+                  <td>{{ v.empleado }}</td>
+                  <td>{{ v.tipo }}</td>
+                  <td>{{ v.fecha_inicio }}</td>
+                  <td>{{ v.fecha_fin }}</td>
+                  <td>{{ v.dias }}</td>
+                  <td><span class="badge" [ngClass]="estadoBadgeClass(v.estado)">{{ v.estado }}</span></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  </div>
+}
+
+<!-- ═══════════════════════════════════════════════════════ EMPLEADOS ═══ -->
+@if (tab === 'empleados' && !loading) {
+  <!-- Toolbar -->
+  <div class="rrhh-toolbar">
+    <div class="filter-group">
+      <label>Estado</label>
+      <select [(ngModel)]="estadoFiltro" (change)="loadEmpleados()">
+        <option value="">Todos</option>
+        <option value="A">Activos</option>
+        <option value="I">Inactivos</option>
+        <option value="D">Desvinculados</option>
+      </select>
+    </div>
+    <div class="toolbar-spacer"></div>
+    <div class="rrhh-search">
+      <i class="ti ti-search"></i>
+      <input type="text" placeholder="Buscar por nombre o CI..." [(ngModel)]="busqueda" (keyup.enter)="loadEmpleados()" />
+    </div>
+    <button class="obtn primary" (click)="loadEmpleados()">
+      <i class="ti ti-refresh"></i> Buscar
+    </button>
+    <button class="obtn success" (click)="openAltaForm()">
+      <i class="ti ti-user-plus"></i> Alta
+    </button>
+    <button class="obtn danger" (click)="openBajaForm()">
+      <i class="ti ti-user-minus"></i> Baja
+    </button>
+  </div>
+
+  <!-- Perfil completo del empleado -->
+  @if (empleadoDetalle) {
+    <div class="emp-profile">
+      <!-- Header del perfil -->
+      <div class="emp-profile-header">
+        <div class="emp-avatar-area">
+          @if (empleadoDetalle.empleado.foto_url) {
+            <img [src]="empleadoDetalle.empleado.foto_url" alt="Foto" class="emp-avatar-img" />
+          } @else {
+            <div class="emp-avatar-placeholder">
+              <i class="ti ti-user"></i>
+            </div>
+          }
+        </div>
+        <div class="emp-header-info">
+          <h2 class="emp-name">{{ empNombreCompleto() }}</h2>
+          <div class="emp-header-meta">
+            <span class="emp-meta-item"><i class="ti ti-briefcase"></i> {{ empleadoDetalle.empleado.cargo || '-' }}</span>
+            <span class="emp-meta-item"><i class="ti ti-building"></i> {{ empleadoDetalle.empleado.agencia || '-' }}</span>
+            <span class="emp-meta-item"><i class="ti ti-id"></i> CI: {{ empleadoDetalle.empleado.ci }} {{ empleadoDetalle.empleado.ci_expedido || '' }}</span>
+            <span class="emp-meta-item"><i class="ti ti-calendar"></i> Antigüedad: {{ empAntiguedad() }}</span>
+          </div>
+          <div class="emp-header-badges">
+            <span class="badge" [ngClass]="estadoBadgeClass(empleadoDetalle.empleado.estado)">
+              {{ empleadoDetalle.empleado.estado === 'A' ? 'Activo' : empleadoDetalle.empleado.estado === 'I' ? 'Inactivo' : 'Desvinculado' }}
+            </span>
+            @if (empleadoDetalle.empleado.tipo_contrato) {
+              <span class="badge info">{{ tipoContratoLabel(empleadoDetalle.empleado.tipo_contrato) }}</span>
+            }
+            @if (empleadoDetalle.empleado.sueldo_base) {
+              <span class="emp-sueldo"><i class="ti ti-currency-dollar"></i> Bs {{ num(empleadoDetalle.empleado.sueldo_base) }}</span>
+            }
+          </div>
+        </div>
+        <div class="emp-header-actions">
+          <button class="obtn danger sm" (click)="openBajaForm(empleadoDetalle.empleado)"><i class="ti ti-user-minus"></i> Baja</button>
+          <button class="obtn" (click)="closeEmpleado()"><i class="ti ti-arrow-left"></i> Volver</button>
+        </div>
+      </div>
+
+      <!-- Sub-tabs del perfil -->
+      <nav class="emp-tabs">
+        <button [class.active]="empSubTab === 'personal'" (click)="setEmpSubTab('personal')">
+          <i class="ti ti-user"></i> Información Personal
+        </button>
+        <button [class.active]="empSubTab === 'laboral'" (click)="setEmpSubTab('laboral')">
+          <i class="ti ti-briefcase"></i> Laboral
+        </button>
+        <button [class.active]="empSubTab === 'asistencia'" (click)="setEmpSubTab('asistencia')">
+          <i class="ti ti-clock"></i> Asistencia
+        </button>
+        <button [class.active]="empSubTab === 'vacaciones'" (click)="setEmpSubTab('vacaciones')">
+          <i class="ti ti-beach"></i> Vacaciones
+        </button>
+        <button [class.active]="empSubTab === 'documentos'" (click)="setEmpSubTab('documentos')">
+          <i class="ti ti-file-text"></i> Documentos
+        </button>
+        <button [class.active]="empSubTab === 'evaluaciones'" (click)="setEmpSubTab('evaluaciones')">
+          <i class="ti ti-chart-bar"></i> Evaluaciones
+        </button>
+      </nav>
+
+      <!-- ── Sub-tab: Información Personal ── -->
+      @if (empSubTab === 'personal') {
+        <div class="emp-section-grid">
+          <!-- Datos personales -->
+          <div class="emp-card">
+            <div class="emp-card-title"><i class="ti ti-id-badge"></i> Datos Personales</div>
+            <div class="emp-info-grid">
+              <div class="emp-info-item"><label>CI</label><span>{{ empleadoDetalle.empleado.ci }} {{ empleadoDetalle.empleado.ci_expedido || '' }}</span></div>
+              <div class="emp-info-item"><label>Código Trabajador</label><span>{{ empleadoDetalle.empleado.cod_trab || '-' }}</span></div>
+              <div class="emp-info-item"><label>Nombres</label><span>{{ empleadoDetalle.empleado.nombres }}</span></div>
+              <div class="emp-info-item"><label>Apellido Paterno</label><span>{{ empleadoDetalle.empleado.apellido_paterno }}</span></div>
+              <div class="emp-info-item"><label>Apellido Materno</label><span>{{ empleadoDetalle.empleado.apellido_materno || '-' }}</span></div>
+              <div class="emp-info-item"><label>Fecha de Nacimiento</label><span>{{ empleadoDetalle.empleado.fecha_nacimiento || '-' }}</span></div>
+              <div class="emp-info-item"><label>Edad</label><span>{{ empEdad() !== null ? empEdad() + ' años' : '-' }}</span></div>
+              <div class="emp-info-item"><label>Género</label><span>{{ empleadoDetalle.empleado.genero === 'M' ? 'Masculino' : empleadoDetalle.empleado.genero === 'F' ? 'Femenino' : '-' }}</span></div>
+              <div class="emp-info-item"><label>Estado Civil</label><span>{{ empleadoDetalle.empleado.estado_civil || '-' }}</span></div>
+            </div>
+          </div>
+
+          <!-- Contacto y Domicilio -->
+          <div class="emp-card">
+            <div class="emp-card-title"><i class="ti ti-phone"></i> Contacto y Domicilio</div>
+            <div class="emp-info-grid">
+              <div class="emp-info-item"><label>Celular</label><span>{{ empleadoDetalle.empleado.telefono || '-' }}</span></div>
+              <div class="emp-info-item"><label>Teléfono Fijo</label><span>{{ empleadoDetalle.empleado.telefono_fijo && empleadoDetalle.empleado.telefono_fijo !== '0' ? empleadoDetalle.empleado.telefono_fijo : '-' }}</span></div>
+              <div class="emp-info-item"><label>Email Personal</label><span>{{ empleadoDetalle.empleado.email_personal || '-' }}</span></div>
+              <div class="emp-info-item"><label>Email Corporativo</label><span>{{ empleadoDetalle.empleado.email_corp || '-' }}</span></div>
+              <div class="emp-info-item full-span"><label>Dirección</label><span>{{ empleadoDetalle.empleado.direccion || '-' }}</span></div>
+              <div class="emp-info-item"><label>Lugar de Nacimiento</label><span>{{ empleadoDetalle.empleado.lugar_nacimiento || '-' }}</span></div>
+              <div class="emp-info-item"><label>Profesión</label><span>{{ empleadoDetalle.empleado.profesion || '-' }}</span></div>
+            </div>
+          </div>
+
+          <!-- Seguridad Social y Sistema -->
+          <div class="emp-card">
+            <div class="emp-card-title"><i class="ti ti-shield-check"></i> Seguridad Social y Sistema</div>
+            <div class="emp-info-grid">
+              <div class="emp-info-item"><label>NUA/CUA (AFP)</label><span>{{ empleadoDetalle.empleado.nua_cua || '-' }}</span></div>
+              <div class="emp-info-item"><label>Nro. Asegurado CNS</label><span>{{ empleadoDetalle.empleado.nro_asegurado_cns || '-' }}</span></div>
+              <div class="emp-info-item"><label>Usuario del Sistema</label><span>{{ empleadoDetalle.empleado.login_usu || '-' }}</span></div>
+              <div class="emp-info-item"><label>Registro en Sistema</label><span>{{ empleadoDetalle.empleado.fecha_registro_sistema || '-' }}</span></div>
+              @if (empleadoDetalle.empleado.roles && empleadoDetalle.empleado.roles.length > 0) {
+                <div class="emp-info-item full-span">
+                  <label>Roles</label>
+                  <span>
+                    @for (r of empleadoDetalle.empleado.roles; track r.abreviatura) {
+                      <span class="badge info" style="margin-right:4px">{{ r.descripcion }}</span>
+                    }
+                  </span>
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Documentos escaneados -->
+          <div class="emp-card">
+            <div class="emp-card-title"><i class="ti ti-scan"></i> Documentos Escaneados</div>
+            <div class="emp-docs-scanned">
+              <div class="emp-doc-slot">
+                <i class="ti ti-id-badge-2"></i>
+                <span>CI Escaneado</span>
+                <span class="emp-doc-status pending">Pendiente</span>
+              </div>
+              <div class="emp-doc-slot">
+                <i class="ti ti-photo"></i>
+                <span>Foto del Empleado</span>
+                @if (empleadoDetalle.empleado.foto_url) {
+                  <span class="emp-doc-status uploaded">Cargado</span>
+                } @else {
+                  <span class="emp-doc-status pending">Pendiente</span>
+                }
+              </div>
+              <div class="emp-doc-slot">
+                <i class="ti ti-map-pin"></i>
+                <span>Croquis Domicilio</span>
+                <span class="emp-doc-status pending">Pendiente</span>
+              </div>
+              <div class="emp-doc-slot">
+                <i class="ti ti-certificate"></i>
+                <span>Respaldo de Garantías</span>
+                <span class="emp-doc-status pending">Pendiente</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- ── Sub-tab: Laboral ── -->
+      @if (empSubTab === 'laboral') {
+        <div class="emp-section-grid">
+          <!-- Cargo actual -->
+          <div class="emp-card full-width">
+            <div class="emp-card-title"><i class="ti ti-briefcase"></i> Cargo Actual</div>
+            <div class="emp-info-grid">
+              <div class="emp-info-item"><label>Cargo</label><span>{{ empleadoDetalle.empleado.cargo || '-' }}</span></div>
+              <div class="emp-info-item"><label>Área</label><span>{{ empleadoDetalle.empleado.area || '-' }}</span></div>
+              <div class="emp-info-item"><label>Nivel</label><span>{{ empleadoDetalle.empleado.nivel || '-' }}</span></div>
+              <div class="emp-info-item"><label>Agencia</label><span>{{ empleadoDetalle.empleado.agencia || '-' }}</span></div>
+              <div class="emp-info-item"><label>Sueldo Base</label><span class="highlight">{{ empleadoDetalle.empleado.sueldo_base ? 'Bs ' + num(empleadoDetalle.empleado.sueldo_base) : '-' }}</span></div>
+              <div class="emp-info-item"><label>Tipo Contrato</label><span>{{ empleadoDetalle.empleado.tipo_contrato ? tipoContratoLabel(empleadoDetalle.empleado.tipo_contrato) : '-' }}</span></div>
+              <div class="emp-info-item"><label>Fecha Inicio</label><span>{{ empleadoDetalle.empleado.fecha_inicio || '-' }}</span></div>
+              <div class="emp-info-item"><label>Fecha Fin</label><span>{{ empleadoDetalle.empleado.fecha_fin || 'Indefinido' }}</span></div>
+            </div>
+          </div>
+
+          <!-- Historial de contratos -->
+          <div class="emp-card full-width">
+            <div class="emp-card-title" style="display:flex;align-items:center;gap:8px">
+              <i class="ti ti-file-description"></i> Historial de Contratos
+              <button class="obtn sm" style="margin-left:auto" (click)="openContratoForm()"><i class="ti ti-plus"></i> Nuevo</button>
+            </div>
+
+            @if (contratoFormOpen) {
+              <div class="detail-overlay" (click)="closeContratoForm()"></div>
+              <div class="detail-panel">
+                <div class="detail-header"><h2><i class="ti ti-file-description"></i> {{ contratoEditing ? 'Editar' : 'Nuevo' }} contrato</h2><button class="close-btn" (click)="closeContratoForm()"><i class="ti ti-x"></i></button></div>
+                <div class="detail-body">
+                  @if (contratoFormError) { <div class="vac-alert error"><i class="ti ti-alert-circle"></i> {{ contratoFormError }}</div> }
+                  <div class="vac-field">
+                    <label>Tipo de contrato</label>
+                    <select [(ngModel)]="contratoForm['tipo_contrato']">
+                      <option value="INDEFINIDO">Indefinido</option>
+                      <option value="PLAZO_FIJO">Plazo fijo</option>
+                      <option value="OBRA_DETERMINADA">Obra determinada</option>
+                      <option value="EVENTUAL">Eventual</option>
+                      <option value="CONSULTOR">Consultor</option>
+                    </select>
+                  </div>
+                  <div class="alta-row">
+                    <div class="vac-field"><label>Fecha inicio</label><input type="date" [(ngModel)]="contratoForm['fecha_inicio']" /></div>
+                    <div class="vac-field"><label>Fecha fin</label><input type="date" [(ngModel)]="contratoForm['fecha_fin']" /></div>
+                  </div>
+                  <div class="vac-field"><label>Sueldo base (Bs)</label><input type="number" [(ngModel)]="contratoForm['sueldo_base']" step="0.01" min="0" /></div>
+                  <div class="alta-row">
+                    <div class="vac-field">
+                      <label>Cargo</label>
+                      <app-search-select [options]="cargoOpts" [(ngModel)]="contratoForm['id_cargo']" placeholder="Buscar cargo..."></app-search-select>
+                    </div>
+                    <div class="vac-field">
+                      <label>Agencia</label>
+                      <app-search-select [options]="agenciaOpts" [(ngModel)]="contratoForm['id_agencia']" placeholder="Buscar agencia..."></app-search-select>
+                    </div>
+                  </div>
+                  <div class="detail-footer">
+                    <button class="obtn secondary" (click)="closeContratoForm()">Cancelar</button>
+                    <button class="obtn primary" (click)="submitContrato()"><i class="ti ti-check"></i> {{ contratoEditing ? 'Actualizar' : 'Crear' }}</button>
+                  </div>
+                </div>
+              </div>
+            }
+
+            @if (empleadoDetalle.contratos.length === 0) {
+              <p class="emp-empty">Sin contratos registrados</p>
+            } @else {
+              <div class="table-scroll">
+                <table class="data-table compact">
+                  <thead>
+                    <tr>
+                      <th>Tipo</th>
+                      <th>Cargo</th>
+                      <th>Agencia</th>
+                      <th>Fecha Inicio</th>
+                      <th>Fecha Fin</th>
+                      <th>Sueldo</th>
+                      <th>Estado</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (c of empleadoDetalle.contratos; track c.id) {
+                      <tr>
+                        <td>{{ tipoContratoLabel(c.tipo_contrato) }}</td>
+                        <td>{{ c.cargo || '-' }}</td>
+                        <td>{{ c.agencia || '-' }}</td>
+                        <td>{{ c.fecha_inicio }}</td>
+                        <td>{{ c.fecha_fin || 'Indefinido' }}</td>
+                        <td class="num-cell">Bs {{ num(c.sueldo_base) }}</td>
+                        <td><span class="badge" [ngClass]="estadoBadgeClass(c.estado)">{{ c.estado }}</span></td>
+                        <td>
+                          <button class="obtn sm" (click)="openContratoForm(c)"><i class="ti ti-edit"></i></button>
+                          @if (c.estado === 'VIGENTE') {
+                            <button class="obtn sm danger" (click)="rescindirContrato(c.id)"><i class="ti ti-ban"></i></button>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+
+          <!-- Capacitaciones -->
+          <div class="emp-card full-width">
+            <div class="emp-card-title"><i class="ti ti-school"></i> Capacitaciones</div>
+            @if (empleadoDetalle.capacitaciones.length === 0) {
+              <p class="emp-empty">Sin capacitaciones registradas</p>
+            } @else {
+              <div class="table-scroll">
+                <table class="data-table compact">
+                  <thead>
+                    <tr>
+                      <th>Título</th>
+                      <th>Tipo</th>
+                      <th>Fecha Inicio</th>
+                      <th>Fecha Fin</th>
+                      <th>Obligatoria</th>
+                      <th>Nota</th>
+                      <th>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (cp of empleadoDetalle.capacitaciones; track cp.id) {
+                      <tr>
+                        <td>{{ cp.titulo }}</td>
+                        <td>{{ cp.tipo }}</td>
+                        <td>{{ cp.fecha_inicio }}</td>
+                        <td>{{ cp.fecha_fin || '-' }}</td>
+                        <td>{{ cp.es_obligatoria ? 'Sí' : 'No' }}</td>
+                        <td class="num-cell">{{ cp.nota ?? '-' }}</td>
+                        <td><span class="badge" [ngClass]="estadoBadgeClass(cp.estado)">{{ cp.estado }}</span></td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- ── Sub-tab: Asistencia ── -->
+      @if (empSubTab === 'asistencia') {
+        <div class="emp-section-grid">
+          @if (empAsistencia) {
+            <div class="emp-card full-width">
+              <div class="emp-card-title"><i class="ti ti-clock"></i> Asistencia — {{ meses[mes - 1] }} {{ ejercicio }}</div>
+              <!-- Resumen -->
+              <div class="emp-kpi-row">
+                <div class="emp-kpi"><div class="emp-kpi-val">{{ empAsistencia.resumen.dias_trabajados }}</div><div class="emp-kpi-lbl">Días Trabajados</div></div>
+                <div class="emp-kpi"><div class="emp-kpi-val">{{ empAsistencia.resumen.faltas }}</div><div class="emp-kpi-lbl">Faltas</div></div>
+                <div class="emp-kpi"><div class="emp-kpi-val">{{ empAsistencia.resumen.atrasos_total }} min</div><div class="emp-kpi-lbl">Atrasos</div></div>
+                <div class="emp-kpi"><div class="emp-kpi-val">{{ empAsistencia.resumen.horas_extra_total }}</div><div class="emp-kpi-lbl">Horas Extra</div></div>
+              </div>
+              <!-- Detalle -->
+              <div class="table-scroll">
+                <table class="data-table compact">
+                  <thead>
+                    <tr>
+                      <th>Día</th>
+                      <th>AM Ingreso</th>
+                      <th>AM Salida</th>
+                      <th>PM Ingreso</th>
+                      <th>PM Salida</th>
+                      <th>Extras</th>
+                      <th>Atrasos</th>
+                      <th>Obs.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (r of empAsistencia.registros; track r.fecha) {
+                      <tr [class.falta]="r.tipo === 'FALTA'" [class.feriado]="r.tipo === 'FERIADO'">
+                        <td class="c">{{ r.fecha.substring(8) }}</td>
+                        <td class="c">{{ r.am_ingreso || '' }}</td>
+                        <td class="c">{{ r.am_salida || '' }}</td>
+                        <td class="c">{{ r.pm_ingreso || '' }}</td>
+                        <td class="c">{{ r.pm_salida || '' }}</td>
+                        <td class="c">{{ r.horas_extra > 0 ? r.horas_extra : '' }}</td>
+                        <td class="c">{{ (r.atrasos_min || 0) > 0 ? r.atrasos_min + ' min' : '' }}</td>
+                        <td>{{ r.tipo !== 'NORMAL' ? r.tipo : '' }} {{ r.observaciones || '' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          } @else {
+            <div class="emp-card full-width">
+              <div class="emp-card-title"><i class="ti ti-clock"></i> Asistencia</div>
+              <p class="emp-empty">Cargando registros de asistencia...</p>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- ── Sub-tab: Vacaciones ── -->
+      @if (empSubTab === 'vacaciones') {
+        <div class="emp-section-grid">
+          <!-- Saldo -->
+          @if (saldoVac) {
+            <div class="emp-card">
+              <div class="emp-card-title"><i class="ti ti-beach"></i> Saldo de Vacaciones ({{ ejercicio }})</div>
+              <div class="emp-kpi-row">
+                <div class="emp-kpi"><div class="emp-kpi-val">{{ saldoVac.antiguedad_anios }}</div><div class="emp-kpi-lbl">Años Antigüedad</div></div>
+                <div class="emp-kpi"><div class="emp-kpi-val">{{ saldoVac.dias_corresponde }}</div><div class="emp-kpi-lbl">Días Corresponde</div></div>
+                <div class="emp-kpi"><div class="emp-kpi-val">{{ saldoVac.dias_usados }}</div><div class="emp-kpi-lbl">Días Usados</div></div>
+                <div class="emp-kpi highlight"><div class="emp-kpi-val">{{ saldoVac.saldo }}</div><div class="emp-kpi-lbl">Saldo Disponible</div></div>
+              </div>
+            </div>
+          }
+
+          <!-- Historial de vacaciones -->
+          <div class="emp-card" [class.full-width]="!saldoVac">
+            <div class="emp-card-title"><i class="ti ti-calendar-event"></i> Historial de Vacaciones</div>
+            @if (empleadoDetalle.vacaciones.length === 0) {
+              <p class="emp-empty">Sin registros de vacaciones</p>
+            } @else {
+              <div class="table-scroll">
+                <table class="data-table compact">
+                  <thead>
+                    <tr>
+                      <th>Tipo</th>
+                      <th>Desde</th>
+                      <th>Hasta</th>
+                      <th>Días</th>
+                      <th>Estado</th>
+                      <th>Observaciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (v of empleadoDetalle.vacaciones; track v.id) {
+                      <tr>
+                        <td>{{ v.tipo }}</td>
+                        <td>{{ v.fecha_inicio }}</td>
+                        <td>{{ v.fecha_fin }}</td>
+                        <td class="num-cell">{{ v.dias }}</td>
+                        <td><span class="badge" [ngClass]="estadoBadgeClass(v.estado)">{{ v.estado }}</span></td>
+                        <td>{{ v.observaciones || '-' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- ── Sub-tab: Documentos ── -->
+      @if (empSubTab === 'documentos') {
+        <div class="emp-section-grid">
+          <div class="emp-card full-width">
+            <div class="emp-card-title"><i class="ti ti-files"></i> Documentos del Empleado</div>
+            <div class="emp-doc-categories">
+              <div class="emp-doc-cat">
+                <div class="emp-doc-cat-header"><i class="ti ti-file-description"></i> Contratos</div>
+                @for (c of empleadoDetalle.contratos; track c.id) {
+                  <div class="emp-doc-item">
+                    <i class="ti ti-file-text"></i>
+                    <span>{{ tipoContratoLabel(c.tipo_contrato) }} — {{ c.fecha_inicio }}</span>
+                    <span class="badge sm" [ngClass]="estadoBadgeClass(c.estado)">{{ c.estado }}</span>
+                  </div>
+                }
+                @if (empleadoDetalle.contratos.length === 0) {
+                  <p class="emp-empty">Sin contratos</p>
+                }
+              </div>
+
+              <div class="emp-doc-cat">
+                <div class="emp-doc-cat-header"><i class="ti ti-certificate"></i> Certificados</div>
+                <p class="emp-empty">Sin certificados generados</p>
+              </div>
+
+              <div class="emp-doc-cat">
+                <div class="emp-doc-cat-header"><i class="ti ti-mail"></i> Memorándums</div>
+                <p class="emp-empty">Sin memorándums registrados</p>
+              </div>
+
+              <div class="emp-doc-cat">
+                <div class="emp-doc-cat-header"><i class="ti ti-alert-triangle"></i> Llamadas de Atención</div>
+                <p class="emp-empty">Sin llamadas de atención</p>
+              </div>
+
+              <div class="emp-doc-cat">
+                <div class="emp-doc-cat-header"><i class="ti ti-receipt"></i> Boletas de Pago</div>
+                <p class="emp-empty">Sin boletas de pago registradas</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- ── Sub-tab: Evaluaciones ── -->
+      @if (empSubTab === 'evaluaciones') {
+        <div class="emp-section-grid">
+          <div class="emp-card full-width">
+            <div class="emp-card-title"><i class="ti ti-chart-bar"></i> Evaluaciones de Desempeño</div>
+            @if (empleadoDetalle.evaluaciones.length === 0) {
+              <p class="emp-empty">Sin evaluaciones registradas</p>
+            } @else {
+              <div class="table-scroll">
+                <table class="data-table compact">
+                  <thead>
+                    <tr>
+                      <th>Período</th>
+                      <th>Puntaje</th>
+                      <th>Categoría</th>
+                      <th>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (ev of empleadoDetalle.evaluaciones; track ev.id) {
+                      <tr>
+                        <td>{{ ev.periodo }}</td>
+                        <td class="num-cell">{{ ev.puntaje ?? '-' }}</td>
+                        <td>{{ ev.categoria || '-' }}</td>
+                        <td><span class="badge" [ngClass]="estadoBadgeClass(ev.estado)">{{ ev.estado }}</span></td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Lista de empleados -->
+  @if (empleados.length === 0 && !empleadoDetalle) {
+    <div class="empty-state">
+      <i class="ti ti-users-minus"></i>
+      <p>No se encontraron empleados</p>
+    </div>
+  } @else if (!empleadoDetalle) {
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>CI</th>
+            <th>Nombre completo</th>
+            <th>Cargo</th>
+            <th>Área</th>
+            <th>Agencia</th>
+            <th>Contrato</th>
+            <th>Sueldo</th>
+            <th>Estado</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (e of empleados; track e.id) {
+            <tr>
+              <td>{{ e.ci }}</td>
+              <td class="name-cell">{{ e.apellido_paterno }} {{ e.apellido_materno || '' }} {{ e.nombres }}</td>
+              <td class="truncate-cell" title="{{ e.cargo || '-' }}">{{ e.cargo || '-' }}</td>
+              <td class="truncate-cell" title="{{ e.area || '-' }}">{{ e.area || '-' }}</td>
+              <td>{{ e.agencia || '-' }}</td>
+              <td>{{ e.tipo_contrato ? tipoContratoLabel(e.tipo_contrato) : '-' }}</td>
+              <td class="num-cell">{{ e.sueldo_base ? 'Bs ' + num(e.sueldo_base) : '-' }}</td>
+              <td><span class="badge" [ngClass]="estadoBadgeClass(e.estado)">{{ e.estado === 'A' ? 'Activo' : e.estado === 'I' ? 'Inactivo' : 'Desvinculado' }}</span></td>
+              <td><button class="obtn sm" (click)="openEmpleado(e.id)"><i class="ti ti-eye"></i></button></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+}
+
+<!-- ═══════════════════════════════════════════════════════ PLANILLAS ═══ -->
+@if (tab === 'planillas' && !loading) {
+  <div class="rrhh-toolbar">
+    <div class="filter-group">
+      <label>Gestión</label>
+      <input type="number" [(ngModel)]="ejercicio" min="2020" max="2030" style="width:90px" />
+    </div>
+    <div class="filter-group">
+      <label>Mes</label>
+      <select [(ngModel)]="mes">
+        @for (m of meses; track $index) {
+          <option [ngValue]="$index + 1">{{ m }}</option>
+        }
+      </select>
+    </div>
+    <button class="obtn primary" (click)="loadPlanillas()"><i class="ti ti-refresh"></i> Consultar</button>
+    <button class="obtn secondary" (click)="previewPlanilla()"><i class="ti ti-calculator"></i> Previsualizar cálculo</button>
+    <button class="obtn accent" (click)="generarPlanilla()" [disabled]="planillaGenerando"><i class="ti ti-bolt"></i> {{ planillaGenerando ? 'Generando...' : 'Generar planilla' }}</button>
+    @if (planillaPreview) {
+      <button class="obtn secondary" (click)="exportarPlanilla()"><i class="ti ti-file-type-pdf"></i> PDF</button>
+      <button class="obtn secondary" (click)="exportarPlanillaExcel()"><i class="ti ti-file-type-xls"></i> Excel</button>
+    }
+    @if (planillaGenMsg) {
+      <span class="toolbar-msg">{{ planillaGenMsg }}</span>
+    }
+  </div>
+
+  <!-- Preview de planilla calculada -->
+  @if (planillaPreview) {
+    <div class="preview-section">
+      <div class="preview-header">
+        <h3><i class="ti ti-calculator"></i> Planilla de Sueldos y Salarios — {{ meses[planillaPreview.mes - 1] }} {{ planillaPreview.gestion }}</h3>
+        <button class="obtn sm" (click)="closePlanillaPreview()"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="kpi-row sm">
+        <div class="kpi-card"><div class="kpi-value">Bs {{ num(planillaPreview.total_ganado) }}</div><div class="kpi-label">Total ganado</div></div>
+        <div class="kpi-card"><div class="kpi-value">Bs {{ num(planillaPreview.total_descuento) }}</div><div class="kpi-label">Total descuentos</div></div>
+        <div class="kpi-card"><div class="kpi-value">Bs {{ num(planillaPreview.total_liquido) }}</div><div class="kpi-label">Total líquido pagable</div></div>
+        <div class="kpi-card"><div class="kpi-value">Bs {{ num(planillaPreview.total_patronal) }}</div><div class="kpi-label">Aportes patronales</div></div>
+      </div>
+      <div class="table-scroll">
+        <table class="data-table compact planilla-table">
+          <thead>
+            <tr>
+              <th rowspan="2" class="sticky-col">N°</th>
+              <th rowspan="2" class="sticky-col col-emp">Empleado</th>
+              <th rowspan="2">Cargo</th>
+              <th rowspan="2" class="num">Sueldo Básico</th>
+              <th rowspan="2" class="num">Días</th>
+              <th rowspan="2" class="num">Salario Ganado</th>
+              <th rowspan="2" class="num">Años</th>
+              <th rowspan="2" class="num">Bono Antig.</th>
+              <th colspan="2" class="group-header he">Horas Extra</th>
+              <th colspan="2" class="group-header bonus">Otros</th>
+              <th rowspan="2" class="num total-col">Total Ganado</th>
+              <th colspan="4" class="group-header desc">Descuentos</th>
+              <th rowspan="2" class="num total-col">Total Desc.</th>
+              <th rowspan="2" class="num total-col liquido">Líquido Pagable</th>
+              <th rowspan="2" class="num">Patronal</th>
+            </tr>
+            <tr>
+              <th class="num sub-he">Cant.</th>
+              <th class="num sub-he">Monto</th>
+              <th class="num sub-bonus">Dominical</th>
+              <th class="num sub-bonus">Otros</th>
+              <th class="num sub-desc">AFP 12.71%</th>
+              <th class="num sub-desc">Nac. Sol.</th>
+              <th class="num sub-desc">RC-IVA</th>
+              <th class="num sub-desc">Otros</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (l of planillaPreview.lineas; track l.id_empleado; let i = $index) {
+              <tr>
+                <td class="c sticky-col">{{ i + 1 }}</td>
+                <td class="sticky-col col-emp">{{ l.empleado || 'Emp #' + l.id_empleado }}</td>
+                <td class="truncate-cell">{{ l.cargo || '-' }}</td>
+                <td class="num-cell">{{ num(l.sueldo_base) }}</td>
+                <td class="num-cell c">30</td>
+                <td class="num-cell">{{ num(l.sueldo_base) }}</td>
+                <td class="num-cell c">{{ l.bono_antiguedad > 0 ? l.antiguedad_anios : '' }}</td>
+                <td class="num-cell">{{ num(l.bono_antiguedad) }}</td>
+                <td class="num-cell c">{{ l.horas_extra > 0 ? l.horas_extra : '' }}</td>
+                <td class="num-cell">{{ l.monto_horas_extra > 0 ? num(l.monto_horas_extra) : '0,00' }}</td>
+                <td class="num-cell">{{ l.monto_dominicales > 0 ? num(l.monto_dominicales) : '0,00' }}</td>
+                <td class="num-cell">0,00</td>
+                <td class="num-cell bold total-col">{{ num(l.total_ganado) }}</td>
+                <td class="num-cell">{{ num(l.aporte_afp + l.riesgo_comun + l.comision_afp + l.solidario_aseg) }}</td>
+                <td class="num-cell">{{ num(l.nacional_solidario) }}</td>
+                <td class="num-cell">{{ num(l.rciva) }}</td>
+                <td class="num-cell">0,00</td>
+                <td class="num-cell bold total-col">{{ num(l.total_descuentos) }}</td>
+                <td class="num-cell bold total-col liquido">{{ num(l.liquido_pagable) }}</td>
+                <td class="num-cell">{{ num(l.total_patronal) }}</td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr class="totals-row">
+              <td colspan="2" class="sticky-col"><strong>TOTALES</strong></td>
+              <td></td>
+              <td class="num-cell bold">{{ num(sumCol(planillaPreview.lineas, 'sueldo_base')) }}</td>
+              <td></td>
+              <td class="num-cell bold">{{ num(sumCol(planillaPreview.lineas, 'sueldo_base')) }}</td>
+              <td></td>
+              <td class="num-cell bold">{{ num(sumCol(planillaPreview.lineas, 'bono_antiguedad')) }}</td>
+              <td></td>
+              <td class="num-cell bold">{{ num(sumCol(planillaPreview.lineas, 'monto_horas_extra')) }}</td>
+              <td class="num-cell bold">{{ num(sumCol(planillaPreview.lineas, 'monto_dominicales')) }}</td>
+              <td class="num-cell bold">0,00</td>
+              <td class="num-cell bold total-col">{{ num(planillaPreview.total_ganado) }}</td>
+              <td class="num-cell bold">{{ num(sumAfp(planillaPreview.lineas)) }}</td>
+              <td class="num-cell bold">{{ num(sumCol(planillaPreview.lineas, 'nacional_solidario')) }}</td>
+              <td class="num-cell bold">{{ num(sumCol(planillaPreview.lineas, 'rciva')) }}</td>
+              <td class="num-cell bold">0,00</td>
+              <td class="num-cell bold total-col">{{ num(planillaPreview.total_descuento) }}</td>
+              <td class="num-cell bold total-col liquido">{{ num(planillaPreview.total_liquido) }}</td>
+              <td class="num-cell bold">{{ num(planillaPreview.total_patronal) }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  }
+
+  <!-- Lista de planillas generadas -->
+  @if (!planillaPreview) {
+    @if (planillas.length === 0) {
+      <div class="empty-state">
+        <i class="ti ti-receipt-off"></i>
+        <p>No hay planillas para la gestión {{ ejercicio }}</p>
+      </div>
+    } @else {
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Mes</th>
+              <th>Agencia</th>
+              <th>Estado</th>
+              <th class="num">Total ganado</th>
+              <th class="num">Total descuento</th>
+              <th class="num">Total líquido</th>
+              <th class="num">Patronal</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of planillas; track p.id) {
+              <tr>
+                <td>{{ meses[p.mes - 1] }} {{ p.gestion }}</td>
+                <td>{{ p.agencia || 'Consolidada' }}</td>
+                <td><span class="badge" [ngClass]="estadoBadgeClass(p.estado)">{{ p.estado }}</span></td>
+                <td class="num-cell">Bs {{ num(p.total_ganado) }}</td>
+                <td class="num-cell">Bs {{ num(p.total_descuento) }}</td>
+                <td class="num-cell bold">Bs {{ num(p.total_liquido) }}</td>
+                <td class="num-cell">Bs {{ num(p.total_patronal) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+}
+
+<!-- ═══════════════════════════════════════════════════════ ASISTENCIA ═══ -->
+@if (tab === 'asistencia' && !loading) {
+  <div class="rrhh-toolbar">
+    <div class="filter-group">
+      <label>Gestión</label>
+      <input type="number" [(ngModel)]="ejercicio" min="2020" max="2030" style="width:90px" />
+    </div>
+    <div class="filter-group">
+      <label>Mes</label>
+      <select [(ngModel)]="mes">
+        @for (m of meses; track $index) {
+          <option [ngValue]="$index + 1">{{ m }}</option>
+        }
+      </select>
+    </div>
+    <button class="obtn primary" (click)="loadControlJornada()"><i class="ti ti-refresh"></i> Consultar</button>
+    <div class="toolbar-spacer"></div>
+    <button class="obtn secondary" (click)="openAsistForm()"><i class="ti ti-pencil-plus"></i> Registrar Asistencia</button>
+  </div>
+
+  <!-- Formulario de asistencia (slide panel) -->
+  @if (asistFormOpen) {
+    <div class="vac-form-overlay" (click)="closeAsistForm()"></div>
+    <div class="vac-form-panel">
+      <div class="vac-form-header" style="background: linear-gradient(135deg, #1f2937, #374151);">
+        <div class="vac-form-title">
+          <i class="ti ti-clipboard-check"></i>
+          <div>
+            <h3>Registrar Asistencia</h3>
+            <span>Hoja de asistencia diaria</span>
+          </div>
+        </div>
+        <button class="vac-form-close" (click)="closeAsistForm()"><i class="ti ti-x"></i></button>
+      </div>
+
+      <div class="vac-form-body">
+        @if (asistFormError) {
+          <div class="vac-alert error"><i class="ti ti-alert-circle"></i> {{ asistFormError }}</div>
+        }
+        @if (asistFormSuccess) {
+          <div class="vac-alert success"><i class="ti ti-circle-check"></i> {{ asistFormSuccess }}</div>
+        }
+
+        <!-- Empleado -->
+        <div class="vac-field">
+          <label><i class="ti ti-user"></i> Empleado</label>
+          <app-search-select [options]="asistenciaEmpleadoOpts" [(ngModel)]="asistForm.id_empleado" placeholder="Buscar empleado..."></app-search-select>
+        </div>
+
+        <!-- Fecha -->
+        <div class="vac-field">
+          <label><i class="ti ti-calendar"></i> Fecha</label>
+          <input type="date" [(ngModel)]="asistForm.fecha" />
+        </div>
+
+        <!-- Tipo -->
+        <div class="vac-field">
+          <label><i class="ti ti-tag"></i> Tipo de registro</label>
+          <div class="asist-tipo-group">
+            @for (t of [
+              {val: 'NORMAL', icon: 'ti-check', label: 'Normal'},
+              {val: 'FALTA', icon: 'ti-x', label: 'Falta'},
+              {val: 'FERIADO', icon: 'ti-calendar-off', label: 'Feriado'},
+              {val: 'PERMISO', icon: 'ti-clock-pause', label: 'Permiso'},
+              {val: 'LICENCIA', icon: 'ti-file-certificate', label: 'Licencia'}
+            ]; track t.val) {
+              <label class="asist-tipo-option" [class.selected]="asistForm.tipo === t.val" [class.falta]="t.val === 'FALTA'" [class.fer]="t.val === 'FERIADO'">
+                <input type="radio" name="asistTipo" [value]="t.val" [(ngModel)]="asistForm.tipo" />
+                <i class="ti" [ngClass]="t.icon"></i>
+                {{ t.label }}
+              </label>
+            }
+          </div>
+        </div>
+
+        <!-- Turno Mañana -->
+        @if (asistForm.tipo === 'NORMAL') {
+          <div class="asist-turno-section">
+            <div class="asist-turno-label"><i class="ti ti-sun"></i> Turno Mañana</div>
+            <div class="asist-turno-row">
+              <div class="vac-field">
+                <label>Ingreso</label>
+                <input type="time" [(ngModel)]="asistForm.am_ingreso" />
+              </div>
+              <span class="asist-turno-sep">—</span>
+              <div class="vac-field">
+                <label>Salida</label>
+                <input type="time" [(ngModel)]="asistForm.am_salida" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Turno Tarde -->
+          <div class="asist-turno-section">
+            <div class="asist-turno-label"><i class="ti ti-moon"></i> Turno Tarde</div>
+            <div class="asist-turno-row">
+              <div class="vac-field">
+                <label>Ingreso</label>
+                <input type="time" [(ngModel)]="asistForm.pm_ingreso" />
+              </div>
+              <span class="asist-turno-sep">—</span>
+              <div class="vac-field">
+                <label>Salida</label>
+                <input type="time" [(ngModel)]="asistForm.pm_salida" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Extras y Atrasos -->
+          <div class="asist-extras-row">
+            <div class="vac-field">
+              <label><i class="ti ti-clock-plus"></i> Horas Extra</label>
+              <input type="number" [(ngModel)]="asistForm.extras" min="0" max="4" step="0.5" />
+            </div>
+            <div class="vac-field">
+              <label><i class="ti ti-clock-exclamation"></i> Atrasos (min)</label>
+              <input type="number" [(ngModel)]="asistForm.atrasos" min="0" max="120" step="5" />
+            </div>
+          </div>
+        }
+
+        <!-- Observaciones -->
+        <div class="vac-field">
+          <label><i class="ti ti-notes"></i> Observaciones</label>
+          <textarea [(ngModel)]="asistForm.observaciones" placeholder="Ej: Feriado departamental, Descanso por feriado, Permiso médico..."></textarea>
+        </div>
+
+        <!-- Nota legal -->
+        <div class="vac-legal-note">
+          <i class="ti ti-scale"></i>
+          <span>
+            <strong>Art. 46 LGT:</strong> Jornada máxima 8h/día hombres, 7h/día mujeres.
+            <strong>Art. 50 LGT:</strong> Horas extras remuneradas al 100% sobre el salario.
+            <strong>Art. 55 LGT:</strong> Trabajo dominical remunerado al 200%.
+          </span>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="vac-form-footer">
+        <button class="obtn" (click)="closeAsistForm()">Cancelar</button>
+        <button class="obtn primary" (click)="submitAsistencia()" [disabled]="asistProcessing">
+          @if (asistProcessing) { <span class="spin"></span> Registrando... }
+          @else { <i class="ti ti-device-floppy"></i> Guardar Registro }
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (controlJornada) {
+    <!-- KPIs de asistencia -->
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-value">{{ controlJornada.total_empleados }}</div>
+        <div class="kpi-label">Empleados</div>
+      </div>
+      <div class="kpi-card" [class.warn]="controlJornada.total_con_alertas > 0">
+        <div class="kpi-value">{{ controlJornada.total_con_alertas }}</div>
+        <div class="kpi-label">Con alertas de jornada</div>
+      </div>
+    </div>
+
+    <!-- Alertas de jornada -->
+    @if (controlJornada.alertas.length > 0) {
+      <div class="alertas-section">
+        <h3><i class="ti ti-alert-triangle"></i> Alertas de control de jornada</h3>
+        <p class="alert-legend">
+          Bolivia: Jornada máxima <strong>8h/día (48h/semana)</strong> hombres,
+          <strong>7h/día (40h/semana)</strong> mujeres (Art. 46 LGT).
+          Horas extra máximo <strong>2h/día</strong>.
+        </p>
+        @for (a of controlJornada.alertas; track a.id_empleado) {
+          <div class="alerta-card">
+            <div class="alerta-empleado">
+              <i class="ti ti-user-exclamation"></i>
+              <span>{{ a.empleado }}</span>
+            </div>
+            @for (al of a.alertas; track al.tipo) {
+              <div class="alerta-item" [class.alta]="al.severidad === 'alta'" [class.media]="al.severidad === 'media'">
+                <i class="ti" [ngClass]="al.severidad === 'alta' ? 'ti-alert-octagon' : 'ti-alert-triangle'"></i>
+                {{ al.mensaje }}
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Detalle de marcaciones por empleado (Hoja de Asistencia) -->
+    @if (asistenciaDetalleOpen) {
+      <div class="detail-overlay" (click)="closeAsistenciaDetalle()"></div>
+      <div class="detail-panel hoja-asistencia">
+        <div class="detail-header">
+          <h2><i class="ti ti-clipboard-list"></i> Hoja de Asistencia</h2>
+          <div class="detail-actions">
+            <button class="obtn sm" (click)="exportarAsistencia()" title="Exportar / Imprimir"><i class="ti ti-printer"></i> Exportar</button>
+            <button class="close-btn" (click)="closeAsistenciaDetalle()"><i class="ti ti-x"></i></button>
+          </div>
+        </div>
+
+        @if (asistenciaDetalleData) {
+          <!-- Cabecera info empleado -->
+          <div class="hoja-info">
+            <div class="hoja-info-row">
+              <div class="hoja-info-item"><span class="hoja-label">Nombre:</span> {{ asistenciaDetalleData.empleado }}</div>
+              <div class="hoja-info-item"><span class="hoja-label">Lugar de Trabajo:</span> {{ asistenciaDetalleData.lugar_trabajo }}</div>
+            </div>
+            <div class="hoja-info-row">
+              <div class="hoja-info-item"><span class="hoja-label">Cargo:</span> {{ asistenciaDetalleData.cargo }}</div>
+              <div class="hoja-info-item"><span class="hoja-label">Mes:</span> {{ meses[asistenciaDetalleData.mes - 1] }} {{ asistenciaDetalleData.gestion }}</div>
+            </div>
+          </div>
+
+          <!-- Tabla de asistencia formato hoja -->
+          <div class="detail-body">
+            <div class="table-scroll">
+              <table class="data-table compact hoja-table">
+                <thead>
+                  <tr>
+                    <th rowspan="2" class="th-dia">Día</th>
+                    <th colspan="2" class="th-turno-am">Turno Mañana</th>
+                    <th colspan="2" class="th-turno-pm">Turno Tarde</th>
+                    <th rowspan="2" class="th-extras">Extras</th>
+                    <th rowspan="2" class="th-atrasos">Atrasos</th>
+                    <th rowspan="2" class="th-obs">Observaciones</th>
+                  </tr>
+                  <tr>
+                    <th class="th-sub-am">Ingreso</th><th class="th-sub-am">Salida</th>
+                    <th class="th-sub-pm">Ingreso</th><th class="th-sub-pm">Salida</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (r of asistenciaDetalleData.registros; track r.id) {
+                    <tr [class.falta]="r.tipo === 'FALTA'"
+                        [class.feriado-row]="r.tipo === 'FERIADO'"
+                        [class.licencia]="r.tipo === 'LICENCIA' || r.tipo === 'PERMISO'">
+                      <td class="c dia-cell">{{ r.fecha.substring(8, 10) }}</td>
+                      <td class="c">{{ r.am_ingreso || '' }}</td>
+                      <td class="c">{{ r.am_salida || '' }}</td>
+                      <td class="c">{{ r.pm_ingreso || '' }}</td>
+                      <td class="c">{{ r.pm_salida || '' }}</td>
+                      <td class="c">{{ r.horas_extra > 0 ? r.horas_extra : '' }}</td>
+                      <td class="c">{{ (r.atrasos_min || 0) > 0 ? r.atrasos_min + ' min' : '' }}</td>
+                      <td class="obs-cell">
+                        @if (r.tipo !== 'NORMAL') {
+                          <span class="badge sm" [ngClass]="r.tipo === 'FALTA' ? 'closed' : r.tipo === 'FERIADO' ? 'info' : 'inactive'">{{ r.tipo }}</span>
+                        }
+                        {{ r.observaciones || '' }}
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Resumen pie -->
+          <div class="hoja-resumen">
+            <div class="hoja-resumen-item">
+              <div class="hoja-resumen-val">{{ asistenciaDetalleData.resumen.dias_trabajados }}</div>
+              <div class="hoja-resumen-lbl">Días Trabajados</div>
+            </div>
+            <div class="hoja-resumen-item warn">
+              <div class="hoja-resumen-val">{{ asistenciaDetalleData.resumen.faltas }}</div>
+              <div class="hoja-resumen-lbl">Faltas</div>
+            </div>
+            <div class="hoja-resumen-item">
+              <div class="hoja-resumen-val">{{ asistenciaDetalleData.resumen.feriados }}</div>
+              <div class="hoja-resumen-lbl">Feriados</div>
+            </div>
+            <div class="hoja-resumen-item" [class.warn]="asistenciaDetalleData.resumen.atrasos_total > 0">
+              <div class="hoja-resumen-val">{{ asistenciaDetalleData.resumen.atrasos_total }} min</div>
+              <div class="hoja-resumen-lbl">Atrasos</div>
+            </div>
+            <div class="hoja-resumen-item">
+              <div class="hoja-resumen-val">{{ asistenciaDetalleData.resumen.horas_extra_total }}</div>
+              <div class="hoja-resumen-lbl">Horas Extra</div>
+            </div>
+          </div>
+
+          <div class="hoja-legal">
+            <i class="ti ti-scale"></i>
+            Art. 46 LGT — Jornada máxima 8h/día hombres, 7h/día mujeres &bull;
+            Art. 50 LGT — Horas extra al 100% &bull;
+            Art. 55 LGT — Dominical al 200%
+          </div>
+        } @else {
+          <div class="detail-body"><app-loading /></div>
+        }
+      </div>
+    }
+
+    <!-- Tabla de resumen de asistencia -->
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Empleado</th>
+            <th>Género</th>
+            <th>Jornada</th>
+            <th class="num">Días trab.</th>
+            <th class="num">Horas trab.</th>
+            <th class="num">Máx. mes</th>
+            <th class="num">% Jornada</th>
+            <th class="num">HE</th>
+            <th class="num">Faltas</th>
+            <th class="num">Dom.</th>
+            <th>Estado</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (e of controlJornada.resumen; track e.id_empleado) {
+            <tr [class.alerta-row]="e.alertas && e.alertas.length > 0">
+              <td class="name-cell">{{ e.empleado }}</td>
+              <td>{{ e.genero === 'F' ? 'Mujer' : 'Hombre' }}</td>
+              <td>{{ e.jornada_diaria }}h/día</td>
+              <td class="num-cell">{{ e.dias_trabajados }}</td>
+              <td class="num-cell">{{ num(e.horas_trabajadas, 1) }}</td>
+              <td class="num-cell">{{ num(e.horas_max_mes, 0) }}</td>
+              <td class="num-cell">
+                <div class="progress-bar-container">
+                  <div class="progress-bar"
+                       [style.width.%]="Math.min(e.porcentaje_jornada, 100)"
+                       [class.warning]="e.porcentaje_jornada >= 90 && e.porcentaje_jornada < 100"
+                       [class.danger]="e.porcentaje_jornada >= 100">
+                  </div>
+                  <span>{{ e.porcentaje_jornada }}%</span>
+                </div>
+              </td>
+              <td class="num-cell">{{ e.horas_extra > 0 ? num(e.horas_extra, 1) : '-' }}</td>
+              <td class="num-cell">{{ e.faltas > 0 ? e.faltas : '-' }}</td>
+              <td class="num-cell">{{ e.dominicales > 0 ? e.dominicales : '-' }}</td>
+              <td>
+                @if (e.alertas && e.alertas.length > 0) {
+                  <span class="badge closed"><i class="ti ti-alert-triangle"></i> {{ e.alertas.length }}</span>
+                } @else {
+                  <span class="badge active">OK</span>
+                }
+              </td>
+              <td><button class="obtn sm" (click)="openAsistenciaDetalle(e.id_empleado, e.empleado)"><i class="ti ti-eye"></i></button></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+}
+
+<!-- ═══════════════════════════════════════════════════ VACACIONES ═══ -->
+@if (tab === 'vacaciones' && !loading && vacacionesData) {
+  <!-- KPIs -->
+  <div class="kpi-row">
+    <div class="kpi-card" [class.warn]="vacacionesData.pendientes_aprobacion > 0">
+      <div class="kpi-value">{{ vacacionesData.pendientes_aprobacion }}</div>
+      <div class="kpi-label">Solicitudes pendientes</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value">{{ vacacionesData.en_vacacion_hoy }}</div>
+      <div class="kpi-label">En vacación hoy</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value">{{ vacacionesData.proximas_30_dias }}</div>
+      <div class="kpi-label">Próximas 30 días</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value">{{ vacacionesData.total_empleados }}</div>
+      <div class="kpi-label">Empleados activos</div>
+    </div>
+  </div>
+
+  <!-- Base legal -->
+  <div class="alertas-section" style="border-color: #60a5fa; background: #eff6ff;">
+    <h3 style="color: #1e40af;"><i class="ti ti-gavel"></i> Base Legal — Vacaciones</h3>
+    <p class="alert-legend" style="color: #1e40af;">
+      <strong>Art. 44 LGT:</strong> Todo trabajador tiene derecho a vacación anual remunerada.<br>
+      <strong>DS 12058 (Art. 1):</strong> La escala de vacaciones es: 1–4 años → 15 días hábiles; 5–9 años → 20 días hábiles; 10+ años → 30 días hábiles.<br>
+      <strong>DS 12058 (Art. 2):</strong> Las vacaciones no son acumulables más allá de 2 gestiones; las no gozadas se compensan en dinero al doble.<br>
+      <strong>DS 17288:</strong> El derecho a vacación se adquiere a partir de 1 año de antigüedad ininterrumpida.<br>
+      <strong>Art. 33 DR-LGT:</strong> El empleador fija el período de vacaciones según necesidades del servicio, comunicando con 15 días de anticipación.
+    </p>
+  </div>
+
+  <!-- Toolbar buscar + solicitar -->
+  <div class="rrhh-toolbar">
+    <button class="obtn primary" (click)="openVacForm()">
+      <i class="ti ti-calendar-plus"></i> Solicitar Vacación
+    </button>
+    <button class="obtn secondary" (click)="loadCronograma()">
+      <i class="ti ti-printer"></i> Cronograma Anual
+    </button>
+    <div class="rrhh-search">
+      <i class="ti ti-search"></i>
+      <input type="text" [(ngModel)]="vacBusqueda" placeholder="Buscar empleado por nombre, CI o cargo..." />
+    </div>
+    <div class="toolbar-spacer"></div>
+    <div class="filter-group">
+      <label>Gestión</label>
+      <select [(ngModel)]="ejercicio" (ngModelChange)="loadVacaciones()">
+        <option [value]="2026">2026</option>
+        <option [value]="2025">2025</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Formulario solicitud -->
+  @if (vacFormOpen) {
+    <div class="vac-form-overlay" (click)="closeVacForm()"></div>
+    <div class="vac-form-panel">
+      <div class="vac-form-header">
+        <div class="vac-form-title">
+          <i class="ti ti-calendar-plus"></i>
+          <div>
+            <h3>Nueva Solicitud</h3>
+            <span>Programar vacación, permiso o licencia</span>
+          </div>
+        </div>
+        <button class="vac-form-close" (click)="closeVacForm()"><i class="ti ti-x"></i></button>
+      </div>
+
+      <div class="vac-form-body">
+        @if (vacFormError) {
+          <div class="vac-alert error"><i class="ti ti-alert-circle"></i> {{ vacFormError }}</div>
+        }
+        @if (vacFormSuccess) {
+          <div class="vac-alert success"><i class="ti ti-circle-check"></i> {{ vacFormSuccess }}</div>
+        }
+
+        <div class="vac-field">
+          <label><i class="ti ti-user"></i> Empleado</label>
+          <select [(ngModel)]="vacForm.id_empleado">
+            <option [value]="0" disabled>Seleccione un empleado...</option>
+            @for (s of vacacionesData.saldos; track s.id) {
+              <option [value]="s.id">{{ s.empleado }} — {{ s.cargo }} ({{ s.saldo }} días disponibles)</option>
+            }
+          </select>
+        </div>
+
+        <div class="vac-field">
+          <label><i class="ti ti-tag"></i> Tipo de ausencia</label>
+          <div class="vac-tipo-group">
+            <label class="vac-tipo-option" [class.selected]="vacForm.tipo === 'VACACION'">
+              <input type="radio" name="vacTipo" value="VACACION" [(ngModel)]="vacForm.tipo" />
+              <i class="ti ti-beach"></i> Vacación
+            </label>
+            <label class="vac-tipo-option" [class.selected]="vacForm.tipo === 'PERMISO'">
+              <input type="radio" name="vacTipo" value="PERMISO" [(ngModel)]="vacForm.tipo" />
+              <i class="ti ti-clock-pause"></i> Permiso
+            </label>
+            <label class="vac-tipo-option" [class.selected]="vacForm.tipo === 'LICENCIA'">
+              <input type="radio" name="vacTipo" value="LICENCIA" [(ngModel)]="vacForm.tipo" />
+              <i class="ti ti-file-certificate"></i> Licencia
+            </label>
+          </div>
+        </div>
+
+        <div class="vac-dates-row">
+          <div class="vac-field">
+            <label><i class="ti ti-calendar-event"></i> Fecha inicio</label>
+            <input type="date" [(ngModel)]="vacForm.fecha_inicio" />
+          </div>
+          <div class="vac-date-arrow"><i class="ti ti-arrow-right"></i></div>
+          <div class="vac-field">
+            <label><i class="ti ti-calendar-due"></i> Fecha fin</label>
+            <input type="date" [(ngModel)]="vacForm.fecha_fin" />
+          </div>
+        </div>
+
+        <div class="vac-field">
+          <label><i class="ti ti-notes"></i> Observaciones</label>
+          <textarea [(ngModel)]="vacForm.observaciones" placeholder="Motivo o comentario (opcional)" rows="2"></textarea>
+        </div>
+
+        <div class="vac-legal-note">
+          <i class="ti ti-gavel"></i>
+          <span>Se valida: antigüedad mínima 1 año (<strong>DS 17288</strong>), saldo según escala (<strong>DS 12058</strong>), solo días hábiles (excl. fines de semana y feriados).</span>
+        </div>
+      </div>
+
+      <div class="vac-form-footer">
+        <button class="obtn" (click)="closeVacForm()">Cancelar</button>
+        <button class="obtn primary" (click)="submitVacacion()" [disabled]="vacProcessing">
+          <i class="ti ti-send"></i> {{ vacProcessing ? 'Enviando...' : 'Enviar Solicitud' }}
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- Cronograma Anual (popup fullscreen) -->
+  @if (cronogramaVisible && cronograma) {
+    <div class="crono-overlay no-print" (click)="closeCronograma()"></div>
+    <div class="crono-popup" id="cronograma-print">
+      <div class="crono-popup-header no-print">
+        <div class="crono-popup-title">
+          <i class="ti ti-calendar-stats"></i>
+          <div>
+            <h3>Cronograma Anual de Vacaciones</h3>
+            <span class="crono-popup-sub">Gestión {{ cronograma.gestion }} · {{ cronograma.leyenda.length }} empleados · Gambarte Bolivia S.R.L.</span>
+          </div>
+        </div>
+        <div class="crono-popup-actions">
+          <div class="crono-cell-legend no-print">
+            <span class="crono-cl-item"><span class="crono-cl-swatch finde"></span>Fin de semana</span>
+            <span class="crono-cl-item"><span class="crono-cl-swatch feriado"></span>Feriado</span>
+            <span class="crono-cl-item"><span class="crono-cl-swatch vac"></span>Vacación</span>
+          </div>
+          <button class="obtn" (click)="printCronograma()"><i class="ti ti-printer"></i> Imprimir</button>
+          <button class="crono-popup-close" (click)="closeCronograma()"><i class="ti ti-x"></i></button>
+        </div>
+      </div>
+
+      <div class="crono-popup-body">
+        <!-- Print-only header -->
+        <div class="crono-print-title">
+          <div class="crono-print-logo">GAMBARTE</div>
+          <strong>CRONOGRAMA ANUAL DE VACACIONES — GESTIÓN {{ cronograma.gestion }}</strong>
+          <span>Gambarte Bolivia S.R.L. · Casa de Cambio · NIT 123456789</span>
+        </div>
+
+        <div class="crono-grid-wrap">
+          <table class="crono-table">
+            <thead>
+              <tr>
+                <th class="crono-day-col"></th>
+                @for (m of cronograma.meses; track m.mes) {
+                  <th class="crono-month-col">{{ m.nombre.substring(0, 3) }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (d of [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31]; track d) {
+                <tr>
+                  <td class="crono-day-num">{{ d }}</td>
+                  @for (m of cronograma.meses; track m.mes) {
+                    @if (d <= m.dias.length) {
+                      <td class="crono-cell"
+                          [class.finde]="m.dias[d-1].es_finde"
+                          [class.feriado]="m.dias[d-1].feriado"
+                          [class.has-vac]="m.dias[d-1].empleados.length > 0"
+                          [title]="m.dias[d-1].feriado ? m.dias[d-1].feriado! : ''">
+                        @if (m.dias[d-1].feriado) {
+                          <span class="crono-feriado-mark">{{ m.dias[d-1].feriado!.substring(0, 10) }}</span>
+                        }
+                        @for (emp of m.dias[d-1].empleados; track emp.codigo) {
+                          <span class="crono-emp" [attr.data-grupo]="emp.grupo" [class.solicitada]="emp.estado === 'SOLICITADA'">{{ emp.codigo }}</span>
+                        }
+                      </td>
+                    } @else {
+                      <td class="crono-cell empty"></td>
+                    }
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Leyenda -->
+        <div class="crono-legend">
+          <div class="crono-legend-section">
+            <h4><i class="ti ti-calendar-event"></i> Feriados Nacionales — {{ cronograma.gestion }}</h4>
+            <div class="crono-feriados-list">
+              @for (f of cronograma.feriados; track f.fecha) {
+                <span class="crono-feriado-item">
+                  <strong>{{ f.fecha.substring(8) }} {{ (cronograma.meses[(+f.fecha.substring(5,7))-1]?.nombre ?? '').substring(0,3) }}</strong>
+                  {{ f.nombre }}
+                </span>
+              }
+            </div>
+          </div>
+
+          <div class="crono-legend-section">
+            <h4><i class="ti ti-id-badge-2"></i> Directorio de Empleados</h4>
+            <div class="crono-emp-legend">
+              @for (e of cronograma.leyenda; track e.codigo) {
+                <div class="crono-emp-item">
+                  <span class="crono-emp" [attr.data-grupo]="e.grupo">{{ e.codigo }}</span>
+                  <span class="crono-emp-name">{{ e.nombre }}</span>
+                  <span class="crono-emp-cargo">{{ e.cargo }}</span>
+                  <span class="crono-emp-ag">{{ e.agencia }}</span>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+
+        <div class="crono-footer">
+          <span><i class="ti ti-building"></i> Elaborado por el Sistema Gambarte — Módulo RRHH</span>
+          <span><i class="ti ti-scale"></i> Base Legal: Art. 44 LGT, DS 12058, DS 17288, Art. 33 DR-LGT</span>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Escala vigente -->
+  <div class="dash-card" style="margin-bottom: 16px;">
+    <h3><i class="ti ti-stairs"></i> Escala de Vacaciones — DS 12058</h3>
+    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+      @for (e of vacacionesData.escala; track e.anios_desde) {
+        <div style="flex: 1; min-width: 140px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; text-align: center;">
+          <div style="font-size: 24px; font-weight: 800; color: var(--orange);">{{ e.dias_habiles }} días</div>
+          <div style="font-size: 12px; color: var(--tx3); margin-top: 4px;">
+            {{ e.anios_desde }}–{{ e.anios_hasta ?? '∞' }} años
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Saldos por empleado -->
+  <div class="dash-card full" style="margin-bottom: 16px;">
+    <h3><i class="ti ti-calendar-stats"></i> Saldos de Vacaciones por Empleado — Gestión {{ ejercicio }}</h3>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Empleado</th>
+            <th>CI</th>
+            <th>Cargo</th>
+            <th>Agencia</th>
+            <th>Ingreso</th>
+            <th class="num">Antig.</th>
+            <th class="num">Corresponde</th>
+            <th class="num">Usados</th>
+            <th class="num">Solicitados</th>
+            <th class="num">Saldo</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (s of saldosFiltrados; track s.id) {
+            <tr [class.urgent]="s.saldo <= 0">
+              <td class="name-cell">{{ s.empleado }}</td>
+              <td>{{ s.ci }}</td>
+              <td>{{ s.cargo }}</td>
+              <td>{{ s.agencia }}</td>
+              <td>{{ s.fecha_ingreso }}</td>
+              <td class="num-cell">{{ s.antiguedad_anios }} años</td>
+              <td class="num-cell bold">{{ s.dias_corresponde }}</td>
+              <td class="num-cell">{{ s.dias_usados }}</td>
+              <td class="num-cell">{{ s.dias_solicitados }}</td>
+              <td class="num-cell bold" [style.color]="s.saldo <= 0 ? '#dc2626' : s.saldo <= 5 ? '#d97706' : '#16a34a'">
+                {{ s.saldo }}
+              </td>
+            </tr>
+          }
+          @if (saldosFiltrados.length === 0) {
+            <tr><td colspan="10" class="empty-inline">No se encontraron empleados</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Solicitudes recientes -->
+  <div class="dash-card full">
+    <h3><i class="ti ti-list-details"></i> Solicitudes Recientes</h3>
+    @if (vacacionesData.solicitudes.length === 0) {
+      <p class="empty-inline">Sin solicitudes registradas</p>
+    } @else {
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Empleado</th>
+              <th>Cargo</th>
+              <th>Tipo</th>
+              <th>Desde</th>
+              <th>Hasta</th>
+              <th class="num">Días</th>
+              <th>Estado</th>
+              <th>Observaciones</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (sol of vacacionesData.solicitudes; track sol.id) {
+              <tr [class.urgent]="sol.estado === 'SOLICITADA'">
+                <td class="name-cell">{{ sol.empleado }}</td>
+                <td>{{ sol.cargo }}</td>
+                <td>
+                  <span class="badge" [class.active]="sol.tipo === 'VACACION'" [class.inactive]="sol.tipo !== 'VACACION'">
+                    {{ sol.tipo === 'VACACION' ? 'Vacación' : sol.tipo === 'PERMISO' ? 'Permiso' : sol.tipo }}
+                  </span>
+                </td>
+                <td>{{ sol.fecha_inicio }}</td>
+                <td>{{ sol.fecha_fin }}</td>
+                <td class="num-cell">{{ sol.dias }}</td>
+                <td>
+                  <span class="badge" [ngClass]="estadoBadgeClass(sol.estado)">{{ sol.estado }}</span>
+                </td>
+                <td class="ref-cell">{{ sol.observaciones || '—' }}</td>
+                <td>
+                  @if (sol.estado === 'SOLICITADA') {
+                    <div style="display: flex; gap: 4px;">
+                      <button class="obtn sm" style="background: #dcfce7; color: #166534; border-color: #bbf7d0;" (click)="aprobarVacacion(sol.id)" [disabled]="vacProcessing" title="Aprobar">
+                        <i class="ti ti-check"></i>
+                      </button>
+                      <button class="obtn sm" style="background: #fee2e2; color: #991b1b; border-color: #fecaca;" (click)="rechazarVacacion(sol.id)" [disabled]="vacProcessing" title="Rechazar">
+                        <i class="ti ti-x"></i>
+                      </button>
+                    </div>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+}
+
+<!-- ═══════════════════════════════════════════════════ LIQUIDACIONES ═══ -->
+@if (tab === 'liquidaciones' && !loading) {
+  <div class="rrhh-toolbar">
+    <div class="filter-group" style="min-width:300px">
+      <label>Empleado</label>
+      <app-search-select [options]="empleadoOpts" [(ngModel)]="simEmpleadoId" placeholder="Buscar empleado..."></app-search-select>
+    </div>
+    <div class="filter-group">
+      <label>Fecha desvinculación</label>
+      <input type="date" [(ngModel)]="simFecha" />
+    </div>
+    <div class="filter-group">
+      <label>Motivo</label>
+      <select [(ngModel)]="simMotivo">
+        <option value="RENUNCIA">Renuncia voluntaria</option>
+        <option value="DESPIDO_JUSTIFICADO">Despido justificado</option>
+        <option value="DESPIDO_INJUSTIFICADO">Despido injustificado</option>
+        <option value="FIN_CONTRATO">Fin de contrato</option>
+        <option value="FALLECIMIENTO">Fallecimiento</option>
+      </select>
+    </div>
+    <button class="obtn primary" (click)="simularLiquidacion()"><i class="ti ti-calculator"></i> Simular</button>
+  </div>
+
+  <!-- Resultado de simulación -->
+  @if (simulacion) {
+    <div class="preview-section">
+      <div class="preview-header">
+        <h3><i class="ti ti-file-invoice"></i> Simulación de Liquidación / Finiquito</h3>
+        <button class="obtn sm" (click)="closeSimulacion()"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="info-grid">
+        <div class="info-item"><label>Cargo</label><span>{{ simulacion.cargo || '-' }}</span></div>
+        <div class="info-item"><label>Motivo</label><span>{{ motivoLabel(simulacion.motivo) }}</span></div>
+        <div class="info-item"><label>Fecha ingreso</label><span>{{ simulacion.fecha_ingreso }}</span></div>
+        <div class="info-item"><label>Fecha desvinculación</label><span>{{ simulacion.fecha_desvinculacion }}</span></div>
+        <div class="info-item"><label>Antigüedad</label><span>{{ simulacion.anios_trabajados }} años</span></div>
+        <div class="info-item"><label>Sueldo promedio</label><span>Bs {{ num(simulacion.sueldo_promedio) }}</span></div>
+      </div>
+      <div class="liq-breakdown">
+        <div class="liq-row"><span>Indemnización (1 sueldo/año)</span><span class="amount">Bs {{ num(simulacion.indemnizacion) }}</span></div>
+        @if (simulacion.desahucio > 0) {
+          <div class="liq-row"><span>Desahucio (3 sueldos)</span><span class="amount">Bs {{ num(simulacion.desahucio) }}</span></div>
+        }
+        <div class="liq-row"><span>Aguinaldo proporcional</span><span class="amount">Bs {{ num(simulacion.aguinaldo_proporcional) }}</span></div>
+        @if (simulacion.doble_aguinaldo_prop > 0) {
+          <div class="liq-row"><span>Doble aguinaldo proporcional</span><span class="amount">Bs {{ num(simulacion.doble_aguinaldo_prop) }}</span></div>
+        }
+        <div class="liq-row"><span>Vacaciones pendientes ({{ simulacion.vacaciones_pendientes }} días)</span><span class="amount">Bs {{ num(simulacion.monto_vacaciones) }}</span></div>
+        <div class="liq-row total"><span>TOTAL LIQUIDACIÓN</span><span class="amount">Bs {{ num(simulacion.total_liquidacion) }}</span></div>
+        <div class="liq-row total"><span>LÍQUIDO FINAL</span><span class="amount highlight">Bs {{ num(simulacion.liquido_final) }}</span></div>
+      </div>
+    </div>
+  }
+
+  <!-- Lista de liquidaciones -->
+  @if (!simulacion) {
+    @if (liquidaciones.length === 0) {
+      <div class="empty-state">
+        <i class="ti ti-file-off"></i>
+        <p>No hay liquidaciones registradas</p>
+      </div>
+    } @else {
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Empleado</th>
+              <th>CI</th>
+              <th>Motivo</th>
+              <th>Fecha desvinc.</th>
+              <th class="num">Antigüedad</th>
+              <th class="num">Total</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (l of liquidaciones; track l.id) {
+              <tr>
+                <td>{{ l.empleado }}</td>
+                <td>{{ l.ci }}</td>
+                <td>{{ motivoLabel(l.motivo) }}</td>
+                <td>{{ l.fecha_desvinculacion }}</td>
+                <td class="num-cell">{{ num(l.anios_trabajados, 1) }} años</td>
+                <td class="num-cell bold">Bs {{ num(l.liquido_final) }}</td>
+                <td><span class="badge" [ngClass]="estadoBadgeClass(l.estado)">{{ l.estado }}</span></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+}
+
+<!-- ═══════════════════════════════════════════════ CAPACITACIONES ═══ -->
+@if (tab === 'capacitaciones' && !loading) {
+  <div class="rrhh-toolbar">
+    <button class="obtn primary" (click)="openCapForm()"><i class="ti ti-plus"></i> Nueva capacitación</button>
+  </div>
+
+  <!-- Form panel -->
+  @if (capFormOpen) {
+    <div class="detail-overlay" (click)="closeCapForm()"></div>
+    <div class="detail-panel">
+      <div class="detail-header">
+        <h2><i class="ti ti-school"></i> {{ capEditing ? 'Editar' : 'Nueva' }} capacitación</h2>
+        <button class="close-btn" (click)="closeCapForm()"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="detail-body">
+        @if (capFormError) {
+          <div class="vac-alert error"><i class="ti ti-alert-circle"></i> {{ capFormError }}</div>
+        }
+        <div class="vac-field"><label>Título</label><input type="text" [(ngModel)]="capForm['titulo']" /></div>
+        <div class="vac-field">
+          <label>Tipo</label>
+          <select [(ngModel)]="capForm['tipo']">
+            <option value="INTERNA">Interna</option>
+            <option value="EXTERNA">Externa</option>
+          </select>
+        </div>
+        <div class="alta-row">
+          <div class="vac-field"><label>Fecha inicio</label><input type="date" [(ngModel)]="capForm['fecha_inicio']" /></div>
+          <div class="vac-field"><label>Fecha fin</label><input type="date" [(ngModel)]="capForm['fecha_fin']" /></div>
+          <div class="vac-field"><label>Horas</label><input type="number" [(ngModel)]="capForm['horas_duracion']" min="1" /></div>
+        </div>
+        <div class="vac-field">
+          <label><input type="checkbox" [(ngModel)]="capForm['es_obligatoria']" /> Es obligatoria</label>
+        </div>
+        <div class="detail-footer">
+          <button class="obtn secondary" (click)="closeCapForm()">Cancelar</button>
+          <button class="obtn primary" (click)="submitCapacitacion()"><i class="ti ti-check"></i> {{ capEditing ? 'Actualizar' : 'Crear' }}</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (capacitaciones.length === 0) {
+    <div class="empty-state">
+      <i class="ti ti-school-off"></i>
+      <p>No hay capacitaciones registradas</p>
+    </div>
+  } @else {
+    <div class="cap-grid">
+      @for (c of capacitaciones; track c.id) {
+        <div class="cap-card" [class.obligatoria]="c.es_obligatoria">
+          <div class="cap-header">
+            <span class="cap-tipo">{{ c.tipo }}</span>
+            <span class="badge" [ngClass]="estadoBadgeClass(c.estado)">{{ c.estado }}</span>
+          </div>
+          <h4>{{ c.titulo }}</h4>
+          <div class="cap-meta">
+            <span><i class="ti ti-calendar"></i> {{ c.fecha_inicio }}{{ c.fecha_fin ? ' — ' + c.fecha_fin : '' }}</span>
+            @if (c.horas_duracion) {
+              <span><i class="ti ti-clock"></i> {{ c.horas_duracion }}h</span>
+            }
+          </div>
+          <div class="cap-footer">
+            <span><i class="ti ti-users"></i> {{ c.inscritos }} inscritos</span>
+            <span><i class="ti ti-check"></i> {{ c.aprobados }} aprobados</span>
+            @if (c.es_obligatoria) {
+              <span class="obligatoria-tag"><i class="ti ti-alert-circle"></i> Obligatoria</span>
+            }
+            <button class="obtn sm" (click)="openCapForm(c)"><i class="ti ti-edit"></i></button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+}
+
+<!-- ═══════════════════════════════════════════════ DOCUMENTOS ═══ -->
+@if (tab === 'documentos' && !loading) {
+
+  <!-- Formulario slide panel -->
+  @if (docFormOpen) {
+    <div class="detail-overlay" (click)="closeDocForm()"></div>
+    <div class="detail-panel hoja-asistencia">
+      <div class="detail-header">
+        <h2><i class="ti ti-file-text"></i> {{ plantillaSeleccionada?.nombre || 'Generar documento' }}</h2>
+        <div class="detail-actions">
+          <button class="close-btn" (click)="closeDocForm()"><i class="ti ti-x"></i></button>
+        </div>
+      </div>
+
+      @if (!docPreview) {
+        <!-- Formulario de generación -->
+        <div class="detail-body">
+          @if (docError) {
+            <div class="vac-alert error"><i class="ti ti-alert-circle"></i> {{ docError }}</div>
+          }
+
+          @if (plantillaSeleccionada?.norma) {
+            <div class="doc-norma-badge">
+              <i class="ti ti-scale"></i> {{ plantillaSeleccionada?.norma }}
+            </div>
+          }
+
+          <!-- Campo empleado (para plantillas que lo requieren) -->
+          @if (plantillaSeleccionada && plantillaSeleccionada.campos.includes('id_empleado')) {
+            <div class="vac-field">
+              <label><i class="ti ti-user"></i> Empleado</label>
+              <app-search-select [options]="empleadoOpts" [(ngModel)]="docParams['id_empleado']" placeholder="Buscar empleado..."></app-search-select>
+            </div>
+          }
+
+          <!-- Campo fecha_fin (plazo fijo) -->
+          @if (plantillaSeleccionada && plantillaSeleccionada.campos.includes('fecha_fin')) {
+            <div class="vac-field">
+              <label><i class="ti ti-calendar"></i> Fecha de finalización del contrato</label>
+              <input type="date" [(ngModel)]="docParams['fecha_fin']" />
+            </div>
+          }
+
+          <!-- Nuevo cargo -->
+          @if (plantillaSeleccionada && plantillaSeleccionada.campos.includes('nuevo_cargo')) {
+            <div class="vac-field">
+              <label><i class="ti ti-briefcase"></i> Nuevo cargo</label>
+              <input type="text" [(ngModel)]="docParams['nuevo_cargo']" placeholder="Ej: Jefe de Operaciones" />
+            </div>
+          }
+
+          <!-- Nuevo sueldo -->
+          @if (plantillaSeleccionada && plantillaSeleccionada.campos.includes('nuevo_sueldo')) {
+            <div class="vac-field">
+              <label><i class="ti ti-currency-dollar"></i> Nuevo sueldo (Bs.)</label>
+              <input type="number" [(ngModel)]="docParams['nuevo_sueldo']" min="0" step="100" />
+            </div>
+          }
+
+          <!-- Nueva agencia -->
+          @if (plantillaSeleccionada && plantillaSeleccionada.campos.includes('nueva_agencia')) {
+            <div class="vac-field">
+              <label><i class="ti ti-building"></i> Nueva agencia</label>
+              <input type="text" [(ngModel)]="docParams['nueva_agencia']" placeholder="Ej: Cochabamba" />
+            </div>
+          }
+
+          <!-- Fecha efectiva -->
+          @if (plantillaSeleccionada && plantillaSeleccionada.campos.includes('fecha_efectiva')) {
+            <div class="vac-field">
+              <label><i class="ti ti-calendar-event"></i> Fecha efectiva</label>
+              <input type="date" [(ngModel)]="docParams['fecha_efectiva']" />
+            </div>
+          }
+
+          <!-- Motivo (memos) -->
+          @if (plantillaSeleccionada && plantillaSeleccionada.campos.includes('motivo')) {
+            <div class="vac-field">
+              <label><i class="ti ti-tag"></i> Motivo</label>
+              <input type="text" [(ngModel)]="docParams['motivo']" placeholder="Motivo del memorándum" />
+            </div>
+          }
+
+          <!-- Detalle (memos) -->
+          @if (plantillaSeleccionada && plantillaSeleccionada.campos.includes('detalle')) {
+            <div class="vac-field">
+              <label><i class="ti ti-notes"></i> Detalle</label>
+              <textarea [(ngModel)]="docParams['detalle']" rows="4" placeholder="Descripción detallada..."></textarea>
+            </div>
+          }
+
+          <!-- Destinatario (comunicado) -->
+          @if (plantillaSeleccionada && plantillaSeleccionada.campos.includes('destinatario')) {
+            <div class="vac-field">
+              <label><i class="ti ti-users"></i> Destinatario</label>
+              <input type="text" [(ngModel)]="docParams['destinatario']" placeholder="Ej: Todo el personal" />
+            </div>
+          }
+
+          <!-- Asunto (comunicado) -->
+          @if (plantillaSeleccionada && plantillaSeleccionada.campos.includes('asunto')) {
+            <div class="vac-field">
+              <label><i class="ti ti-tag"></i> Asunto</label>
+              <input type="text" [(ngModel)]="docParams['asunto']" placeholder="Asunto del comunicado" />
+            </div>
+          }
+
+          <!-- Contenido (comunicado) -->
+          @if (plantillaSeleccionada && plantillaSeleccionada.campos.includes('contenido')) {
+            <div class="vac-field">
+              <label><i class="ti ti-notes"></i> Contenido</label>
+              <textarea [(ngModel)]="docParams['contenido']" rows="6" placeholder="Contenido del comunicado..."></textarea>
+            </div>
+          }
+
+          @if (plantillaSeleccionada && plantillaSeleccionada.campos.includes('numero_memo')) {
+            <div class="vac-field">
+              <label><i class="ti ti-hash"></i> Número de Memo</label>
+              <input type="text" [(ngModel)]="docParams['numero_memo']" placeholder="Ej: 096" />
+            </div>
+          }
+
+          <!-- Fecha del documento -->
+          <div class="vac-field">
+            <label><i class="ti ti-calendar"></i> Fecha del documento</label>
+            <input type="date" [(ngModel)]="docParams['fecha']" />
+          </div>
+        </div>
+
+        <div class="vac-form-footer">
+          <button class="obtn" (click)="closeDocForm()">Cancelar</button>
+          <button class="obtn primary" (click)="generarDocumento()" [disabled]="docProcessing">
+            @if (docProcessing) { <span class="spin"></span> Generando... }
+            @else { <i class="ti ti-file-check"></i> Generar Documento }
+          </button>
+        </div>
+      } @else {
+        <!-- Vista previa del documento -->
+        <div class="doc-preview-toolbar">
+          <button class="obtn primary" (click)="exportarDocumento()"><i class="ti ti-printer"></i> Imprimir / Exportar</button>
+          <button class="obtn" (click)="docPreview = null"><i class="ti ti-arrow-left"></i> Volver al formulario</button>
+          <span class="edit-hint"><i class="ti ti-pencil"></i> Puede editar el texto directamente antes de imprimir</span>
+        </div>
+        <div class="doc-preview" id="doc-editable-preview" contenteditable="true" [innerHTML]="docPreview.contenido"></div>
+      }
+    </div>
+  }
+
+  <!-- Toolbar -->
+  <div class="rrhh-toolbar">
+    <div class="filter-group">
+      <label>Categoría</label>
+      <select [(ngModel)]="docCategoriaFiltro">
+        <option value="">Todas</option>
+        <option value="CONTRATO">Contratos</option>
+        <option value="ANEXO">Anexos</option>
+        <option value="MEMORANDUM">Memorándums</option>
+        <option value="CERTIFICADO">Certificados</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Grid de plantillas -->
+  <h3 class="section-title"><i class="ti ti-template"></i> Plantillas disponibles</h3>
+  <div class="doc-grid">
+    @for (p of plantillasFiltradas; track p.id) {
+      <div class="doc-card" (click)="openDocForm(p.id)">
+        <div class="doc-card-icon">
+          @switch (p.categoria) {
+            @case ('CONTRATO') { <i class="ti ti-file-certificate"></i> }
+            @case ('ANEXO') { <i class="ti ti-file-plus"></i> }
+            @case ('MEMORANDUM') { <i class="ti ti-mail"></i> }
+            @case ('CERTIFICADO') { <i class="ti ti-certificate"></i> }
+          }
+        </div>
+        <div class="doc-card-body">
+          <h4>{{ p.nombre }}</h4>
+          <p>{{ p.descripcion }}</p>
+          @if (p.norma) {
+            <span class="doc-norma"><i class="ti ti-scale"></i> {{ p.norma }}</span>
+          }
+        </div>
+        <div class="doc-card-cat">
+          <span class="badge" [ngClass]="{
+            'active': p.categoria === 'CONTRATO',
+            'inactive': p.categoria === 'ANEXO',
+            'closed': p.categoria === 'MEMORANDUM',
+            'info': p.categoria === 'CERTIFICADO'
+          }">{{ p.categoria }}</span>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Documentos generados recientes -->
+  @if (documentosGenerados.length > 0) {
+    <h3 class="section-title" style="margin-top:24px"><i class="ti ti-history"></i> Documentos generados recientemente</h3>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Documento</th>
+            <th>Empleado</th>
+            <th>Categoría</th>
+            <th>Fecha</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (d of documentosGenerados; track d.id) {
+            <tr>
+              <td>{{ d.nombre }}</td>
+              <td>{{ d.empleado }}</td>
+              <td><span class="badge" [ngClass]="{
+                'active': d.categoria === 'CONTRATO',
+                'inactive': d.categoria === 'ANEXO',
+                'closed': d.categoria === 'MEMORANDUM',
+                'info': d.categoria === 'CERTIFICADO'
+              }">{{ d.categoria }}</span></td>
+              <td>{{ d.fecha }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+}
+
+<!-- ═══════════════════════════════════════════════════════ CSBP ═══ -->
+@if (tab === 'csbp' && !loading) {
+  <div class="rrhh-toolbar">
+    <div class="sub-tabs">
+      <button class="obtn" [class.active]="csbpSubTab === 'dashboard'" (click)="setCsbpSubTab('dashboard')"><i class="ti ti-layout-dashboard"></i> Resumen</button>
+      <button class="obtn" [class.active]="csbpSubTab === 'altas'" (click)="setCsbpSubTab('altas')"><i class="ti ti-user-plus"></i> Altas</button>
+      <button class="obtn" [class.active]="csbpSubTab === 'bajas'" (click)="setCsbpSubTab('bajas')"><i class="ti ti-user-minus"></i> Bajas</button>
+      <button class="obtn" [class.active]="csbpSubTab === 'aportes'" (click)="setCsbpSubTab('aportes')"><i class="ti ti-coin"></i> Aportes</button>
+    </div>
+  </div>
+
+  @if (csbpSubTab === 'dashboard' && csbpDash) {
+    <div class="kpi-row">
+      <div class="kpi-card"><div class="kpi-value">{{ csbpDash.total_asegurados }}</div><div class="kpi-label">Total asegurados</div></div>
+      <div class="kpi-card warn"><div class="kpi-value">{{ csbpDash.altas_pendientes }}</div><div class="kpi-label">Altas pendientes</div></div>
+      <div class="kpi-card warn"><div class="kpi-value">{{ csbpDash.bajas_pendientes }}</div><div class="kpi-label">Bajas pendientes</div></div>
+    </div>
+  }
+
+  @if (csbpSubTab === 'altas') {
+    <div class="rrhh-toolbar" style="margin-bottom:8px">
+      <button class="obtn primary" (click)="openCsbpAltaForm()"><i class="ti ti-plus"></i> Registrar alta</button>
+    </div>
+    @if (csbpAltaFormOpen) {
+      <div class="detail-overlay" (click)="closeCsbpAltaForm()"></div>
+      <div class="detail-panel">
+        <div class="detail-header"><h2><i class="ti ti-user-plus"></i> Registrar alta CSBP</h2><button class="close-btn" (click)="closeCsbpAltaForm()"><i class="ti ti-x"></i></button></div>
+        <div class="detail-body">
+          @if (csbpFormError) { <div class="vac-alert error"><i class="ti ti-alert-circle"></i> {{ csbpFormError }}</div> }
+          <div class="vac-field">
+            <label>Empleado</label>
+            <app-search-select [options]="contratoOpts" [(ngModel)]="csbpAltaForm['id_contrato']" placeholder="Buscar empleado..."></app-search-select>
+          </div>
+          <div class="vac-field"><label>Fecha de alta</label><input type="date" [(ngModel)]="csbpAltaForm['fecha_alta']" /></div>
+          <div class="vac-field"><label>Descripción</label><input type="text" [(ngModel)]="csbpAltaForm['descripcion']" /></div>
+          <div class="detail-footer">
+            <button class="obtn secondary" (click)="closeCsbpAltaForm()">Cancelar</button>
+            <button class="obtn primary" (click)="submitCsbpAlta()"><i class="ti ti-check"></i> Registrar</button>
+          </div>
+        </div>
+      </div>
+    }
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Empleado</th><th>CI</th><th>Cargo</th><th>Agencia</th><th>Fecha alta</th><th>Estado</th></tr></thead>
+        <tbody>
+          @for (a of csbpAltas; track a.id) {
+            <tr>
+              <td>{{ a.empleado }}</td><td>{{ a.ci }}</td><td>{{ a.cargo || '-' }}</td><td>{{ a.agencia || '-' }}</td>
+              <td>{{ a.fecha_alta }}</td><td><span class="badge" [class]="estadoBadgeClass(a.estado)">{{ a.estado }}</span></td>
+            </tr>
+          }
+          @if (csbpAltas.length === 0) { <tr><td colspan="6" class="empty-cell">Sin altas registradas</td></tr> }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  @if (csbpSubTab === 'bajas') {
+    <div class="rrhh-toolbar" style="margin-bottom:8px">
+      <button class="obtn primary" (click)="openCsbpBajaForm()"><i class="ti ti-plus"></i> Registrar baja</button>
+    </div>
+    @if (csbpBajaFormOpen) {
+      <div class="detail-overlay" (click)="closeCsbpBajaForm()"></div>
+      <div class="detail-panel">
+        <div class="detail-header"><h2><i class="ti ti-user-minus"></i> Registrar baja CSBP</h2><button class="close-btn" (click)="closeCsbpBajaForm()"><i class="ti ti-x"></i></button></div>
+        <div class="detail-body">
+          @if (csbpFormError) { <div class="vac-alert error"><i class="ti ti-alert-circle"></i> {{ csbpFormError }}</div> }
+          <div class="vac-field">
+            <label>Empleado</label>
+            <app-search-select [options]="contratoOpts" [(ngModel)]="csbpBajaForm['id_contrato']" placeholder="Buscar empleado..."></app-search-select>
+          </div>
+          <div class="vac-field"><label>Fecha de baja</label><input type="date" [(ngModel)]="csbpBajaForm['fecha_baja']" /></div>
+          <div class="vac-field"><label>Descripción</label><input type="text" [(ngModel)]="csbpBajaForm['descripcion']" /></div>
+          <div class="detail-footer">
+            <button class="obtn secondary" (click)="closeCsbpBajaForm()">Cancelar</button>
+            <button class="obtn primary" (click)="submitCsbpBaja()"><i class="ti ti-check"></i> Registrar</button>
+          </div>
+        </div>
+      </div>
+    }
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Empleado</th><th>CI</th><th>Cargo</th><th>Agencia</th><th>Fecha baja</th><th>Estado</th></tr></thead>
+        <tbody>
+          @for (b of csbpBajas; track b.id) {
+            <tr>
+              <td>{{ b.empleado }}</td><td>{{ b.ci }}</td><td>{{ b.cargo || '-' }}</td><td>{{ b.agencia || '-' }}</td>
+              <td>{{ b.fecha_baja }}</td><td><span class="badge" [class]="estadoBadgeClass(b.estado)">{{ b.estado }}</span></td>
+            </tr>
+          }
+          @if (csbpBajas.length === 0) { <tr><td colspan="6" class="empty-cell">Sin bajas registradas</td></tr> }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  @if (csbpSubTab === 'aportes') {
+    <div class="rrhh-toolbar" style="margin-bottom:8px">
+      <button class="obtn primary" (click)="openCsbpAporteForm()"><i class="ti ti-plus"></i> Registrar aporte</button>
+    </div>
+    @if (csbpAporteFormOpen) {
+      <div class="detail-overlay" (click)="closeCsbpAporteForm()"></div>
+      <div class="detail-panel">
+        <div class="detail-header"><h2><i class="ti ti-coin"></i> Registrar aporte CSBP</h2><button class="close-btn" (click)="closeCsbpAporteForm()"><i class="ti ti-x"></i></button></div>
+        <div class="detail-body">
+          @if (csbpFormError) { <div class="vac-alert error"><i class="ti ti-alert-circle"></i> {{ csbpFormError }}</div> }
+          <div class="alta-row">
+            <div class="vac-field"><label>Gestión</label><input type="number" [(ngModel)]="csbpAporteForm['gestion']" /></div>
+            <div class="vac-field"><label>Mes</label><select [(ngModel)]="csbpAporteForm['mes']">@for (m of meses; track $index) { <option [ngValue]="$index + 1">{{ m }}</option> }</select></div>
+          </div>
+          <div class="vac-field"><label>Total aporte (Bs)</label><input type="number" [(ngModel)]="csbpAporteForm['total_aporte']" step="0.01" /></div>
+          <div class="detail-footer">
+            <button class="obtn secondary" (click)="closeCsbpAporteForm()">Cancelar</button>
+            <button class="obtn primary" (click)="submitCsbpAporte()"><i class="ti ti-check"></i> Registrar</button>
+          </div>
+        </div>
+      </div>
+    }
+  }
+  @if (csbpSubTab === 'aportes' && csbpResumen) {
+    <div class="kpi-row">
+      <div class="kpi-card"><div class="kpi-value">{{ num(csbpResumen.total_aportado) }}</div><div class="kpi-label">Total aportado {{ ejercicio }}</div></div>
+      <div class="kpi-card"><div class="kpi-value">{{ num(csbpResumen.total_cancelado) }}</div><div class="kpi-label">Total cancelado</div></div>
+      <div class="kpi-card"><div class="kpi-value">{{ csbpResumen.meses_presentados }}/12</div><div class="kpi-label">Meses presentados</div></div>
+      <div class="kpi-card warn"><div class="kpi-value">{{ num(csbpResumen.total_multas) }}</div><div class="kpi-label">Multas + Intereses</div></div>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Mes</th><th class="num">Total aporte</th><th class="num">Multas</th><th class="num">Intereses</th><th class="num">Total cancelado</th><th>Estado</th><th>Fecha depósito</th></tr></thead>
+        <tbody>
+          @for (ap of csbpResumen.detalle; track ap.id) {
+            <tr>
+              <td>{{ meses[ap.mes - 1] }}</td><td class="num-cell">{{ num(ap.total_aporte) }}</td><td class="num-cell">{{ num(ap.multas) }}</td>
+              <td class="num-cell">{{ num(ap.intereses) }}</td><td class="num-cell">{{ num(ap.total_cancelado) }}</td>
+              <td><span class="badge" [class]="estadoBadgeClass(ap.estado)">{{ ap.estado }}</span></td><td>{{ ap.fecha_deposito || '-' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+}
+
+<!-- ═══════════════════════════════════════════════ GESTORAS AFP ═══ -->
+@if (tab === 'gestoras' && !loading) {
+  <div class="rrhh-toolbar">
+    <div class="sub-tabs">
+      <button class="obtn" [class.active]="gestoraSubTab === 'gestoras'" (click)="setGestoraSubTab('gestoras')"><i class="ti ti-building-bank"></i> Gestoras</button>
+      <button class="obtn" [class.active]="gestoraSubTab === 'contribuciones'" (click)="setGestoraSubTab('contribuciones')"><i class="ti ti-report-money"></i> Contribuciones</button>
+      <button class="obtn" [class.active]="gestoraSubTab === 'sin-gestora'" (click)="setGestoraSubTab('sin-gestora')"><i class="ti ti-alert-triangle"></i> Sin gestora</button>
+    </div>
+  </div>
+
+  @if (gestoraSubTab === 'gestoras') {
+    <div class="rrhh-toolbar" style="margin-bottom:8px">
+      <button class="obtn primary" (click)="openGestoraForm()"><i class="ti ti-plus"></i> Asignar gestora</button>
+    </div>
+    @if (gestoraFormOpen) {
+      <div class="detail-overlay" (click)="closeGestoraForm()"></div>
+      <div class="detail-panel">
+        <div class="detail-header"><h2><i class="ti ti-building-bank"></i> Asignar gestora AFP</h2><button class="close-btn" (click)="closeGestoraForm()"><i class="ti ti-x"></i></button></div>
+        <div class="detail-body">
+          @if (gestoraFormError) { <div class="vac-alert error"><i class="ti ti-alert-circle"></i> {{ gestoraFormError }}</div> }
+          <div class="vac-field">
+            <label>Empleado</label>
+            <app-search-select [options]="contratoOpts" [(ngModel)]="gestoraForm['id_contrato']" placeholder="Buscar empleado..."></app-search-select>
+          </div>
+          <div class="vac-field">
+            <label>Gestora</label>
+            <select [(ngModel)]="gestoraForm['nombre_gestora']">
+              <option value="FUTURO DE BOLIVIA AFP">Futuro de Bolivia AFP</option>
+              <option value="PREVISION AFP">Previsión AFP</option>
+            </select>
+          </div>
+          <div class="vac-field"><label>Fecha inicio</label><input type="date" [(ngModel)]="gestoraForm['fecha_inicio']" /></div>
+          <div class="detail-footer">
+            <button class="obtn secondary" (click)="closeGestoraForm()">Cancelar</button>
+            <button class="obtn primary" (click)="submitGestora()"><i class="ti ti-check"></i> Asignar</button>
+          </div>
+        </div>
+      </div>
+    }
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Empleado</th><th>CI</th><th>Cargo</th><th>Agencia</th><th>Gestora</th><th>Desde</th><th>Hasta</th><th>Estado</th></tr></thead>
+        <tbody>
+          @for (g of gestorasList; track g.id) {
+            <tr>
+              <td>{{ g.empleado }}</td><td>{{ g.ci }}</td><td>{{ g.cargo || '-' }}</td><td>{{ g.agencia || '-' }}</td>
+              <td><strong>{{ g.nombre_gestora }}</strong></td><td>{{ g.fecha_inicio }}</td><td>{{ g.fecha_fin || 'Vigente' }}</td>
+              <td><span class="badge" [class]="estadoBadgeClass(g.estado)">{{ g.estado }}</span></td>
+            </tr>
+          }
+          @if (gestorasList.length === 0) { <tr><td colspan="8" class="empty-cell">Sin registros</td></tr> }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  @if (gestoraSubTab === 'contribuciones' && gestoraResumen) {
+    <div class="kpi-row">
+      <div class="kpi-card"><div class="kpi-value">{{ num(gestoraResumen.total_laboral) }}</div><div class="kpi-label">Total laboral {{ ejercicio }}</div></div>
+      <div class="kpi-card"><div class="kpi-value">{{ num(gestoraResumen.total_patronal) }}</div><div class="kpi-label">Total patronal</div></div>
+      <div class="kpi-card"><div class="kpi-value">{{ num(gestoraResumen.total_general) }}</div><div class="kpi-label">Total general</div></div>
+    </div>
+    @for (pg of gestoraResumen.por_gestora; track pg.gestora) {
+      <div class="dash-card" style="margin-bottom:12px">
+        <h3><i class="ti ti-building-bank"></i> {{ pg.gestora }} <span style="font-weight:400;font-size:12px;color:var(--tx3)">({{ pg.meses_pagados }} meses pagados)</span></h3>
+        <div class="stat-list">
+          <div class="stat-row"><span class="stat-label">Aporte laboral</span><span class="stat-value">{{ num(pg.total_laboral) }} Bs</span></div>
+          <div class="stat-row"><span class="stat-label">Aporte patronal</span><span class="stat-value">{{ num(pg.total_patronal) }} Bs</span></div>
+          <div class="stat-row"><span class="stat-label">Total</span><span class="stat-value" style="font-weight:700;color:var(--orange)">{{ num(pg.total) }} Bs</span></div>
+        </div>
+      </div>
+    }
+  }
+
+  @if (gestoraSubTab === 'sin-gestora') {
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Empleado</th><th>CI</th><th>Cargo</th></tr></thead>
+        <tbody>
+          @for (e of gestoraSinGestora; track e.id) {
+            <tr><td>{{ e.empleado }}</td><td>{{ e.ci }}</td><td>{{ e.cargo || '-' }}</td></tr>
+          }
+          @if (gestoraSinGestora.length === 0) { <tr><td colspan="3" class="empty-cell">Todos los empleados tienen gestora asignada</td></tr> }
+        </tbody>
+      </table>
+    </div>
+  }
+}
+
+<!-- ═══════════════════════════════════════════════ FINIQUITOS ═══ -->
+@if (tab === 'finiquitos' && !loading) {
+  <div class="rrhh-toolbar">
+    <div class="filter-group" style="min-width:300px">
+      <label>Empleado</label>
+      <app-search-select [options]="empleadoOpts" [(ngModel)]="finiquitoEmpleadoId" placeholder="Buscar empleado..."></app-search-select>
+    </div>
+    <div class="filter-group">
+      <label>Fecha retiro</label>
+      <input type="date" [(ngModel)]="finiquitoFecha" />
+    </div>
+    <div class="filter-group">
+      <label>Motivo</label>
+      <select [(ngModel)]="finiquitoMotivo">
+        <option value="VOLUNTARIO">Retiro voluntario</option>
+        <option value="FORZOSO">Despido (forzoso)</option>
+        <option value="CONCLUSION_CONTRATO">Conclusión de contrato</option>
+        <option value="CONCLUSION_OBRA">Conclusión de obra</option>
+        <option value="INCUMPLIMIENTO_CONTRATO">Incumplimiento</option>
+      </select>
+    </div>
+    <button class="obtn primary" (click)="calcularFiniquito()"><i class="ti ti-calculator"></i> Calcular</button>
+  </div>
+
+  @if (finiquitoCalculo) {
+    <div class="dash-card" style="margin-bottom:16px">
+      <h3><i class="ti ti-file-off"></i> Finiquito — {{ finiquitoCalculo.cargo }}</h3>
+      <div class="stat-list">
+        <div class="stat-row"><span class="stat-label">Motivo</span><span class="stat-value">{{ motivoBajaLabel(finiquitoCalculo.motivo_baja) }}</span></div>
+        <div class="stat-row"><span class="stat-label">Fecha ingreso</span><span class="stat-value">{{ finiquitoCalculo.fecha_ingreso }}</span></div>
+        <div class="stat-row"><span class="stat-label">Fecha retiro</span><span class="stat-value">{{ finiquitoCalculo.fecha_retiro }}</span></div>
+        <div class="stat-row"><span class="stat-label">Tiempo trabajado</span><span class="stat-value">{{ finiquitoCalculo.anios_trabajados }}a {{ finiquitoCalculo.meses_trabajados }}m {{ finiquitoCalculo.dias_trabajados }}d</span></div>
+      </div>
+    </div>
+
+    <div class="dash-grid">
+      <div class="dash-card">
+        <h3><i class="ti ti-coin"></i> Remuneraciones (últimos 3 meses)</h3>
+        <div class="table-scroll">
+          <table class="data-table compact">
+            <thead><tr><th>Mes</th><th class="num">Sueldo</th><th class="num">Bono Ant.</th><th class="num">Otros</th><th class="num">Total</th></tr></thead>
+            <tbody>
+              @for (r of finiquitoCalculo.remuneraciones; track r.mes) {
+                <tr>
+                  <td>{{ r.mes }} {{ r.gestion }}</td><td class="num-cell">{{ num(r.sueldo) }}</td><td class="num-cell">{{ num(r.bono_antiguedad) }}</td>
+                  <td class="num-cell">{{ num(r.otros_bonos) }}</td><td class="num-cell"><strong>{{ num(r.total) }}</strong></td>
+                </tr>
+              }
+            </tbody>
+            <tfoot><tr><td colspan="4"><strong>Promedio indemnización</strong></td><td class="num-cell"><strong>{{ num(finiquitoCalculo.promedio_indemnizacion) }}</strong></td></tr></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div class="dash-card">
+        <h3><i class="ti ti-list-check"></i> Beneficios sociales</h3>
+        <div class="stat-list">
+          <div class="stat-row"><span class="stat-label">Indemnización</span><span class="stat-value">{{ num(finiquitoCalculo.indemnizacion) }} Bs</span></div>
+          <div class="stat-row"><span class="stat-label">Desahucio</span><span class="stat-value">{{ num(finiquitoCalculo.desahucio) }} Bs</span></div>
+          <div class="stat-row"><span class="stat-label">Aguinaldo navidad</span><span class="stat-value">{{ num(finiquitoCalculo.aguinaldo_navidad) }} Bs</span></div>
+          <div class="stat-row"><span class="stat-label">Doble aguinaldo (D.S. 1802)</span><span class="stat-value">{{ num(finiquitoCalculo.doble_aguinaldo) }} Bs</span></div>
+          <div class="stat-row"><span class="stat-label">Vacaciones ({{ finiquitoCalculo.vacaciones_dias }} días)</span><span class="stat-value">{{ num(finiquitoCalculo.vacaciones_monto) }} Bs</span></div>
+          <div class="stat-row"><span class="stat-label">Otros beneficios</span><span class="stat-value">{{ num(finiquitoCalculo.otros_beneficios) }} Bs</span></div>
+          <div class="stat-row" style="border-top:2px solid var(--line);padding-top:6px"><span class="stat-label"><strong>Total beneficios</strong></span><span class="stat-value"><strong>{{ num(finiquitoCalculo.total_beneficios) }} Bs</strong></span></div>
+          <div class="stat-row" style="color:#dc2626"><span class="stat-label">Retención RC-IVA</span><span class="stat-value">-{{ num(finiquitoCalculo.retencion_rciva) }} Bs</span></div>
+          <div class="stat-row" style="font-size:16px;color:var(--orange)"><span class="stat-label"><strong>Líquido pagable</strong></span><span class="stat-value"><strong>{{ num(finiquitoCalculo.liquido_pagable) }} Bs</strong></span></div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:8px;text-align:right;display:flex;gap:8px;justify-content:flex-end;align-items:center">
+      @if (finiquitoGuardarMsg) { <span class="toolbar-msg">{{ finiquitoGuardarMsg }}</span> }
+      <button class="obtn secondary" (click)="closeFiniquitoCalculo()"><i class="ti ti-x"></i> Cerrar</button>
+      <button class="obtn primary" (click)="guardarFiniquito()" [disabled]="finiquitoGuardando"><i class="ti ti-device-floppy"></i> {{ finiquitoGuardando ? 'Guardando...' : 'Guardar finiquito' }}</button>
+    </div>
+  }
+
+  @if (!finiquitoCalculo) {
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Empleado</th><th>CI</th><th>Cargo</th><th>Motivo</th><th>Fecha retiro</th><th class="num">Total beneficios</th><th class="num">Líquido</th><th>Estado</th></tr></thead>
+        <tbody>
+          @for (f of finiquitos; track f.id) {
+            <tr>
+              <td>{{ f.empleado }}</td><td>{{ f.ci }}</td><td>{{ f.cargo || '-' }}</td><td>{{ motivoBajaLabel(f.motivo_baja) }}</td>
+              <td>{{ f.fecha_retiro }}</td><td class="num-cell">{{ num(f.total_beneficios) }}</td>
+              <td class="num-cell" style="font-weight:700;color:var(--orange)">{{ num(f.liquido_pagable) }}</td>
+              <td><span class="badge" [class]="estadoBadgeClass(f.estado)">{{ f.estado }}</span></td>
+            </tr>
+          }
+          @if (finiquitos.length === 0) { <tr><td colspan="8" class="empty-cell">Sin finiquitos registrados</td></tr> }
+        </tbody>
+      </table>
+    </div>
+  }
+}
+
+<!-- ═══════════════════════════════════════════ PLANILLA TRIBUTARIA ═══ -->
+@if (tab === 'tributaria' && !loading) {
+  <div class="rrhh-toolbar">
+    <div class="filter-group">
+      <label>Gestión</label>
+      <input type="number" [(ngModel)]="ejercicio" min="2020" max="2030" style="width:90px" />
+    </div>
+    <div class="filter-group">
+      <label>Mes</label>
+      <select [(ngModel)]="mes">
+        @for (m of meses; track m; let i = $index) { <option [value]="i + 1">{{ m }}</option> }
+      </select>
+    </div>
+    <button class="obtn primary" (click)="loadTributaria()"><i class="ti ti-refresh"></i> Calcular</button>
+  </div>
+
+  @if (tributariaData) {
+    <div class="kpi-row">
+      <div class="kpi-card"><div class="kpi-value">{{ num(tributariaData.totales.total_ganado) }}</div><div class="kpi-label">Total ganado</div></div>
+      <div class="kpi-card"><div class="kpi-value">{{ num(tributariaData.totales.total_aportes) }}</div><div class="kpi-label">Total aportes</div></div>
+      <div class="kpi-card"><div class="kpi-value">{{ num(tributariaData.totales.impuesto_rciva) }}</div><div class="kpi-label">Impuesto RC-IVA</div></div>
+      <div class="kpi-card warn"><div class="kpi-value">{{ num(tributariaData.totales.rciva_retenido) }}</div><div class="kpi-label">RC-IVA retenido</div></div>
+    </div>
+
+    <div class="table-scroll">
+      <table class="data-table compact">
+        <thead>
+          <tr>
+            <th>Empleado</th><th>CI</th>
+            <th class="num">Total ganado</th><th class="num">Aportes lab.</th>
+            <th class="num">SMN no imp.</th><th class="num">Base imponible</th>
+            <th class="num">Imp. RC-IVA</th><th class="num">Créd. 13%</th>
+            <th class="num">Imp. neto</th><th class="num">F110</th>
+            <th class="num">RC-IVA ret.</th><th class="num">Saldo CF</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (l of tributariaData.lineas; track l.id_empleado) {
+            <tr>
+              <td>{{ l.empleado }}</td><td>{{ l.ci }}</td>
+              <td class="num-cell">{{ num(l.total_ganado) }}</td><td class="num-cell">{{ num(l.total_aportes_laborales) }}</td>
+              <td class="num-cell">{{ num(l.smn_no_imponibles) }}</td><td class="num-cell">{{ num(l.importe_sujeto_impuesto) }}</td>
+              <td class="num-cell">{{ num(l.impuesto_rciva) }}</td><td class="num-cell">{{ num(l.credito_13pct_2smn) }}</td>
+              <td class="num-cell">{{ num(l.impuesto_neto) }}</td><td class="num-cell">{{ num(l.f110_casilla_693) }}</td>
+              <td class="num-cell" style="font-weight:700;color:var(--orange)">{{ num(l.rciva_retenido) }}</td>
+              <td class="num-cell">{{ num(l.saldo_credito_fiscal) }}</td>
+            </tr>
+          }
+          @if (tributariaData.lineas.length === 0) { <tr><td colspan="12" class="empty-cell">Sin datos para el periodo</td></tr> }
+        </tbody>
+      </table>
+    </div>
+  }
+}
+
+<!-- ═══════════════════════════════════════════════ HORARIOS ═══ -->
+@if (tab === 'horarios' && !loading) {
+  <div class="rrhh-toolbar">
+    <div class="sub-tabs">
+      <button class="obtn" [class.active]="horarioSubTab === 'horarios'" (click)="setHorarioSubTab('horarios')"><i class="ti ti-calendar-time"></i> Horarios</button>
+      <button class="obtn" [class.active]="horarioSubTab === 'asignaciones'" (click)="setHorarioSubTab('asignaciones')"><i class="ti ti-users"></i> Asignaciones</button>
+      <button class="obtn" [class.active]="horarioSubTab === 'sin-horario'" (click)="setHorarioSubTab('sin-horario')"><i class="ti ti-alert-triangle"></i> Sin horario</button>
+    </div>
+  </div>
+
+  @if (horarioSubTab === 'horarios') {
+    <div class="rrhh-toolbar" style="margin-bottom:8px">
+      <button class="obtn primary" (click)="openHorarioForm()"><i class="ti ti-plus"></i> Nuevo horario</button>
+    </div>
+    @if (horarioFormOpen) {
+      <div class="detail-overlay" (click)="closeHorarioForm()"></div>
+      <div class="detail-panel">
+        <div class="detail-header"><h2><i class="ti ti-calendar-time"></i> Nuevo horario</h2><button class="close-btn" (click)="closeHorarioForm()"><i class="ti ti-x"></i></button></div>
+        <div class="detail-body">
+          @if (horarioFormError) { <div class="vac-alert error"><i class="ti ti-alert-circle"></i> {{ horarioFormError }}</div> }
+          <div class="vac-field"><label>Nombre</label><input type="text" [(ngModel)]="horarioForm['nombre']" placeholder="Ej: Turno mañana" /></div>
+          <div class="vac-field">
+            <label>Día</label>
+            <select [(ngModel)]="horarioForm['dia']">
+              <option value="LUNES">Lunes</option><option value="MARTES">Martes</option><option value="MIERCOLES">Miércoles</option>
+              <option value="JUEVES">Jueves</option><option value="VIERNES">Viernes</option><option value="SABADO">Sábado</option>
+            </select>
+          </div>
+          <div class="alta-row">
+            <div class="vac-field"><label>Hora inicio</label><input type="time" [(ngModel)]="horarioForm['hora_inicio']" /></div>
+            <div class="vac-field"><label>Hora fin</label><input type="time" [(ngModel)]="horarioForm['hora_fin']" /></div>
+          </div>
+          <div class="detail-footer">
+            <button class="obtn secondary" (click)="closeHorarioForm()">Cancelar</button>
+            <button class="obtn primary" (click)="submitHorario()"><i class="ti ti-check"></i> Crear</button>
+          </div>
+        </div>
+      </div>
+    }
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Nombre</th><th>Día</th><th>Hora inicio</th><th>Hora fin</th><th></th></tr></thead>
+        <tbody>
+          @for (h of horarios; track h.id) {
+            <tr>
+              <td><strong>{{ h.nombre }}</strong></td>
+              <td>{{ h.dias || diaLabel(h.dia) }}</td>
+              <td>{{ h.hora_inicio }}</td><td>{{ h.hora_fin }}</td>
+              <td><button class="obtn sm danger" (click)="desactivarHorario(h.id)"><i class="ti ti-trash"></i></button></td>
+            </tr>
+          }
+          @if (horarios.length === 0) { <tr><td colspan="5" class="empty-cell">Sin horarios definidos</td></tr> }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  @if (horarioSubTab === 'asignaciones') {
+    <div class="rrhh-toolbar" style="margin-bottom:8px">
+      <button class="obtn primary" (click)="openHorarioAsignarForm()"><i class="ti ti-plus"></i> Asignar horario</button>
+    </div>
+    @if (horarioAsignarFormOpen) {
+      <div class="detail-overlay" (click)="closeHorarioAsignarForm()"></div>
+      <div class="detail-panel">
+        <div class="detail-header"><h2><i class="ti ti-users"></i> Asignar horario</h2><button class="close-btn" (click)="closeHorarioAsignarForm()"><i class="ti ti-x"></i></button></div>
+        <div class="detail-body">
+          @if (horarioFormError) { <div class="vac-alert error"><i class="ti ti-alert-circle"></i> {{ horarioFormError }}</div> }
+          <div class="vac-field">
+            <label>Empleado</label>
+            <app-search-select [options]="contratoOpts" [(ngModel)]="horarioAsignarForm['id_contrato']" placeholder="Buscar empleado..."></app-search-select>
+          </div>
+          <div class="vac-field">
+            <label>Horario</label>
+            <app-search-select [options]="horarioOpts" [(ngModel)]="horarioAsignarForm['id_horario']" placeholder="Buscar horario..."></app-search-select>
+          </div>
+          <div class="vac-field"><label>Vigencia desde</label><input type="date" [(ngModel)]="horarioAsignarForm['vigencia_desde']" /></div>
+          <div class="detail-footer">
+            <button class="obtn secondary" (click)="closeHorarioAsignarForm()">Cancelar</button>
+            <button class="obtn primary" (click)="submitHorarioAsignar()"><i class="ti ti-check"></i> Asignar</button>
+          </div>
+        </div>
+      </div>
+    }
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Empleado</th><th>CI</th><th>Cargo</th><th>Agencia</th><th>Horario</th><th>Día</th><th>Inicio</th><th>Fin</th></tr></thead>
+        <tbody>
+          @for (a of horariosAsignaciones; track a.id) {
+            <tr>
+              <td>{{ a.empleado }}</td><td>{{ a.ci }}</td><td>{{ a.cargo || '-' }}</td><td>{{ a.agencia || '-' }}</td>
+              <td><strong>{{ a.horario_nombre }}</strong></td><td>{{ diaLabel(a.dia) }}</td><td>{{ a.hora_inicio }}</td><td>{{ a.hora_fin }}</td>
+            </tr>
+          }
+          @if (horariosAsignaciones.length === 0) { <tr><td colspan="8" class="empty-cell">Sin asignaciones vigentes</td></tr> }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  @if (horarioSubTab === 'sin-horario') {
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Empleado</th><th>CI</th><th>Cargo</th></tr></thead>
+        <tbody>
+          @for (e of horariosSinHorario; track e.id) {
+            <tr><td>{{ e.empleado }}</td><td>{{ e.ci }}</td><td>{{ e.cargo || '-' }}</td></tr>
+          }
+          @if (horariosSinHorario.length === 0) { <tr><td colspan="3" class="empty-cell">Todos tienen horario asignado</td></tr> }
+        </tbody>
+      </table>
+    </div>
+  }
+}
+
+<!-- ═══════════════════════════════════════════════ PARÁMETROS ═══ -->
+@if (tab === 'parametros' && !loading && parametrosData) {
+  <div class="rrhh-toolbar">
+    <div class="filter-group">
+      <label>Gestión</label>
+      <input type="number" [(ngModel)]="ejercicio" min="2020" max="2030" style="width:90px" />
+    </div>
+    <button class="obtn primary" (click)="loadTab()"><i class="ti ti-refresh"></i> Consultar</button>
+    <button class="obtn secondary" (click)="openParamForm()"><i class="ti ti-plus"></i> Nuevo parámetro</button>
+  </div>
+
+  @if (paramFormOpen) {
+    <div class="detail-overlay" (click)="closeParamForm()"></div>
+    <div class="detail-panel">
+      <div class="detail-header"><h2><i class="ti ti-settings"></i> {{ paramEditing ? 'Editar' : 'Nuevo' }} parámetro</h2><button class="close-btn" (click)="closeParamForm()"><i class="ti ti-x"></i></button></div>
+      <div class="detail-body">
+        @if (paramFormError) { <div class="vac-alert error"><i class="ti ti-alert-circle"></i> {{ paramFormError }}</div> }
+        @if (paramFormSuccess) { <div class="vac-alert success"><i class="ti ti-check"></i> {{ paramFormSuccess }}</div> }
+        <div class="alta-row">
+          <div class="vac-field"><label>Código</label><input type="text" [(ngModel)]="paramForm['codigo']" [disabled]="!!paramEditing" /></div>
+          <div class="vac-field"><label>Gestión</label><input type="number" [(ngModel)]="paramForm['gestion']" /></div>
+        </div>
+        <div class="vac-field"><label>Descripción</label><input type="text" [(ngModel)]="paramForm['descripcion']" /></div>
+        <div class="alta-row">
+          <div class="vac-field"><label>Valor</label><input type="number" [(ngModel)]="paramForm['valor']" step="0.01" /></div>
+          <div class="vac-field"><label>Norma referencia</label><input type="text" [(ngModel)]="paramForm['norma_referencia']" /></div>
+        </div>
+        <div class="detail-footer">
+          <button class="obtn secondary" (click)="closeParamForm()">Cancelar</button>
+          <button class="obtn primary" (click)="submitParametro()"><i class="ti ti-check"></i> {{ paramEditing ? 'Actualizar' : 'Crear' }}</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <div class="params-grid">
+    <div class="params-card">
+      <h3><i class="ti ti-settings"></i> Parámetros normativos — {{ parametrosData.gestion }}</h3>
+      <div class="table-scroll">
+        <table class="data-table compact">
+          <thead>
+            <tr><th>Código</th><th>Descripción</th><th class="num">Valor</th><th>Norma</th><th></th></tr>
+          </thead>
+          <tbody>
+            @for (p of parametrosData.parametros; track p.id) {
+              <tr>
+                <td><code>{{ p.codigo }}</code></td>
+                <td>{{ p.descripcion }}</td>
+                <td class="num-cell">{{ num(p.valor) }}</td>
+                <td class="ref-cell">{{ p.norma_referencia || '-' }}</td>
+                <td><button class="obtn sm" (click)="openParamForm(p)"><i class="ti ti-edit"></i></button></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="params-card half">
+      <h3><i class="ti ti-trending-up"></i> Escala bono de antigüedad</h3>
+      <div class="table-scroll">
+        <table class="data-table compact">
+          <thead>
+            <tr><th>Desde (años)</th><th>Hasta</th><th class="num">Porcentaje</th></tr>
+          </thead>
+          <tbody>
+            @for (b of parametrosData.bono_antiguedad; track b.anios_desde) {
+              <tr>
+                <td>{{ b.anios_desde }}</td>
+                <td>{{ b.anios_hasta ?? '∞' }}</td>
+                <td class="num-cell">{{ b.porcentaje }}%</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="params-card half">
+      <h3><i class="ti ti-beach"></i> Escala de vacaciones</h3>
+      <div class="table-scroll">
+        <table class="data-table compact">
+          <thead>
+            <tr><th>Desde (años)</th><th>Hasta</th><th class="num">Días hábiles</th></tr>
+          </thead>
+          <tbody>
+            @for (v of parametrosData.vacaciones; track v.anios_desde) {
+              <tr>
+                <td>{{ v.anios_desde }}</td>
+                <td>{{ v.anios_hasta ?? '∞' }}</td>
+                <td class="num-cell">{{ v.dias_habiles }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="params-card full">
+      <h3><i class="ti ti-calendar-event"></i> Feriados {{ ejercicio }}
+        <button class="obtn sm" style="margin-left:auto" (click)="openFeriadoForm()"><i class="ti ti-plus"></i> Nuevo</button>
+      </h3>
+      @if (feriadoFormOpen) {
+        <div class="detail-overlay" (click)="closeFeriadoForm()"></div>
+        <div class="detail-panel">
+          <div class="detail-header"><h2><i class="ti ti-calendar-event"></i> {{ feriadoEditing ? 'Editar' : 'Nuevo' }} feriado</h2><button class="close-btn" (click)="closeFeriadoForm()"><i class="ti ti-x"></i></button></div>
+          <div class="detail-body">
+            @if (feriadoFormError) { <div class="vac-alert error"><i class="ti ti-alert-circle"></i> {{ feriadoFormError }}</div> }
+            <div class="vac-field"><label>Fecha</label><input type="date" [(ngModel)]="feriadoForm['fecha']" /></div>
+            <div class="vac-field"><label>Nombre</label><input type="text" [(ngModel)]="feriadoForm['nombre']" /></div>
+            <div class="vac-field">
+              <label>Tipo</label>
+              <select [(ngModel)]="feriadoForm['tipo']">
+                <option value="NACIONAL">Nacional</option>
+                <option value="DEPARTAMENTAL">Departamental</option>
+                <option value="REGIONAL">Regional</option>
+              </select>
+            </div>
+            <div class="detail-footer">
+              <button class="obtn secondary" (click)="closeFeriadoForm()">Cancelar</button>
+              <button class="obtn primary" (click)="submitFeriado()"><i class="ti ti-check"></i> {{ feriadoEditing ? 'Actualizar' : 'Crear' }}</button>
+            </div>
+          </div>
+        </div>
+      }
+      <div class="table-scroll">
+        <table class="data-table compact">
+          <thead><tr><th>Fecha</th><th>Nombre</th><th>Tipo</th><th></th></tr></thead>
+          <tbody>
+            @for (f of parametrosData.feriados; track f.id) {
+              <tr>
+                <td>{{ f.fecha }}</td>
+                <td>{{ f.nombre }}</td>
+                <td><span class="badge">{{ f.tipo }}</span></td>
+                <td>
+                  <button class="obtn sm" (click)="openFeriadoForm(f)"><i class="ti ti-edit"></i></button>
+                  <button class="obtn sm danger" (click)="eliminarFeriado(f.id)"><i class="ti ti-trash"></i></button>
+                </td>
+              </tr>
+            }
+            @if (!parametrosData.feriados || parametrosData.feriados.length === 0) {
+              <tr><td colspan="4" class="empty-cell">Sin feriados registrados</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ── Alta de Usuario ── -->
+@if (altaFormOpen) {
+  <div class="detail-overlay" (click)="closeAltaForm()"></div>
+  <div class="detail-panel wide">
+    <div class="detail-header alta-header">
+      <h2><i class="ti ti-user-plus"></i> Formulario de Alta de Usuario</h2>
+      <button class="close-btn" (click)="closeAltaForm()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="detail-body">
+      <div class="alta-section-label"><i class="ti ti-id-badge"></i> 1. Datos del Usuario <span class="alta-tag">[Recursos Humanos]</span></div>
+      <div class="alta-row">
+        <div class="vac-field"><label>Nombres</label><input type="text" [(ngModel)]="altaForm['nombres']" /></div>
+        <div class="vac-field"><label>Apellido Paterno</label><input type="text" [(ngModel)]="altaForm['apellido_paterno']" /></div>
+        <div class="vac-field"><label>Apellido Materno</label><input type="text" [(ngModel)]="altaForm['apellido_materno']" /></div>
+      </div>
+      <div class="alta-row">
+        <div class="vac-field"><label>Fecha de Nacimiento</label><input type="date" [(ngModel)]="altaForm['fecha_nacimiento']" /></div>
+        <div class="vac-field"><label>Cédula de Identidad</label><input type="text" [(ngModel)]="altaForm['ci']" /></div>
+        <div class="vac-field"><label>Teléfono</label><input type="text" [(ngModel)]="altaForm['telefono']" /></div>
+      </div>
+      <div class="alta-row">
+        <div class="vac-field"><label>Cargo Asignado</label><input type="text" [(ngModel)]="altaForm['cargo_asignado']" /></div>
+        <div class="vac-field"><label>N° de Contrato</label><input type="text" [(ngModel)]="altaForm['num_contrato']" /></div>
+        <div class="vac-field"><label>Email Personal</label><input type="text" [(ngModel)]="altaForm['email_personal']" /></div>
+      </div>
+      <div class="alta-row">
+        <div class="vac-field">
+          <label>Adjuntos</label>
+          <div class="alta-checks">
+            <label><input type="checkbox" [(ngModel)]="altaForm['memo_adjunto']" /> Memorándum Adjunto</label>
+            <label><input type="checkbox" checked disabled /> Fotocopia CI (requerido)</label>
+          </div>
+          @if (altaForm['memo_adjunto']) {
+            <div class="file-drop-zone" (click)="altaMemoInput.click()">
+              <input #altaMemoInput type="file" accept=".pdf" hidden (change)="onFileSelected($event, 'alta', 'memo_file')" />
+              @if (altaForm['memo_file_name']) {
+                <i class="ti ti-file-check file-drop-icon uploaded"></i>
+                <span class="file-drop-name">{{ altaForm['memo_file_name'] }}</span>
+                <span class="file-drop-hint">Click para cambiar</span>
+              } @else {
+                <i class="ti ti-file-upload file-drop-icon"></i>
+                <span class="file-drop-label">Memorándum</span>
+                <span class="file-drop-hint">Click para subir PDF</span>
+              }
+            </div>
+          }
+          <div class="file-drop-zone" (click)="altaCiInput.click()">
+            <input #altaCiInput type="file" accept=".pdf" hidden (change)="onFileSelected($event, 'alta', 'ci_file')" />
+            @if (altaForm['ci_file_name']) {
+              <i class="ti ti-file-check file-drop-icon uploaded"></i>
+              <span class="file-drop-name">{{ altaForm['ci_file_name'] }}</span>
+              <span class="file-drop-hint">Click para cambiar</span>
+            } @else {
+              <i class="ti ti-file-upload file-drop-icon"></i>
+              <span class="file-drop-label">Fotocopia CI <span class="required">*</span></span>
+              <span class="file-drop-hint">Click para subir PDF</span>
+            }
+          </div>
+        </div>
+        <div class="vac-field"><label>Plataforma</label>
+          <select [(ngModel)]="altaForm['plataforma']">
+            <option>Windows</option><option>Mac</option><option>Linux</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="alta-section-label"><i class="ti ti-server"></i> 2. Accesos a Sistemas <span class="alta-tag">[Exclusivo Sistemas]</span></div>
+      @for (s of altaForm['sistemas']; track $index) {
+        <div class="alta-row">
+          <div class="vac-field"><label>Sistema</label><input type="text" [(ngModel)]="s.sistema" /></div>
+          <div class="vac-field"><label>Rol</label><input type="text" [(ngModel)]="s.rol" /></div>
+        </div>
+      }
+      <button class="obtn sm" (click)="addAltaSistema()"><i class="ti ti-plus"></i> Agregar sistema</button>
+
+      <div class="alta-section-label"><i class="ti ti-network"></i> 3. Intranet <span class="alta-tag">[Exclusivo Sistemas]</span></div>
+      <div class="alta-checks">
+        <label><input type="checkbox" [(ngModel)]="altaForm['intranet']['dominio_red']" /> Dominio de Red</label>
+        <label><input type="checkbox" [(ngModel)]="altaForm['intranet']['email_corp']" /> Email Corporativo</label>
+        <label><input type="checkbox" [(ngModel)]="altaForm['intranet']['intranet_corp']" /> Intranet Corporativo</label>
+        <label><input type="checkbox" [(ngModel)]="altaForm['intranet']['voip']" /> Servicio VoIP</label>
+      </div>
+
+      <div class="alta-section-label"><i class="ti ti-world"></i> 4. Internet</div>
+      <div class="alta-checks">
+        <label><input type="checkbox" [(ngModel)]="altaForm['internet']['red_local']" /> Red Local</label>
+        <label><input type="checkbox" [(ngModel)]="altaForm['internet']['wifi']" /> Wifi (Celular/Móvil)</label>
+      </div>
+
+      <div class="alta-section-label"><i class="ti ti-building"></i> 5. Asignación de Agencia</div>
+      <div class="alta-checks grid-3">
+        <label><input type="checkbox" [checked]="altaForm['agencias'].includes('Oficina Central')" (change)="toggleAltaAgencia('Oficina Central')" /> Oficina Central</label>
+        <label><input type="checkbox" [checked]="altaForm['agencias'].includes('Agencia Colón')" (change)="toggleAltaAgencia('Agencia Colón')" /> Agencia Colón</label>
+        <label><input type="checkbox" [checked]="altaForm['agencias'].includes('Agencia 6 de Marzo')" (change)="toggleAltaAgencia('Agencia 6 de Marzo')" /> Agencia 6 de Marzo</label>
+        <label><input type="checkbox" [checked]="altaForm['agencias'].includes('Agencia Oruro Central')" (change)="toggleAltaAgencia('Agencia Oruro Central')" /> Agencia Oruro Central</label>
+        <label><input type="checkbox" [checked]="altaForm['agencias'].includes('Agencia Sucre Central')" (change)="toggleAltaAgencia('Agencia Sucre Central')" /> Agencia Sucre Central</label>
+        <label><input type="checkbox" [checked]="altaForm['agencias'].includes('Agencia Cochabamba Central')" (change)="toggleAltaAgencia('Agencia Cochabamba Central')" /> Agencia Cochabamba Central</label>
+        <label><input type="checkbox" [checked]="altaForm['agencias'].includes('Agencia Yapacani')" (change)="toggleAltaAgencia('Agencia Yapacani')" /> Agencia Yapacani</label>
+        <label><input type="checkbox" [checked]="altaForm['agencias'].includes('Agencia Santa Cruz Central')" (change)="toggleAltaAgencia('Agencia Santa Cruz Central')" /> Agencia Santa Cruz Central</label>
+        <label><input type="checkbox" [checked]="altaForm['agencias'].includes('Agencia Uyuni')" (change)="toggleAltaAgencia('Agencia Uyuni')" /> Agencia Uyuni</label>
+      </div>
+
+      <div class="alta-section-label"><i class="ti ti-device-desktop"></i> 6. Hardware <span class="alta-tag">[RRHH]</span></div>
+      @for (h of altaForm['hardware']; track $index) {
+        <div class="alta-row">
+          <div class="vac-field"><label>Accesorio</label><input type="text" [(ngModel)]="h.accesorio" /></div>
+          <div class="vac-field"><label>Descripción</label><input type="text" [(ngModel)]="h.descripcion" /></div>
+          <div class="vac-field"><label>Código Activo</label><input type="text" [(ngModel)]="h.codigo" /></div>
+        </div>
+      }
+      <button class="obtn sm" (click)="addAltaHardware()"><i class="ti ti-plus"></i> Agregar hardware</button>
+
+      <div class="alta-section-label"><i class="ti ti-signature"></i> Datos del Solicitante</div>
+      <div class="alta-row">
+        <div class="vac-field"><label>Solicitado Por</label><input type="text" [(ngModel)]="altaForm['solicitado_por']" /></div>
+        <div class="vac-field"><label>Cargo</label><input type="text" [(ngModel)]="altaForm['solicitado_cargo']" /></div>
+        <div class="vac-field"><label>Fecha</label><input type="date" [(ngModel)]="altaForm['fecha']" /></div>
+      </div>
+    </div>
+    <div class="vac-form-footer">
+      <button class="obtn" (click)="closeAltaForm()">Cancelar</button>
+      <button class="obtn primary" (click)="exportarAlta()"><i class="ti ti-printer"></i> Generar Formulario</button>
+    </div>
+  </div>
+}
+
+<!-- ── Baja de Usuario ── -->
+@if (bajaFormOpen) {
+  <div class="detail-overlay" (click)="closeBajaForm()"></div>
+  <div class="detail-panel wide">
+    <div class="detail-header baja-header">
+      <h2><i class="ti ti-user-minus"></i> Formulario de Baja de Usuario</h2>
+      <button class="close-btn" (click)="closeBajaForm()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="detail-body">
+      <div class="alta-section-label"><i class="ti ti-id-badge"></i> 1. Datos del Usuario de la Baja <span class="alta-tag">[Recursos Humanos]</span></div>
+      <div class="alta-row">
+        <div class="vac-field"><label>Nombre Completo</label><input type="text" [(ngModel)]="bajaForm['nombre_completo']" /></div>
+        <div class="vac-field"><label>Cédula de Identidad</label><input type="text" [(ngModel)]="bajaForm['ci']" /></div>
+      </div>
+      <div class="alta-row">
+        <div class="vac-field"><label>Teléfono</label><input type="text" [(ngModel)]="bajaForm['telefono']" /></div>
+        <div class="vac-field"><label>Cargo Actual</label><input type="text" [(ngModel)]="bajaForm['cargo_actual']" /></div>
+      </div>
+      <div class="alta-checks">
+        <label><input type="checkbox" [(ngModel)]="bajaForm['memo_adjunto']" /> Memorándum Adjunto</label>
+      </div>
+      @if (bajaForm['memo_adjunto']) {
+        <div class="file-drop-zone" (click)="bajaMemoInput.click()">
+          <input #bajaMemoInput type="file" accept=".pdf" hidden (change)="onFileSelected($event, 'baja', 'memo_file')" />
+          @if (bajaForm['memo_file_name']) {
+            <i class="ti ti-file-check file-drop-icon uploaded"></i>
+            <span class="file-drop-name">{{ bajaForm['memo_file_name'] }}</span>
+            <span class="file-drop-hint">Click para cambiar</span>
+          } @else {
+            <i class="ti ti-file-upload file-drop-icon"></i>
+            <span class="file-drop-label">Memorándum</span>
+            <span class="file-drop-hint">Click para subir PDF</span>
+          }
+        </div>
+      }
+
+      <div class="alta-section-label"><i class="ti ti-network"></i> 3. Inactivación de Intranet <span class="alta-tag">[Exclusivo Sistemas]</span></div>
+      <div class="alta-checks">
+        <label><input type="checkbox" [(ngModel)]="bajaForm['intranet']['dominio_red']" /> Dominio de Red</label>
+        <label><input type="checkbox" [(ngModel)]="bajaForm['intranet']['email_corp']" /> Email Corporativo</label>
+        <label><input type="checkbox" [(ngModel)]="bajaForm['intranet']['intranet_corp']" /> Intranet Corporativo</label>
+        <label><input type="checkbox" [(ngModel)]="bajaForm['intranet']['voip']" /> Servicio VoIP</label>
+      </div>
+
+      <div class="alta-section-label"><i class="ti ti-device-desktop"></i> 4. Entrega de Hardware <span class="alta-tag">[RRHH]</span></div>
+      @for (h of bajaForm['hardware']; track $index) {
+        <div class="alta-row">
+          <div class="vac-field"><label>Accesorio</label><input type="text" [(ngModel)]="h.accesorio" /></div>
+          <div class="vac-field"><label>Descripción</label><input type="text" [(ngModel)]="h.descripcion" /></div>
+          <div class="vac-field"><label>Código Activo</label><input type="text" [(ngModel)]="h.codigo" /></div>
+        </div>
+      }
+      <button class="obtn sm" (click)="addBajaHardware()"><i class="ti ti-plus"></i> Agregar hardware</button>
+
+      <div class="alta-section-label"><i class="ti ti-signature"></i> Datos del Solicitante</div>
+      <div class="alta-row">
+        <div class="vac-field"><label>Solicitado Por</label><input type="text" [(ngModel)]="bajaForm['solicitado_por']" /></div>
+        <div class="vac-field"><label>Cargo</label><input type="text" [(ngModel)]="bajaForm['solicitado_cargo']" /></div>
+        <div class="vac-field"><label>Fecha</label><input type="date" [(ngModel)]="bajaForm['fecha']" /></div>
+      </div>
+    </div>
+    <div class="vac-form-footer">
+      <button class="obtn" (click)="closeBajaForm()">Cancelar</button>
+      <button class="obtn danger" (click)="exportarBaja()"><i class="ti ti-printer"></i> Generar Formulario</button>
+    </div>
+  </div>
+}
+
+<!-- ── Print popup overlay ── -->
+@if (docPrintOpen) {
+  <div class="print-overlay" (click)="cerrarPrintPopup()">
+    <div class="print-popup" (click)="$event.stopPropagation()">
+      <div class="print-toolbar">
+        <span class="print-title"><i class="ti ti-file-text"></i> Vista previa del documento</span>
+        <div class="print-actions">
+          <button class="btn-print" (click)="imprimirDocumento()"><i class="ti ti-printer"></i> Imprimir</button>
+          <button class="btn-close-print" (click)="cerrarPrintPopup()"><i class="ti ti-x"></i></button>
+        </div>
+      </div>
+      <iframe id="doc-print-iframe" class="print-iframe"></iframe>
+    </div>
+  </div>
+}

@@ -1,0 +1,22 @@
+:host { display: block; }
+
+.mov-ag-head {
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  &:hover { background: var(--sub); }
+}
+.mov-ag-info { flex: 1; min-width: 0;
+  strong { font-size: 13.5px; }
+}
+
+.mov-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;
+}
+.mov-item {
+  display: flex; align-items: center; gap: 8px; padding: 4px 0;
+  font-size: 12.5px;
+  .tag { font-size: 11px; }
+}
+
+@media (max-width: 640px) {
+  .mov-grid { grid-template-columns: 1fr; }
+}

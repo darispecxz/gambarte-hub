@@ -1,0 +1,20 @@
+:host { display: block; }
+
+.alert-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px;
+}
+.alert-card { padding: 0; overflow: hidden; }
+.alert-card-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 16px; border-bottom: 1px solid var(--line-2);
+}
+.alert-item {
+  display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+  font-size: 12.5px; border-bottom: 1px solid var(--line-2);
+  &:last-child { border-bottom: none; }
+}
+.alert-msg { flex: 1; }
+
+@media (max-width: 640px) {
+  .alert-grid { grid-template-columns: 1fr; }
+}

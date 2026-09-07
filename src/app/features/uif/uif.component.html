@@ -1,0 +1,544 @@
+<div class="ph">
+  <h1>Cumplimiento</h1>
+  <i class="ti ti-chevron-right chev"></i>
+  <span class="view-chip"><i class="ti ti-shield-check" style="font-size:14px"></i>Investigacion Financiera - UIF</span>
+</div>
+<p class="page-sub">Reportes UIF: Consulta PCC, Cambios, Giros, Remesas y Usuario Financiero</p>
+
+@if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
+
+<div class="filters">
+  <div class="fdrop"><label>Desde</label><input type="date" [(ngModel)]="desde"></div>
+  <div class="fdrop"><label>Hasta</label><input type="date" [(ngModel)]="hasta"></div>
+  <div class="fdrop"><label>Agencia</label>
+    <select [(ngModel)]="agencia">
+      <option [ngValue]="null">Todas</option>
+      @for (ag of agencies; track ag.id_agencia) {
+        <option [ngValue]="ag.id_agencia">{{ ag.descripcion }}</option>
+      }
+    </select>
+  </div>
+
+  @if (selected === 'pcc') {
+    <div class="fdrop"><label>Tipo PCC</label>
+      <select [(ngModel)]="pccType">
+        <option [ngValue]="6">PCC-06 (Cambios)</option>
+        <option [ngValue]="8">PCC-08 (Giros/Remesas)</option>
+      </select>
+    </div>
+  }
+
+  @if (selected === 'usuario') {
+    <div class="fdrop"><label>Operacion</label>
+      <select [(ngModel)]="ufOperacion">
+        <option [ngValue]="null">Todas</option>
+        <option [ngValue]="1">Compra</option>
+        <option [ngValue]="2">Venta</option>
+        <option [ngValue]="3">Giro</option>
+        <option [ngValue]="4">Remesa</option>
+      </select>
+    </div>
+  }
+
+  <button class="obtn primary" (click)="load()" [disabled]="loading"><i class="ti ti-eye"></i>Consultar</button>
+
+  <button class="obtn" (click)="openExport()" [disabled]="totalFiltered === 0">
+    <i class="ti ti-download"></i> Exportar
+  </button>
+
+  @if (selected === 'usuario') {
+    <button class="obtn" (click)="openExtracto()" [disabled]="totalFiltered === 0">
+      <i class="ti ti-file-description"></i> Extracto
+    </button>
+  }
+</div>
+
+<!-- Usuario Financiero specific filters -->
+@if (selected === 'usuario') {
+  <div class="filters" style="margin-top: 4px;">
+    <div class="fdrop"><label>Tipo Doc.</label>
+      <select [(ngModel)]="ufTipoDoc">
+        <option [ngValue]="null">Todos</option>
+        <option [ngValue]="1">CI</option>
+        <option [ngValue]="2">Pasaporte</option>
+        <option [ngValue]="3">RUN</option>
+        <option [ngValue]="4">Carnet Extranjeria</option>
+      </select>
+    </div>
+    <div class="fdrop"><label>Documento</label><input type="text" [(ngModel)]="ufDocumento" placeholder="Nro documento"></div>
+    <div class="fdrop"><label>Expedicion</label>
+      <select [(ngModel)]="ufExpedicion">
+        <option [ngValue]="null">Todos</option>
+        <option [ngValue]="1">LP</option>
+        <option [ngValue]="2">CB</option>
+        <option [ngValue]="3">SC</option>
+        <option [ngValue]="4">OR</option>
+        <option [ngValue]="5">PT</option>
+        <option [ngValue]="6">TJ</option>
+        <option [ngValue]="7">CH</option>
+        <option [ngValue]="8">BN</option>
+        <option [ngValue]="9">PD</option>
+      </select>
+    </div>
+    <div class="fdrop"><label>Nombres</label><input type="text" [(ngModel)]="ufNombres" placeholder="Nombres"></div>
+    <div class="fdrop"><label>Ap. Paterno</label><input type="text" [(ngModel)]="ufApePat" placeholder="Apellido paterno"></div>
+    <div class="fdrop"><label>Ap. Materno</label><input type="text" [(ngModel)]="ufApeMat" placeholder="Apellido materno"></div>
+  </div>
+}
+
+<!-- Search + record count + blank PCC buttons -->
+<div class="filters" style="margin-top: 4px;">
+  <div class="fdrop"><label>Buscar</label><input type="text" [(ngModel)]="searchQuery" (ngModelChange)="onSearchChange()" placeholder="Filtrar resultados..."></div>
+  <span class="rec-count">{{ totalFiltered }} de {{ totalRecords }} registro(s)</span>
+  @if (selected === 'pcc') {
+    <button class="obtn" (click)="printBlankPcc(6)" title="Formulario PCC-06 en blanco">
+      <i class="ti ti-printer"></i> PCC-06
+    </button>
+    <button class="obtn" (click)="printBlankPcc(8)" title="Formulario PCC-08 en blanco">
+      <i class="ti ti-printer"></i> PCC-08
+    </button>
+  }
+</div>
+
+@if (loading) {
+  <app-loading message="Cargando reporte UIF..."></app-loading>
+}
+
+<!-- ═══ PCC TABLE ═══ -->
+@if (!loading && selected === 'pcc') {
+  <div class="tbl scroll">
+    <table class="g">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th colspan="4">Sujeto Obligado</th>
+          <th colspan="16">Usuario Financiero</th>
+          <th colspan="9">Beneficiario</th>
+          <th colspan="7">Datos PCC-0{{ pccType }}</th>
+        </tr>
+        <tr>
+          <th></th>
+          <th>Zona</th><th>Direccion</th><th>Telefono</th><th>Funcionario</th>
+          <th>Nombres</th><th>Apellido Paterno</th><th>Apellido Materno</th>
+          <th>Tipo Documento</th><th>Documento</th><th>Extension</th>
+          <th>Pais (Nacionalidad)</th><th>Pais (Residencia)</th><th>Profesion</th>
+          <th>Actividad Economica</th><th>Lugar de Trabajo</th><th>Cargo</th>
+          <th>Direccion (Trabajo)</th><th>Ciudad</th><th>Direccion (Domicilio)</th><th>Telefono</th>
+          <th>Nombres</th><th>Apellido Paterno</th><th>Apellido Materno</th>
+          <th>Tipo Documento</th><th>Documento</th><th>Extension</th>
+          <th>Ciudad</th><th>Direccion (Domicilio)</th><th>Telefono</th>
+          <th>Operacion</th><th>Moneda</th><th>Importe</th>
+          <th>PO</th><th>PD</th><th>Origen</th><th>Destino</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of displayRows; track $index) {
+          <tr class="clickable-row" (click)="openPccPdf(row)">
+            <td>{{ row.fecha }}</td>
+            <td>{{ row.zona }}</td><td>{{ row.direccion }}</td>
+            <td>{{ row.telefono }}</td><td>{{ row.funcionario }}</td>
+            <td>{{ row.nom_usu }}</td><td>{{ row.pat_usu }}</td><td>{{ row.mat_usu }}</td>
+            <td>{{ row.tipo_doc_usu }}</td><td>{{ row.doc_usu }}</td><td>{{ row.ext_usu }}</td>
+            <td>{{ row.pais_usu }}</td><td>{{ row.pais_residencia }}</td><td>{{ row.profesion }}</td>
+            <td>{{ row.actividad_economica }}</td><td>{{ row.lugar_trabajo }}</td><td>{{ row.cargo }}</td>
+            <td>{{ row.dir_trab }}</td><td>{{ row.ciudad_usu }}</td><td>{{ row.dir_usu }}</td>
+            <td>{{ row.tel_usu }}</td>
+            <td>{{ row.nom_ben }}</td><td>{{ row.pat_ben }}</td><td>{{ row.mat_ben }}</td>
+            <td>{{ row.tipo_doc_ben }}</td><td>{{ row.doc_ben }}</td><td>{{ row.ext_ben }}</td>
+            <td>{{ row.ciudad_ben }}</td><td>{{ row.dir_ben }}</td><td>{{ row.tel_ben }}</td>
+            <td>{{ row.operacion }}</td><td>{{ row.moneda }}</td>
+            <td class="r">{{ row.monto | number:'1.2-2' }}</td>
+            <td>{{ row.pais_origen }}</td><td>{{ row.pais_destino }}</td>
+            <td>{{ row.origen_dinero }}</td><td>{{ row.destino_dinero }}</td>
+          </tr>
+        }
+        @if (!displayRows.length && !loading) {
+          <tr><td colspan="37" class="empty">Sin registros.</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+<!-- ═══ CAMBIOS TABLE ═══ -->
+@if (!loading && selected === 'cambios') {
+  <div class="sec-t">
+    <i class="ti ti-currency-dollar"></i>Reporte de Cambios UIF
+    <span class="rec-count" style="margin-left:auto">{{ totalFiltered }} registro(s)</span>
+  </div>
+  <div class="tbl scroll">
+    <table class="g">
+      <thead>
+        <tr>
+          <th>ID</th><th>Operacion</th><th>Tipo</th><th>Fecha</th><th>Usuario</th>
+          <th>Usuario Financiero</th><th>Fec. Nacimiento</th><th>Edad</th>
+          <th>Tipo Doc</th><th>Documento</th><th>Exp</th><th>Descripcion</th>
+          <th>Act. Economica</th><th>PEP</th><th>Pais Residencia</th>
+          <th>Domicilio</th><th>Celular</th><th>Ciudad Agencia</th><th>Agencia</th>
+          <th>Mon. Rec.</th><th>Monto Recibido</th><th>TC</th>
+          <th>Mon. Entregada</th><th>Monto Entregado</th>
+          <th>Pais Trans.</th><th>Total BOB</th><th>Dpto Trans.</th>
+          <th>Facturado</th><th>Tipo Cambio</th><th>Origen</th><th>Destino</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of displayRows; track row.id_cambio) {
+          <tr>
+            <td>{{ row.id_cambio }}</td><td>{{ row.id_operacion }}</td>
+            <td>{{ row.tipo_operacion }}</td><td>{{ row.fecha }}</td>
+            <td>{{ row.usuario }}</td><td>{{ row.usu_financiero }}</td>
+            <td>{{ row.fec_nacimiento }}</td><td>{{ row.edad }}</td>
+            <td>{{ row.tipo_doc }}</td><td>{{ row.doc_identidad }}</td>
+            <td>{{ row.exp }}</td><td>{{ row.descripcion }}</td>
+            <td>{{ row.act_econo }}</td><td>{{ row.PEP }}</td>
+            <td>{{ row.pais_residencia }}</td><td>{{ row.domicilio }}</td>
+            <td>{{ row.celular }}</td><td>{{ row.ciudad_agencia }}</td>
+            <td>{{ row.agencia }}</td>
+            <td>{{ row.mon_rec }}</td><td class="r">{{ row.monto_recibido | number:'1.2-2' }}</td>
+            <td class="r">{{ row.TC | number:'1.4-4' }}</td>
+            <td>{{ row.mon_entregada }}</td><td class="r">{{ row.monto_entregado | number:'1.2-2' }}</td>
+            <td>{{ row.pais_transaccion }}</td><td class="r">{{ row.total_operacion_bob | number:'1.2-2' }}</td>
+            <td>{{ row.dpto_transaccion }}</td>
+            <td>{{ row.facturado }}</td><td class="r">{{ row.tipo_cambio | number:'1.4-4' }}</td>
+            <td>{{ row.origen }}</td><td>{{ row.destino }}</td>
+          </tr>
+        }
+        @if (!displayRows.length && !loading) {
+          <tr><td colspan="31" class="empty">Sin registros.</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+<!-- ═══ GIROS TABLE ═══ -->
+@if (!loading && selected === 'giros') {
+  <div class="sec-t">
+    <i class="ti ti-transfer-vertical"></i>Reporte de Giros UIF
+    <span class="rec-count" style="margin-left:auto">{{ totalFiltered }} registro(s)</span>
+  </div>
+  <div class="tbl scroll">
+    <table class="g">
+      <thead>
+        <tr>
+          <th>ID</th><th>Codigo</th><th>Fecha</th><th>Usuario</th>
+          <th>Usuario Financiero</th><th>Fec. Nacimiento</th><th>Edad</th>
+          <th>Tipo Doc</th><th>Documento</th><th>Extension</th><th>Descripcion</th>
+          <th>Act. Economica</th><th>PEP</th><th>Pais Residencia</th>
+          <th>Domicilio</th><th>Celular</th><th>Ciudad Agencia</th>
+          <th>Agencia Origen</th><th>Agencia Destino</th>
+          <th>Tipo Operacion</th><th>Estado</th>
+          <th>Mon. Rec.</th><th>Valor Giro</th>
+          <th>Mon. Entregada</th><th>Valor BOB</th>
+          <th>Pais Trans.</th><th>Dpto Trans.</th>
+          <th>Facturado</th><th>Tipo Cambio</th><th>Origen</th><th>Destino</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of displayRows; track row.ID_GIRO) {
+          <tr>
+            <td>{{ row.ID_GIRO }}</td><td>{{ row.CODIGO }}</td>
+            <td>{{ row.FECHA }}</td><td>{{ row.USUARIO }}</td>
+            <td>{{ row.usuario_financiero }}</td><td>{{ row.fecha_nacimiento }}</td>
+            <td>{{ row.EDAD }}</td>
+            <td>{{ row.tipo_doc }}</td><td>{{ row.doc_identidad }}</td>
+            <td>{{ row.EXTENSION }}</td><td>{{ row.DESCRIPCION }}</td>
+            <td>{{ row.act_economica }}</td><td>{{ row.PEP }}</td>
+            <td>{{ row.pais_residencia }}</td><td>{{ row.domicilio }}</td>
+            <td>{{ row.celular }}</td><td>{{ row.ciudad_agencia }}</td>
+            <td>{{ row.agencia_origen }}</td><td>{{ row.agencia_destino }}</td>
+            <td>{{ row.tipo_operacion }}</td><td>{{ row.ESTADO }}</td>
+            <td>{{ row.mon_rec }}</td><td class="r">{{ row.valor_giro | number:'1.2-2' }}</td>
+            <td>{{ row.mon_entregada }}</td><td class="r">{{ row.valor_bob | number:'1.2-2' }}</td>
+            <td>{{ row.pais_transaccion }}</td><td>{{ row.dpto_transaccion }}</td>
+            <td>{{ row.FACTURADO }}</td><td class="r">{{ row.tipo_cambio | number:'1.4-4' }}</td>
+            <td>{{ row.origen }}</td><td>{{ row.destino }}</td>
+          </tr>
+        }
+        @if (!displayRows.length && !loading) {
+          <tr><td colspan="31" class="empty">Sin registros.</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+<!-- ═══ REMESAS TABLE ═══ -->
+@if (!loading && selected === 'remesas') {
+  <div class="sec-t">
+    <i class="ti ti-world"></i>Reporte de Remesas UIF
+    <span class="rec-count" style="margin-left:auto">{{ totalFiltered }} registro(s)</span>
+  </div>
+  <div class="tbl scroll">
+    <table class="g">
+      <thead>
+        <tr>
+          <th>ID</th><th>Codigo</th><th>Fecha</th><th>Usuario</th><th>Nro Oper</th>
+          <th>Canal</th><th>Usuario Financiero</th><th>Fec. Nacimiento</th><th>Edad</th>
+          <th>Tipo Doc</th><th>Nacionalidad</th><th>Documento</th><th>Extension</th>
+          <th>Descripcion</th><th>Act. Economica</th><th>PEP</th><th>Pais Residencia</th>
+          <th>Domicilio</th><th>Celular</th><th>Ciudad Agencia</th>
+          <th>Agencia Origen</th><th>Agencia Destino</th>
+          <th>Tipo Operacion</th><th>Estado</th>
+          <th>Mon. Rec.</th><th>Valor</th>
+          <th>Mon. Entr.</th><th>Valor BOB</th>
+          <th>Pais Trans.</th><th>Dpto Trans.</th>
+          <th>Facturado</th><th>PCC-08</th><th>Comision BOB</th>
+          <th>Tipo Cambio</th><th>Origen</th><th>Destino</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of displayRows; track row.id_remesa) {
+          <tr>
+            <td>{{ row.id_remesa }}</td><td>{{ row.codigo }}</td>
+            <td>{{ row.fecha }}</td><td>{{ row.usuario }}</td><td>{{ row.nro_oper }}</td>
+            <td>{{ row.canal_distrib }}</td><td>{{ row.usuario_financiero }}</td>
+            <td>{{ row.fecha_nacimiento }}</td><td>{{ row.edad }}</td>
+            <td>{{ row.tipo_doc }}</td><td>{{ row.nacionalidad }}</td>
+            <td>{{ row.doc_identidad }}</td><td>{{ row.EXTENSION }}</td>
+            <td>{{ row.DESCRIPCION }}</td><td>{{ row.act_economica }}</td>
+            <td>{{ row.pep }}</td><td>{{ row.pais_residencia }}</td>
+            <td>{{ row.DOMICILIO }}</td><td>{{ row.CELULAR }}</td>
+            <td>{{ row.ciudad_agencia }}</td>
+            <td>{{ row.agencia_origen }}</td><td>{{ row.agencia_destino }}</td>
+            <td>{{ row.tipo_operacion }}</td><td>{{ row.estado }}</td>
+            <td>{{ row.moneda_rec }}</td><td class="r">{{ row.valor | number:'1.2-2' }}</td>
+            <td>{{ row.moneda_entr }}</td><td class="r">{{ row.valor_bob | number:'1.2-2' }}</td>
+            <td>{{ row.pais_transaccion }}</td><td>{{ row.dpto_transaccion }}</td>
+            <td>{{ row.FACTURADO }}</td><td>{{ row.impresion_pcc08 }}</td>
+            <td class="r">{{ row.comision_bob | number:'1.2-2' }}</td>
+            <td class="r">{{ row.tipo_cambio | number:'1.4-4' }}</td>
+            <td>{{ row.origen }}</td><td>{{ row.destino }}</td>
+          </tr>
+        }
+        @if (!displayRows.length && !loading) {
+          <tr><td colspan="36" class="empty">Sin registros.</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+<!-- ═══ USUARIO FINANCIERO TABLE ═══ -->
+@if (!loading && selected === 'usuario') {
+  <div class="sec-t">
+    <i class="ti ti-user-search"></i>Consulta de Usuario Financiero
+    <span class="rec-count" style="margin-left:auto">{{ totalFiltered }} registro(s)</span>
+  </div>
+  <div class="tbl scroll">
+    <table class="g">
+      <thead>
+        <tr>
+          <th>N&deg;</th>
+          <th>ID Transaccion</th>
+          <th>Factura</th>
+          <th>Operacion</th>
+          <th>Agencia</th>
+          <th>Usuario Financiero</th>
+          <th>Documento</th>
+          <th>Fecha y Hora</th>
+          <th>Moneda</th>
+          <th>Monto</th>
+          <th>TC</th>
+          <th>Comision [BOB]</th>
+          <th>Total Operacion [BOB]</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of displayRows; track row.id_transaccion; let i = $index) {
+          <tr>
+            <td class="r">{{ pageIndex * pageSize + i + 1 }}</td>
+            <td>{{ row.id_transaccion }}</td>
+            <td>{{ row.numero }}</td>
+            <td>{{ row.id_operacion }}</td>
+            <td>{{ row.id_agencia }}</td>
+            <td>{{ row.nombres }} {{ row.ape_pat }} {{ row.ape_mat }}</td>
+            <td>{{ row.num_doc_identidad }}</td>
+            <td>{{ row.fecha }}</td>
+            <td>{{ row.moneda }}</td>
+            <td class="r">{{ row.monto | number:'1.2-2' }}</td>
+            <td class="r">{{ row.tipo_cambio | number:'1.4-4' }}</td>
+            <td class="r">{{ row.comision_bob | number:'1.2-2' }}</td>
+            <td class="r">{{ row.total_operacion_bob | number:'1.2-2' }}</td>
+          </tr>
+        }
+        @if (!displayRows.length && !loading) {
+          <tr><td colspan="13" class="empty">Sin registros.</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+<!-- ═══ MAT PAGINATOR ═══ -->
+@if (!loading && totalFiltered > 0) {
+  <mat-paginator
+    [length]="totalFiltered"
+    [pageSize]="pageSize"
+    [pageIndex]="pageIndex"
+    [pageSizeOptions]="pageSizeOptions"
+    (page)="onPageChange($event)"
+    showFirstLastButtons>
+  </mat-paginator>
+}
+
+<!-- ═══ EXPORT MODAL ═══ -->
+@if (exportOpen) {
+  <div class="export-overlay" (click)="closeExport()"></div>
+  <div class="export-modal">
+    <div class="export-header">
+      <h3><i class="ti ti-download"></i> Exportar {{ exportTitle }}</h3>
+      <button class="dp-close" (click)="closeExport()"><i class="ti ti-x"></i></button>
+    </div>
+
+    <div class="export-body">
+      <div class="export-cols-section">
+        <div class="export-cols-head">
+          <span class="export-cols-title">Seleccionar columnas</span>
+          <div class="export-cols-actions">
+            <button class="link-btn" (click)="selectAllColumns()">Todas</button>
+            <span class="divider">|</span>
+            <button class="link-btn" (click)="deselectAllColumns()">Ninguna</button>
+          </div>
+        </div>
+        <div class="export-cols-grid">
+          @for (col of exportColumns; track col.key) {
+            <label class="export-col-check">
+              <input type="checkbox" [(ngModel)]="col.selected">
+              <span>{{ col.label }}</span>
+            </label>
+          }
+        </div>
+      </div>
+
+      <div class="export-preview-section">
+        <div class="export-preview-title">
+          Vista previa
+          <span class="hint">{{ exportData.length }} registro(s) — mostrando {{ exportPreviewRows.length > exportData.length ? exportData.length : exportPreviewRows.length }}</span>
+        </div>
+        @if (selectedExportColumns.length === 0) {
+          <div class="export-preview-empty">Seleccione al menos una columna para previsualizar.</div>
+        } @else {
+          <div class="export-preview-tbl scroll">
+            <table class="g compact">
+              <thead>
+                <tr>
+                  @for (col of selectedExportColumns; track col.key) {
+                    <th [style.text-align]="col.align || 'left'">{{ col.label }}</th>
+                  }
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of exportPreviewRows; track $index) {
+                  <tr>
+                    @for (col of selectedExportColumns; track col.key) {
+                      <td [style.text-align]="col.align || 'left'">{{ formatCell(row[col.key], col) }}</td>
+                    }
+                  </tr>
+                }
+                @if (exportData.length > 10) {
+                  <tr><td [attr.colspan]="selectedExportColumns.length" class="empty">... y {{ exportData.length - 10 }} registro(s) mas</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="export-footer">
+      <button class="obtn" (click)="closeExport()">Cancelar</button>
+      <button class="obtn primary" (click)="exportExcel()" [disabled]="selectedExportColumns.length === 0">
+        <i class="ti ti-file-spreadsheet"></i>Excel
+      </button>
+      <button class="obtn primary" (click)="exportPdf()" [disabled]="selectedExportColumns.length === 0">
+        <i class="ti ti-file-type-pdf"></i>PDF
+      </button>
+    </div>
+  </div>
+}
+
+<!-- ═══ EXTRACTO MODAL ═══ -->
+@if (extractoOpen) {
+  <div class="export-overlay" (click)="closeExtracto()"></div>
+  <div class="export-modal extracto-modal">
+    <div class="export-header">
+      <h3><i class="ti ti-file-description"></i> Generar Extracto</h3>
+      <button class="dp-close" (click)="closeExtracto()"><i class="ti ti-x"></i></button>
+    </div>
+
+    <div class="export-body">
+      <div class="extracto-form">
+        <div class="extracto-field">
+          <label>Nombre del solicitante</label>
+          <input type="text" [(ngModel)]="extractoNombre" placeholder="Nombre completo del solicitante">
+        </div>
+        <div class="extracto-field">
+          <label>Documento del solicitante</label>
+          <input type="text" [(ngModel)]="extractoDocumento" placeholder="Nro. de documento">
+        </div>
+      </div>
+
+      <div class="export-cols-section">
+        <div class="export-cols-head">
+          <span class="export-cols-title">Tipos de operaciones a incluir</span>
+        </div>
+        <div class="extracto-ops">
+          <label class="export-col-check">
+            <input type="checkbox" [(ngModel)]="extractoOpCambios">
+            <span>Cambios (Compra / Venta)</span>
+          </label>
+          <label class="export-col-check">
+            <input type="checkbox" [(ngModel)]="extractoOpRemesas">
+            <span>Remesas</span>
+          </label>
+          <label class="export-col-check">
+            <input type="checkbox" [(ngModel)]="extractoOpPagos">
+            <span>Pagos (Giros)</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="extracto-summary">
+        <i class="ti ti-info-circle"></i>
+        <span>Se incluiran <strong>{{ extractoHasOps ? extractoRows.length : 0 }}</strong> registros del periodo {{ desde }} al {{ hasta || desde }}</span>
+      </div>
+    </div>
+
+    <div class="export-footer">
+      <button class="obtn" (click)="closeExtracto()">Cancelar</button>
+      <button class="obtn primary" (click)="extractoExcel()" [disabled]="!extractoHasOps || extractoRows.length === 0">
+        <i class="ti ti-file-spreadsheet"></i>Excel
+      </button>
+      <button class="obtn primary" (click)="extractoPdf()" [disabled]="!extractoHasOps || extractoRows.length === 0">
+        <i class="ti ti-file-type-pdf"></i>PDF
+      </button>
+    </div>
+  </div>
+}
+
+<!-- ═══ PDF MODAL ═══ -->
+@if (pdfModalOpen) {
+  <div class="pdf-overlay" (click)="closePdfModal()"></div>
+  <div class="pdf-modal">
+    <div class="pdf-modal-header">
+      <span class="pdf-modal-title">{{ pdfModalTitle }}</span>
+      <div class="pdf-modal-actions">
+        @if (!pdfModalLoading) {
+          <button class="obtn" (click)="printPdf()" title="Imprimir"><i class="ti ti-printer"></i> Imprimir</button>
+          <button class="obtn" (click)="savePdf()" title="Guardar"><i class="ti ti-download"></i> Guardar</button>
+          <button class="obtn" (click)="openInNewTab()" title="Abrir en nueva pestaña"><i class="ti ti-external-link"></i></button>
+        }
+        <button class="obtn close-btn" (click)="closePdfModal()" title="Cerrar"><i class="ti ti-x"></i></button>
+      </div>
+    </div>
+    @if (pdfModalLoading) {
+      <div class="pdf-modal-loading">
+        <div class="pdf-spinner"></div>
+        <span>Generando PDF...</span>
+      </div>
+    } @else {
+      <iframe class="pdf-modal-iframe" [src]="pdfModalUrl"></iframe>
+    }
+  </div>
+}

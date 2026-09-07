@@ -7,14 +7,6 @@
 
 @if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
 
-<div class="tabs">
-  @for (t of tabs; track t.key) {
-    <button class="tab" [class.active]="t.key === selected" (click)="select(t.key)">
-      <i class="ti {{ t.icon }}"></i>{{ t.label }}
-    </button>
-  }
-</div>
-
 <div class="filters">
   @if (selected === 'conciliacion' || selected === 'daily') {
     <div class="fdrop"><label>Fecha</label><input type="date" [(ngModel)]="desde"></div>
@@ -523,7 +515,7 @@
             }
           </div>
 
-          @if (movDetail!.comprobantes?.length) {
+          @if (movDetail!.comprobantes.length) {
             <div class="dp-comprobantes">
               <div class="dp-comprobantes-title"><i class="ti ti-paperclip"></i> Documentos Adjuntos ({{ movDetail!.comprobantes.length }})</div>
               @for (doc of movDetail!.comprobantes; track doc.url) {

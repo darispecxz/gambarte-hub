@@ -223,3 +223,29 @@ export interface AsientoDetalle {
   importe: number;
   partidas: AsientoPartida[];
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// 8. Comprobantes Contables
+// ═══════════════════════════════════════════════════════════════════
+
+export interface ComprobanteRow {
+  comprobante: string;
+  idasiento: number;
+  fecha: string;
+  glosa: string;
+  total_importe: number;
+  tipodocumento: string;
+  numero: number;
+}
+
+export interface ComprobantesReport {
+  fechaDesde: string;
+  fechaHasta: string;
+  comprobantes: ComprobanteRow[];
+  totalImporte: number;
+  totalRows: number;
+  tipos: string[];
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}

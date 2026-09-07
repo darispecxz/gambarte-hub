@@ -1,0 +1,76 @@
+@if (loading) {
+  <div class="loading-block"><span class="spin lg"></span>Cargando conciliacion...</div>
+}
+
+@if (!loading && conciliacion) {
+  <div class="kgrid" style="margin-bottom:16px">
+    <div class="kcard">
+      <div class="ktit"><i class="ti ti-clock-pause"></i>Pendientes</div>
+      <div class="kval" [class.down]="conciliacion.resumen.pendientes > 0">{{ conciliacion.resumen.pendientes }}</div>
+      <div class="ksub">BOB {{ fmt(conciliacion.resumen.montoPendiente) }}</div>
+      <div class="kchip" style="background:var(--amber-soft);color:var(--amber)"><i class="ti ti-clock-pause"></i></div>
+    </div>
+    <div class="kcard">
+      <div class="ktit"><i class="ti ti-circle-check"></i>Pagadas hoy</div>
+      <div class="kval up">{{ conciliacion.resumen.pagadasHoy }}</div>
+      <div class="ksub">BOB {{ fmt(conciliacion.resumen.montoPagado) }}</div>
+      <div class="kchip" style="background:var(--green-track);color:var(--green)"><i class="ti ti-circle-check"></i></div>
+    </div>
+    <div class="kcard">
+      <div class="ktit"><i class="ti ti-alert-triangle"></i>Atrasadas</div>
+      <div class="kval" [class.down]="conciliacion.resumen.atrasadas > 0">{{ conciliacion.resumen.atrasadas }}</div>
+      <div class="ksub">mas de 24h sin pagar</div>
+      <div class="kchip" style="background:#FCE8E8;color:var(--red)"><i class="ti ti-alert-triangle"></i></div>
+    </div>
+    <div class="kcard">
+      <div class="ktit"><i class="ti ti-receipt"></i>Total remesas</div>
+      <div class="kval">{{ conciliacion.resumen.totalRemesas }}</div>
+      <div class="ksub">en el sistema</div>
+      <div class="kchip"><i class="ti ti-receipt"></i></div>
+    </div>
+  </div>
+
+  <div class="sec-t"><i class="ti ti-building-store"></i>Detalle por agencia</div>
+  @if (conciliacion.porAgencia.length > 0) {
+    <div class="tbl scroll">
+      <table class="g">
+        <thead>
+          <tr>
+            <th>Agencia</th>
+            <th class="r">Pendientes</th>
+            <th class="r">Monto pend.</th>
+            <th class="r">Pagadas hoy</th>
+            <th class="r">Monto pagado</th>
+            <th class="r">Atrasadas</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (ag of conciliacion.porAgencia; track ag.idAgencia) {
+            <tr>
+              <td>
+                <div class="fw"><div class="fw-ic"><i class="ti ti-building-store"></i></div><div class="fn">{{ ag.agencia }}</div></div>
+              </td>
+              <td class="r" [class.down]="ag.pendientes > 0"><strong>{{ ag.pendientes }}</strong></td>
+              <td class="r">{{ fmt(ag.montoPendiente) }}</td>
+              <td class="r up">{{ ag.pagadasHoy }}</td>
+              <td class="r">{{ fmt(ag.montoPagado) }}</td>
+              <td class="r">
+                @if (ag.atrasadas > 0) {
+                  <span class="pill p-bad">{{ ag.atrasadas }}</span>
+                } @else {
+                  <span class="muted">0</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    <div class="empty"><i class="ti ti-circle-check" style="font-size:32px;display:block;margin-bottom:8px;color:var(--green)"></i>No hay remesas pendientes.</div>
+  }
+}
+
+@if (!loading && !conciliacion) {
+  <div class="empty">No se pudieron cargar los datos de conciliacion.</div>
+}

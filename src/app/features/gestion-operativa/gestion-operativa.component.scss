@@ -1,0 +1,28 @@
+:host { display: block; }
+
+/* ── Cotización strip (KPI bar) ── */
+.cotiz-strip {
+  display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;
+  padding: 10px 14px; background: var(--sub); border-radius: 10px; border: 1px solid var(--line);
+}
+.cotiz-item {
+  display: flex; align-items: center; gap: 6px; font-size: 12.5px;
+  padding: 4px 10px; background: var(--bg); border-radius: 8px; border: 1px solid var(--line-2);
+}
+.cotiz-mon { font-weight: 800; font-size: 13px; }
+.cotiz-rates { font-variant-numeric: tabular-nums; }
+.cotiz-spread { font-size: 11px; color: var(--tx3); }
+
+/* ── KPI responsive: desktop vs mobile ── */
+.kpi-mobile-tab { display: none; }
+
+@media (max-width: 640px) {
+  .kpi-desktop { display: none; }
+  .kpi-mobile-tab { display: block; }
+  .kgrid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .kcard { padding: 12px; }
+  .kcard .kval { font-size: 22px; }
+  .kcard .kchip { width: 28px; height: 28px; font-size: 14px; top: 10px; right: 10px; border-radius: 7px; }
+  .cotiz-strip { flex-direction: column; gap: 4px; }
+  .cotiz-item { justify-content: space-between; }
+}
