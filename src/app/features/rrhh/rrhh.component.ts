@@ -23,6 +23,25 @@ import { MEMBRETE_GAMBARTE_BASE64 } from '../../shared/membrete-base64';
 import { Workbook } from 'exceljs';
 import { saveAs } from 'file-saver';
 
+interface RrhhTabMeta { label: string; icon: string; desc: string; }
+
+const RRHH_TAB_META: Record<RrhhTab, RrhhTabMeta> = {
+  dashboard:       { label: 'Dashboard',          icon: 'ti-layout-dashboard',  desc: 'Indicadores clave de personal, contratos y asistencia.' },
+  empleados:       { label: 'Empleados',          icon: 'ti-users',             desc: 'Registro y gestión de empleados activos e inactivos.' },
+  planillas:       { label: 'Planillas',          icon: 'ti-receipt',           desc: 'Generación y consulta de planillas de sueldos mensuales.' },
+  asistencia:      { label: 'Asistencia',         icon: 'ti-clock',             desc: 'Control de jornada, marcaciones y resumen de asistencia.' },
+  vacaciones:      { label: 'Vacaciones',         icon: 'ti-beach',             desc: 'Saldos de vacaciones, cronograma y solicitudes por empleado.' },
+  liquidaciones:   { label: 'Liquidaciones',      icon: 'ti-file-invoice',      desc: 'Simulación y cálculo de liquidaciones por finalización de contrato.' },
+  capacitaciones:  { label: 'Capacitaciones',     icon: 'ti-school',            desc: 'Registro de capacitaciones realizadas y programadas.' },
+  documentos:      { label: 'Documentos',         icon: 'ti-file-text',         desc: 'Generación de documentos laborales desde plantillas.' },
+  csbp:            { label: 'CSBP',               icon: 'ti-heartbeat',         desc: 'Gestión de altas, bajas y resumen anual de la Caja de Salud.' },
+  gestoras:        { label: 'Gestoras AFP',       icon: 'ti-building-bank',     desc: 'Administración de aportes a gestoras AFP por empleado.' },
+  finiquitos:      { label: 'Finiquitos',         icon: 'ti-file-off',          desc: 'Cálculo y registro de finiquitos por desvinculación.' },
+  tributaria:      { label: 'P. Tributaria',      icon: 'ti-receipt-tax',       desc: 'Proyección tributaria RC-IVA y formularios fiscales.' },
+  horarios:        { label: 'Horarios',           icon: 'ti-calendar-time',     desc: 'Definición de horarios laborales y asignación por empleado.' },
+  parametros:      { label: 'Parámetros',         icon: 'ti-settings',          desc: 'Configuración de escalas, bonos y parámetros generales de RRHH.' },
+};
+
 @Component({
   selector: 'app-rrhh',
   standalone: true,
@@ -36,6 +55,7 @@ export class RrhhComponent implements OnInit {
   private router = inject(Router);
 
   tab: RrhhTab = 'dashboard';
+  get rrhhTabMeta(): RrhhTabMeta { return RRHH_TAB_META[this.tab]; }
   loading = false;
   error = '';
   ejercicio = new Date().getFullYear();

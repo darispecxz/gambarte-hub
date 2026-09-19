@@ -1,54 +1,183 @@
-<div class="ph">
-  <h1>Reportes de Contabilidad</h1>
-  <i class="ti ti-chevron-right chev"></i>
-  <span class="view-chip"><i class="ti ti-building-bank" style="font-size:14px"></i>Bancos</span>
+<div class="page-head">
+  <nav class="breadcrumb">
+    <span class="bc-item">Contabilidad</span>
+    <span class="bc-sep">&gt;</span>
+    <span class="bc-item">Bancos</span>
+    <span class="bc-sep">&gt;</span>
+    <span class="bc-item bc-active"><i class="ti {{ tabMeta.icon }}"></i> {{ tabMeta.label }}</span>
+  </nav>
+  <div class="page-title-row">
+    <div class="page-title-block">
+      <h1 class="page-title"><i class="ti {{ tabMeta.icon }}"></i>{{ tabMeta.label }}</h1>
+      <p class="page-desc">{{ tabMeta.desc }}</p>
+    </div>
+    <div class="page-actions">
+      <div class="filters-inline">
+        @if (selected === 'conciliacion' || selected === 'daily') {
+          <div class="fdrop"><label>Fecha</label><input type="date" [(ngModel)]="desde"></div>
+        }
+        @if (needsDateRange()) {
+          <div class="fdrop"><label>Desde</label><input type="date" [(ngModel)]="desde"></div>
+          <div class="fdrop"><label>Hasta</label><input type="date" [(ngModel)]="hasta"></div>
+        }
+        @if (selected === 'saldos' || selected === 'conciliacion' || selected === 'movements') {
+          <div class="fdrop"><label>Agencia</label>
+            <select [(ngModel)]="agencia">
+              <option [ngValue]="null">Todas</option>
+              @for (ag of agencies; track ag.id_agencia) {
+                <option [ngValue]="ag.id_agencia">{{ ag.descripcion }}</option>
+              }
+            </select>
+          </div>
+        }
+        @if (selected === 'saldos' && saldosAllMonedas.length > 1) {
+          <div class="fdrop moneda-filter">
+            <label>Moneda</label>
+            <button class="moneda-toggle" (click)="saldosMonedaDropOpen = !saldosMonedaDropOpen">
+              {{ saldosMonedaLabel }} <i class="ti ti-chevron-down" [class.open]="saldosMonedaDropOpen"></i>
+            </button>
+            @if (saldosMonedaDropOpen) {
+              <div class="moneda-drop">
+                @for (m of saldosAllMonedas; track m) {
+                  <label class="moneda-opt" (click)="$event.stopPropagation()">
+                    <input type="checkbox" [checked]="saldosMonedas.has(m)" (change)="toggleSaldosMoneda(m)">
+                    <span>{{ m }}</span>
+                  </label>
+                }
+              </div>
+            }
+          </div>
+        }
+        @if (selected === 'movements') {
+          <div class="fdrop"><label>Tipo</label>
+            <select [(ngModel)]="conciliacionFilter">
+              @for (o of conciliacionOptions; track o.value) {
+                <option [value]="o.value">{{ o.label }}</option>
+              }
+            </select>
+          </div>
+        }
+        @if (selected === 'transfers') {
+          <div class="fdrop"><label>Estado</label>
+            <select [(ngModel)]="estadoTraspaso">
+              <option value="">Todos</option>
+              <option value="P">Pendiente</option>
+              <option value="A">Aceptado</option>
+              <option value="R">Revertido</option>
+            </select>
+          </div>
+        }
+        <button class="obtn primary" (click)="load()" [disabled]="loading"><i class="ti ti-eye"></i>Consultar</button>
+      </div>
+    </div>
+  </div>
 </div>
-<p class="page-sub">Conciliación contable OBEL vs Balance de Sumas y Saldos, movimientos y traspasos</p>
 
 @if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
 
-<div class="filters">
-  @if (selected === 'conciliacion' || selected === 'daily') {
-    <div class="fdrop"><label>Fecha</label><input type="date" [(ngModel)]="desde"></div>
-  }
-  @if (needsDateRange()) {
-    <div class="fdrop"><label>Desde</label><input type="date" [(ngModel)]="desde"></div>
-    <div class="fdrop"><label>Hasta</label><input type="date" [(ngModel)]="hasta"></div>
-  }
-  @if (selected === 'conciliacion' || selected === 'movements') {
-    <div class="fdrop"><label>Agencia</label>
-      <select [(ngModel)]="agencia">
-        <option [ngValue]="null">Todas</option>
-        @for (ag of agencies; track ag.id_agencia) {
-          <option [ngValue]="ag.id_agencia">{{ ag.descripcion }}</option>
-        }
-      </select>
-    </div>
-  }
-  @if (selected === 'movements') {
-    <div class="fdrop"><label>Tipo</label>
-      <select [(ngModel)]="conciliacionFilter">
-        @for (o of conciliacionOptions; track o.value) {
-          <option [value]="o.value">{{ o.label }}</option>
-        }
-      </select>
-    </div>
-  }
-  @if (selected === 'transfers') {
-    <div class="fdrop"><label>Estado</label>
-      <select [(ngModel)]="estadoTraspaso">
-        <option value="">Todos</option>
-        <option value="P">Pendiente</option>
-        <option value="A">Aceptado</option>
-        <option value="R">Revertido</option>
-      </select>
-    </div>
-  }
-  <button class="obtn primary" (click)="load()" [disabled]="loading"><i class="ti ti-eye"></i>Consultar</button>
-</div>
-
 @if (loading) {
   <app-loading message="Consultando reporte..."></app-loading>
+}
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SALDOS — Todas las cuentas bancarias
+     ═══════════════════════════════════════════════════════════════ -->
+@if (saldosReport && selected === 'saldos') {
+  <div class="sec-t"><i class="ti ti-wallet"></i>Saldos de Cuentas Bancarias<span class="hint">Ejercicio {{ saldosReport.ejercicio }} &middot; {{ filteredSaldosCuentas.length }} cuenta(s)</span></div>
+
+  <div class="mov-toolbar" style="margin-bottom:12px">
+    <div style="flex:1"></div>
+    <button class="obtn" (click)="openSaldosExport()" [disabled]="!filteredSaldosCuentas.length">
+      <i class="ti ti-download"></i>Exportar
+    </button>
+  </div>
+
+  <!-- Totales por moneda -->
+  @if (filteredSaldosTotales.length) {
+    <div class="kgrid" style="margin-bottom:14px">
+      @for (t of filteredSaldosTotales; track t.moneda) {
+        <div class="kcard">
+          <div class="fw">
+            <div class="fw-ic"><i class="ti ti-coin"></i></div>
+            <div>
+              <div class="fn">Total {{ t.moneda }}</div>
+              <div class="fv">{{ t.cuentas }} cuenta(s)</div>
+            </div>
+          </div>
+          <div style="margin-top:10px;display:flex;gap:20px;flex-wrap:wrap">
+            <div>
+              <div style="font-size:11px;color:var(--tx3);text-transform:uppercase;font-weight:600;letter-spacing:.03em">Saldo OBEL</div>
+              <div style="font-family:'Manrope',sans-serif;font-size:18px;font-weight:700;letter-spacing:-.3px">{{ t.totalOBEL | number:'1.2-2' }}</div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--tx3);text-transform:uppercase;font-weight:600;letter-spacing:.03em">Saldo Contable</div>
+              <div style="font-family:'Manrope',sans-serif;font-size:18px;font-weight:700;letter-spacing:-.3px">{{ t.totalContable | number:'1.2-2' }}</div>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Tabla de cuentas -->
+  <div class="tbl scroll">
+    <table class="g">
+      <thead>
+        <tr>
+          <th>Agencia</th>
+          <th>Banco</th>
+          <th>Cuenta</th>
+          <th>Moneda</th>
+          <th>Subcuenta</th>
+          <th class="r">Saldo OBEL</th>
+          <th class="r">Saldo Contable</th>
+          <th>Estado</th>
+          <th>Ultimo Cierre</th>
+          <th class="r">D&iacute;as</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (c of filteredSaldosCuentas; track c.numCuenta + c.moneda + c.idAgencia) {
+          <tr [class.operando-row]="c.operando">
+            <td><strong>{{ c.agencia }}</strong></td>
+            <td>{{ c.entidadDesc }}</td>
+            <td class="mono">{{ c.numCuenta }}</td>
+            <td><span class="tag">{{ c.moneda }}</span></td>
+            <td class="mono small">{{ c.codsubcuenta || '—' }}</td>
+            <td class="r" style="font-weight:600;font-variant-numeric:tabular-nums">
+              @if (c.operando && c.saldoActual !== null) {
+                {{ c.saldoActual | number:'1.2-2' }}
+              } @else {
+                {{ c.saldoOBEL | number:'1.2-2' }}
+              }
+            </td>
+            <td class="r" style="font-variant-numeric:tabular-nums">{{ c.saldoContable | number:'1.2-2' }}</td>
+            <td>
+              @if (c.operando) {
+                <span class="pill operando-pill"><i class="ti ti-live-photo"></i> Operando</span>
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td>
+              @if (c.fechaCierre) {
+                {{ c.fechaCierre }}
+              } @else {
+                <span class="muted">&mdash;</span>
+              }
+            </td>
+            <td class="r">
+              @if (c.diasSinCierre !== null) {
+                <span class="pill" [class.sem-ok]="c.diasSinCierre <= 1" [class.sem-warn]="c.diasSinCierre > 1 && c.diasSinCierre <= 7" [class.sem-bad]="c.diasSinCierre > 7">{{ c.diasSinCierre }}d</span>
+              } @else {
+                <span class="pill muted-pill">Sin cierre</span>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
 }
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -424,6 +553,82 @@
         }
       </tbody>
     </table>
+  </div>
+}
+
+<!-- ═══ EXPORT MODAL ═══ -->
+@if (exportOpen) {
+  <div class="export-overlay" (click)="closeSaldosExport()"></div>
+  <div class="export-modal">
+    <div class="export-header">
+      <h3><i class="ti ti-download"></i> Exportar Saldos Bancarios</h3>
+      <button class="dp-close" (click)="closeSaldosExport()"><i class="ti ti-x"></i></button>
+    </div>
+
+    <div class="export-body">
+      <div class="export-cols-section">
+        <div class="export-cols-head">
+          <span class="export-cols-title">Seleccionar columnas</span>
+          <div class="export-cols-actions">
+            <button class="link-btn" (click)="selectAllColumns()">Todas</button>
+            <span class="divider">|</span>
+            <button class="link-btn" (click)="deselectAllColumns()">Ninguna</button>
+          </div>
+        </div>
+        <div class="export-cols-grid">
+          @for (col of exportColumns; track col.key) {
+            <label class="export-col-check">
+              <input type="checkbox" [(ngModel)]="col.selected">
+              <span>{{ col.label }}</span>
+            </label>
+          }
+        </div>
+      </div>
+
+      <div class="export-preview-section">
+        <div class="export-preview-title">
+          Vista previa
+          <span class="hint">{{ exportData.length }} registro(s) — mostrando {{ exportPreviewRows.length }}</span>
+        </div>
+        @if (selectedExportColumns.length === 0) {
+          <div class="export-preview-empty">Seleccione al menos una columna para previsualizar.</div>
+        } @else {
+          <div class="export-preview-tbl scroll">
+            <table class="g compact">
+              <thead>
+                <tr>
+                  @for (col of selectedExportColumns; track col.key) {
+                    <th [style.text-align]="col.align || 'left'">{{ col.label }}</th>
+                  }
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of exportPreviewRows; track $index) {
+                  <tr>
+                    @for (col of selectedExportColumns; track col.key) {
+                      <td [style.text-align]="col.align || 'left'">{{ formatCell(row[col.key], col) }}</td>
+                    }
+                  </tr>
+                }
+                @if (exportData.length > 10) {
+                  <tr><td [attr.colspan]="selectedExportColumns.length" class="empty">... y {{ exportData.length - 10 }} registro(s) mas</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="export-footer">
+      <button class="obtn" (click)="closeSaldosExport()">Cancelar</button>
+      <button class="obtn primary" (click)="exportSaldosExcel()" [disabled]="selectedExportColumns.length === 0">
+        <i class="ti ti-file-spreadsheet"></i>Excel
+      </button>
+      <button class="obtn primary" (click)="exportSaldosPdf()" [disabled]="selectedExportColumns.length === 0">
+        <i class="ti ti-file-type-pdf"></i>PDF
+      </button>
+    </div>
   </div>
 }
 

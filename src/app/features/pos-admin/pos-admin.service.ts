@@ -4,7 +4,7 @@ import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Envelope } from '../../core/models';
 import {
-  AgencyGroup, CashierMovement, ArqueoData, SaldoEntry, Agency,
+  AgencyGroup, CashierMovement, ArqueoData, SaldoEntry, Agency, FallaCaja,
 } from './pos-admin.models';
 
 @Injectable({ providedIn: 'root' })
@@ -62,6 +62,30 @@ export class PosAdminService {
     return this.unwrap(
       this.http.get<Envelope<{ history: SaldoEntry[] }>>(`${this.base}/pos/saldo-history/${idCaja}`, {
         params: this.qp({ fecha }),
+      })
+    );
+  }
+
+  getFallasCaja(desde: string, hasta: string, agencia?: number, holgura?: number): Observable<{ fallas: FallaCaja[] }> {
+    return this.unwrap(
+      this.http.get<Envelope<{ fallas: FallaCaja[] }>>(`${this.base}/pos/fallas-caja`, {
+        params: this.qp({ desde, hasta, agencia, holgura }),
+      })
+    );
+  }
+
+  ratificarFalla(idCaja: number, fecha: string, diferencia: number): Observable<{ message: string }> {
+    return this.unwrap(
+      this.http.post<Envelope<{ message: string }>>(`${this.base}/pos/ratificar-falla`, {
+        id_caja: idCaja, fecha, diferencia,
+      })
+    );
+  }
+
+  anularCierre(idCaja: number, fecha: string): Observable<{ message: string }> {
+    return this.unwrap(
+      this.http.post<Envelope<{ message: string }>>(`${this.base}/pos/anular-cierre`, {
+        id_caja: idCaja, fecha,
       })
     );
   }

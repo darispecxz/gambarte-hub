@@ -73,3 +73,18 @@ export interface Agency {
   id: number;
   nombre: string;
 }
+
+export interface FallaCaja {
+  idCaja: number;
+  numCaja: number;
+  fecha: string;
+  agencia: string;
+  agenciaAbr: string;
+  cajero: string;
+  login: string;
+  moneda: string;
+  diferencia: number;
+  tipo: 'sobrante' | 'faltante';
+  estadoFalla: string | null;
+  glosa: string | null;
+}

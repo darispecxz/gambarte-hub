@@ -16,7 +16,7 @@
     </div>
 
     <nav class="side-nav">
-      @for (g of groups; track g.area) {
+      @for (g of filteredGroups; track g.area) {
         <div class="group">
           <div class="group-h"><i class="ti {{ g.icon }}"></i><span>{{ g.area }}</span></div>
           @for (item of g.items; track item.label) {
@@ -28,13 +28,36 @@
               </button>
               @if (isExpanded(item)) {
                 <div class="sub-items">
-                  @for (child of item.children; track child.label) {
-                    <a class="nav-item sub-item" [class.active]="isActive(child)"
-                       [class.mobile-only]="child.mobileOnly"
-                       [routerLink]="child.path" [queryParams]="child.query || null"
-                       (click)="onNavClick()" [title]="child.label">
-                      <i class="ti {{ child.icon }}"></i><span class="lbl">{{ child.label }}</span>
-                    </a>
+                  @for (child of item.children; track child.label + $index) {
+                    @if (child.section) {
+                      <div class="sub-section">
+                        @if (child.label) { <span class="sub-section-lbl">{{ child.label }}</span> }
+                      </div>
+                    } @else if (child.children) {
+                      <button class="nav-item sub-item nav-parent" [class.active]="isActive(child)"
+                        (click)="toggleChildren(child); $event.stopPropagation()" [title]="child.label">
+                        <i class="ti {{ child.icon }}"></i><span class="lbl">{{ child.label }}</span>
+                        <i class="ti ti-chevron-down chev" [class.open]="isExpanded(child)"></i>
+                      </button>
+                      @if (isExpanded(child)) {
+                        <div class="sub-items nested">
+                          @for (gc of child.children; track gc.label) {
+                            <a class="nav-item sub-item sub-item-3" [class.active]="isActive(gc)"
+                               [routerLink]="gc.path" [queryParams]="gc.query || null"
+                               (click)="onNavClick()" [title]="gc.label">
+                              <i class="ti {{ gc.icon }}"></i><span class="lbl">{{ gc.label }}</span>
+                            </a>
+                          }
+                        </div>
+                      }
+                    } @else {
+                      <a class="nav-item sub-item" [class.active]="isActive(child)"
+                         [class.mobile-only]="child.mobileOnly"
+                         [routerLink]="child.path" [queryParams]="child.query || null"
+                         (click)="onNavClick()" [title]="child.label">
+                        <i class="ti {{ child.icon }}"></i><span class="lbl">{{ child.label }}</span>
+                      </a>
+                    }
                   }
                 </div>
               }

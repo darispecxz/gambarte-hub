@@ -1,44 +1,54 @@
-<div class="ph">
-  <h1>Reportes de Contabilidad</h1>
-  <i class="ti ti-chevron-right chev"></i>
-  <span class="view-chip"><i class="ti ti-report-analytics" style="font-size:14px"></i>Reportes Contables</span>
+<div class="page-head">
+  <nav class="breadcrumb">
+    <span class="bc-item">Contabilidad</span>
+    <span class="bc-sep">&gt;</span>
+    <span class="bc-item">Reportes Contables</span>
+    <span class="bc-sep">&gt;</span>
+    <span class="bc-item bc-active"><i class="ti {{ tabMeta.icon }}"></i> {{ tabMeta.label }}</span>
+  </nav>
+  <div class="page-title-row">
+    <div class="page-title-block">
+      <h1 class="page-title"><i class="ti {{ tabMeta.icon }}"></i>{{ tabMeta.label }}</h1>
+      <p class="page-desc">{{ tabMeta.desc }}</p>
+    </div>
+    <div class="page-actions">
+      <div class="filters-inline">
+        <div class="fdrop"><label>Ejercicio</label>
+          <select [(ngModel)]="ejercicio" (ngModelChange)="onEjercicioChange()">
+            @for (ej of ejercicios; track ej.codejercicio) {
+              <option [value]="ej.codejercicio">{{ ej.nombre }} ({{ ej.estado }})</option>
+            }
+          </select>
+        </div>
+        <div class="fdrop"><label>Desde</label><input type="date" [(ngModel)]="desde"></div>
+        <div class="fdrop"><label>Hasta</label><input type="date" [(ngModel)]="hasta"></div>
+        @if (selected === 'libro-mayor') {
+          <div class="fdrop fdrop-wide"><label>Subcuenta</label>
+            <input type="text" [(ngModel)]="subcuentaFilter" (ngModelChange)="onSubcuentaFilterChange()"
+                   placeholder="Buscar por codigo o nombre…"
+                   class="subcuenta-search" autocomplete="off">
+            @if (subcuentaFilter && !codsubcuenta) {
+              <div class="subcuenta-dropdown">
+                @for (s of filteredSubcuentas; track s.codsubcuenta) {
+                  <button class="subcuenta-opt" (click)="selectSubcuenta(s)">
+                    <span class="sc-code">{{ s.codsubcuenta }}</span>
+                    <span class="sc-desc">{{ s.descripcion }}</span>
+                  </button>
+                }
+                @if (!filteredSubcuentas.length) {
+                  <div class="subcuenta-empty">Sin resultados</div>
+                }
+              </div>
+            }
+          </div>
+        }
+        <button class="obtn primary" (click)="load()" [disabled]="loading"><i class="ti ti-eye"></i>Consultar</button>
+      </div>
+    </div>
+  </div>
 </div>
-<p class="page-sub">Balance de sumas y saldos, libro mayor por subcuenta, comprobantes contables</p>
 
 @if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
-
-<div class="filters">
-  <div class="fdrop"><label>Ejercicio</label>
-    <select [(ngModel)]="ejercicio" (ngModelChange)="onEjercicioChange()">
-      @for (ej of ejercicios; track ej.codejercicio) {
-        <option [value]="ej.codejercicio">{{ ej.nombre }} ({{ ej.estado }})</option>
-      }
-    </select>
-  </div>
-  <div class="fdrop"><label>Desde</label><input type="date" [(ngModel)]="desde"></div>
-  <div class="fdrop"><label>Hasta</label><input type="date" [(ngModel)]="hasta"></div>
-  @if (selected === 'libro-mayor') {
-    <div class="fdrop fdrop-wide"><label>Subcuenta</label>
-      <input type="text" [(ngModel)]="subcuentaFilter" (ngModelChange)="onSubcuentaFilterChange()"
-             placeholder="Buscar por codigo o nombre…"
-             class="subcuenta-search" autocomplete="off">
-      @if (subcuentaFilter && !codsubcuenta) {
-        <div class="subcuenta-dropdown">
-          @for (s of filteredSubcuentas; track s.codsubcuenta) {
-            <button class="subcuenta-opt" (click)="selectSubcuenta(s)">
-              <span class="sc-code">{{ s.codsubcuenta }}</span>
-              <span class="sc-desc">{{ s.descripcion }}</span>
-            </button>
-          }
-          @if (!filteredSubcuentas.length) {
-            <div class="subcuenta-empty">Sin resultados</div>
-          }
-        </div>
-      }
-    </div>
-  }
-  <button class="obtn primary" (click)="load()" [disabled]="loading"><i class="ti ti-eye"></i>Consultar</button>
-</div>
 
 @if (loading && !loadingPage) {
   <app-loading message="Consultando reporte…"></app-loading>

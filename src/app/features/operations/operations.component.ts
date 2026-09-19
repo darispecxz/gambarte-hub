@@ -28,7 +28,7 @@ export class OperationsComponent implements OnInit, OnDestroy {
   ready: Record<string, boolean> = {};
 
   operativo: any[] = []; utilidades: any[] = []; agencias: any[] = [];
-  cajeros: any[] = []; precios: any[] = []; cotizaciones: any[] = [];
+  precios: any[] = []; cotizaciones: any[] = [];
   horas: any[] = []; tendencias: any[] = []; live: any = null; comparativo: any = null;
 
   totalOps = 0; totalVol = 0; utilTotal = 0;
@@ -46,7 +46,7 @@ export class OperationsComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void { this.cotizChart?.destroy(); this.horasChart?.destroy(); }
 
   get loadingAny(): boolean {
-    return ['kpi', 'cotiz', 'horas', 'tend', 'moneda', 'cajeros', 'precios'].some((k) => this.ready[k] === false);
+    return ['kpi', 'cotiz', 'horas', 'tend', 'moneda', 'precios'].some((k) => this.ready[k] === false);
   }
 
   load(): void {
@@ -54,7 +54,7 @@ export class OperationsComponent implements OnInit, OnDestroy {
     this.error = '';
     const from = this.dateFrom, to = this.dateTo;
     // marca todas las secciones como "cargando"
-    for (const k of ['kpi', 'cotiz', 'horas', 'tend', 'moneda', 'cajeros', 'precios']) this.ready[k] = false;
+    for (const k of ['kpi', 'cotiz', 'horas', 'tend', 'moneda', 'precios']) this.ready[k] = false;
 
     const fail = (e: any) => { if (!this.error) this.error = e?.message || 'Error al consultar operaciones'; };
 
@@ -79,7 +79,6 @@ export class OperationsComponent implements OnInit, OnDestroy {
 
     // Tablas
     this.api.getOperation('tendencias', from, to).subscribe({ next: (d) => { this.tendencias = d || []; this.ready['tend'] = true; }, error: (e) => { fail(e); this.ready['tend'] = true; } });
-    this.api.getOperation('cajeros', from, to).subscribe({ next: (d) => { this.cajeros = d || []; this.ready['cajeros'] = true; }, error: (e) => { fail(e); this.ready['cajeros'] = true; } });
     this.api.getOperation('precios', from, to).subscribe({ next: (d) => { this.precios = d || []; this.ready['precios'] = true; }, error: (e) => { fail(e); this.ready['precios'] = true; } });
   }
 
@@ -107,6 +106,23 @@ export class OperationsComponent implements OnInit, OnDestroy {
     for (const u of this.utilidades) { if (!map[u.moneda]) map[u.moneda] = { moneda: u.moneda, ops: 0, vol: this.num(u.vol_total), util: 0 }; map[u.moneda].util = this.num(u.util_total); }
     this.porMoneda = Object.values(map).sort((x: any, y: any) => y.vol - x.vol);
     this.maxVol = Math.max(1, ...this.porMoneda.map((m: any) => m.vol));
+  }
+
+  get porMonedaEnriquecido(): any[] {
+    const preciosMap: Record<string, any> = {};
+    for (const p of this.precios) preciosMap[p.moneda] = p;
+    return this.porMoneda.map((m: any) => {
+      const p = preciosMap[m.moneda];
+      return {
+        ...m,
+        prom_compra: p?.prom_compra ?? null,
+        min_compra: p?.min_compra ?? null,
+        max_compra: p?.max_compra ?? null,
+        prom_venta: p?.prom_venta ?? null,
+        min_venta: p?.min_venta ?? null,
+        max_venta: p?.max_venta ?? null,
+      };
+    });
   }
 
   private buildMonedas(): void {

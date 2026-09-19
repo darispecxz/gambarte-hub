@@ -13,6 +13,7 @@ import {
   BankTransfersReport,
   MovementDetailResponse,
   ConciliacionDetalleResponse,
+  SaldosReport,
 } from './banking.models';
 
 @Injectable({ providedIn: 'root' })
@@ -105,6 +106,14 @@ export class BankingService {
         `${this.base}/banking/movement-detail`,
         { params: this.qp({ agencia, entidad, cuenta, moneda, fecha, conciliacion, monto }) }
       )
+    );
+  }
+
+  getSaldos(agencia?: number): Observable<SaldosReport> {
+    return this.unwrap(
+      this.http.get<Envelope<SaldosReport>>(`${this.base}/banking/saldos`, {
+        params: this.qp({ agencia }),
+      })
     );
   }
 

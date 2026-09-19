@@ -63,6 +63,13 @@
   &.heat-none { background: var(--line); }
 }
 
+.rend-rank {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border-radius: 6px; font-size: 12px; font-weight: 700;
+  background: var(--sub); color: var(--tx3);
+  &.rend-rank-top { background: var(--orange-soft, var(--amber-soft)); color: var(--orange, var(--amber)); }
+}
+
 @media (max-width: 640px) {
   .rend-cajero-row { flex-wrap: wrap; gap: 6px; padding-left: 16px; }
   .rend-cajero-info { min-width: 100%; }

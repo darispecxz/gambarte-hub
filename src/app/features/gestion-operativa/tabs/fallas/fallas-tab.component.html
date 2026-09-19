@@ -1,0 +1,209 @@
+<!-- ── Summary Cards ── -->
+<div class="summary-row">
+  <div class="stat-card">
+    <div class="stat-icon faltante"><i class="ti ti-arrow-down-circle"></i></div>
+    <div>
+      <div class="stat-label">Faltantes</div>
+      <div class="stat-val faltante">{{ countFaltantes }}</div>
+    </div>
+    <div class="stat-totals">
+      @for (t of totalesByMoneda; track t.moneda) {
+        @if (t.faltantes > 0) {
+          <div class="stat-total-line">{{ fmt(t.faltantes) }} {{ t.moneda }}</div>
+        }
+      }
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon sobrante"><i class="ti ti-arrow-up-circle"></i></div>
+    <div>
+      <div class="stat-label">Sobrantes</div>
+      <div class="stat-val sobrante">{{ countSobrantes }}</div>
+    </div>
+    <div class="stat-totals">
+      @for (t of totalesByMoneda; track t.moneda) {
+        @if (t.sobrantes > 0) {
+          <div class="stat-total-line">{{ fmt(t.sobrantes) }} {{ t.moneda }}</div>
+        }
+      }
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon total"><i class="ti ti-alert-triangle"></i></div>
+    <div>
+      <div class="stat-label">Total Diferencias</div>
+      <div class="stat-val">{{ fallas.length }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Filters ── -->
+<div class="filters" style="margin-bottom:12px">
+  <div class="fdrop">
+    <label>Desde</label>
+    <input type="date" [(ngModel)]="desde" />
+  </div>
+  <div class="fdrop">
+    <label>Hasta</label>
+    <input type="date" [(ngModel)]="hasta" />
+  </div>
+  <div class="fdrop">
+    <label>Holgura</label>
+    <input type="number" [(ngModel)]="holgura" min="0" step="0.5" style="width:70px" />
+  </div>
+  <button class="obtn primary" (click)="load()" [disabled]="loading">
+    <i class="ti ti-search"></i> Consultar
+  </button>
+  <div style="flex:1"></div>
+  <div class="pos-search">
+    <i class="ti ti-search"></i>
+    <input type="text" [(ngModel)]="search" placeholder="Buscar cajero, agencia..." />
+  </div>
+</div>
+
+<!-- ── Loading ── -->
+@if (loading) {
+  <div class="loading-block"><span class="spin lg"></span>Cargando diferencias...</div>
+}
+
+<!-- ── Table ── -->
+@if (!loading) {
+  @if (filtered.length === 0) {
+    <div class="empty-state">
+      <i class="ti ti-circle-check"></i>
+      <p>No se encontraron diferencias de caja en este período</p>
+    </div>
+  } @else {
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="tbl scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Fecha</th>
+              <th>Agencia</th>
+              <th>Caja</th>
+              <th>Cajero</th>
+              <th>Moneda</th>
+              <th class="r">Diferencia</th>
+              <th>Tipo</th>
+              <th>Estado</th>
+              <th class="c">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (f of filtered; track f.idCaja + f.fecha; let i = $index) {
+              <tr [class.row-faltante]="f.tipo === 'faltante'" [class.row-sobrante]="f.tipo === 'sobrante'">
+                <td class="muted">{{ i + 1 }}</td>
+                <td class="nowrap">{{ f.fecha | date:'dd/MM/yyyy' }}</td>
+                <td>{{ f.agenciaAbr }}</td>
+                <td class="c"><strong>{{ f.numCaja }}</strong></td>
+                <td>{{ f.cajero }}</td>
+                <td class="c"><span class="tag">{{ f.moneda }}</span></td>
+                <td class="r mono">
+                  <strong [class.text-red]="f.tipo === 'faltante'" [class.text-amber]="f.tipo === 'sobrante'">
+                    {{ f.tipo === 'faltante' ? '-' : '+' }}{{ fmt(Math.abs(f.diferencia)) }}
+                  </strong>
+                </td>
+                <td>
+                  <span class="tipo-badge" [class.faltante]="f.tipo === 'faltante'" [class.sobrante]="f.tipo === 'sobrante'">
+                    <i class="ti" [class.ti-arrow-down-circle]="f.tipo === 'faltante'" [class.ti-arrow-up-circle]="f.tipo === 'sobrante'"></i>
+                    {{ f.tipo === 'faltante' ? 'Faltante' : 'Sobrante' }}
+                  </span>
+                </td>
+                <td>
+                  <span class="pill {{ estadoPill(f) }}">{{ estadoLabel(f) }}</span>
+                </td>
+                <td class="c actions-cell">
+                  <div class="actions-group">
+                    @if (canRatificar(f)) {
+                      <button class="act-btn" (click)="askRatificar(f)" title="Ratificar diferencia">
+                        <i class="ti ti-check"></i> Ratificar
+                      </button>
+                    }
+                    @if (canAnularCierre(f)) {
+                      <button class="act-btn act-btn-anular" (click)="askAnularCierre(f)" title="Anular cierre de caja">
+                        <i class="ti ti-rotate-clockwise-2"></i> Anular Cierre
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+}
+
+<!-- ── Confirm Modal ── -->
+@if (confirmTarget; as f) {
+  <div class="modal-overlay" (click)="cancelConfirm()">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-head">
+        <i class="ti ti-alert-triangle" style="color:var(--orange);font-size:22px"></i>
+        <strong>Confirmar Ratificación</strong>
+      </div>
+      <div class="modal-body">
+        <p>Está a punto de ratificar la diferencia de caja. Esta operación generará un registro contable y <strong>no puede revertirse</strong>.</p>
+        <div class="confirm-detail">
+          <div class="cd-row"><span class="cd-label">Cajero</span><span>{{ f.cajero }}</span></div>
+          <div class="cd-row"><span class="cd-label">Agencia</span><span>{{ f.agencia }}</span></div>
+          <div class="cd-row"><span class="cd-label">Fecha</span><span>{{ f.fecha | date:'dd/MM/yyyy' }}</span></div>
+          <div class="cd-row"><span class="cd-label">Caja</span><span>{{ f.numCaja }}</span></div>
+          <div class="cd-row"><span class="cd-label">Moneda</span><span>{{ f.moneda }}</span></div>
+          <div class="cd-row">
+            <span class="cd-label">Diferencia</span>
+            <strong [class.text-red]="f.tipo === 'faltante'" [class.text-amber]="f.tipo === 'sobrante'">
+              {{ f.tipo === 'faltante' ? '-' : '+' }}{{ fmt(Math.abs(f.diferencia)) }} {{ f.moneda }}
+            </strong>
+          </div>
+          <div class="cd-row"><span class="cd-label">Tipo</span><span class="tipo-badge" [class.faltante]="f.tipo === 'faltante'" [class.sobrante]="f.tipo === 'sobrante'">{{ f.tipo === 'faltante' ? 'Faltante' : 'Sobrante' }}</span></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="obtn" (click)="cancelConfirm()" [disabled]="ratificando">Cancelar</button>
+        <button class="obtn danger" (click)="doRatificar()" [disabled]="ratificando">
+          @if (ratificando) { <span class="spin"></span> } @else { <i class="ti ti-check"></i> }
+          Ratificar
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ── Anular Cierre Modal ── -->
+@if (anularCierreTarget; as f) {
+  <div class="modal-overlay" (click)="cancelAnularCierre()">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-head">
+        <i class="ti ti-alert-triangle" style="color:var(--red);font-size:22px"></i>
+        <strong>Anular Cierre de Caja</strong>
+      </div>
+      <div class="modal-body">
+        <p>Está a punto de anular el cierre de esta caja. La caja volverá al estado <strong>activo</strong> y el cajero podrá realizar operaciones y cerrar nuevamente.</p>
+        <div class="confirm-detail">
+          <div class="cd-row"><span class="cd-label">Cajero</span><span>{{ f.cajero }}</span></div>
+          <div class="cd-row"><span class="cd-label">Agencia</span><span>{{ f.agencia }}</span></div>
+          <div class="cd-row"><span class="cd-label">Fecha</span><span>{{ f.fecha | date:'dd/MM/yyyy' }}</span></div>
+          <div class="cd-row"><span class="cd-label">Caja</span><span>{{ f.numCaja }}</span></div>
+          <div class="cd-row"><span class="cd-label">Moneda</span><span>{{ f.moneda }}</span></div>
+          <div class="cd-row">
+            <span class="cd-label">Diferencia</span>
+            <strong [class.text-red]="f.tipo === 'faltante'" [class.text-amber]="f.tipo === 'sobrante'">
+              {{ f.tipo === 'faltante' ? '-' : '+' }}{{ fmt(Math.abs(f.diferencia)) }} {{ f.moneda }}
+            </strong>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="obtn" (click)="cancelAnularCierre()" [disabled]="anulando">Cancelar</button>
+        <button class="obtn danger" (click)="doAnularCierre()" [disabled]="anulando">
+          @if (anulando) { <span class="spin"></span> } @else { <i class="ti ti-rotate-clockwise-2"></i> }
+          Anular Cierre
+        </button>
+      </div>
+    </div>
+  </div>
+}

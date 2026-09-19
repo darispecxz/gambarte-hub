@@ -1,5 +1,5 @@
 @if (loading) {
-  <div class="loading-block"><span class="spin lg"></span>Cargando conciliacion...</div>
+  <div class="loading-block"><span class="spin lg"></span>Cargando conciliación...</div>
 }
 
 @if (!loading && conciliacion) {
@@ -30,47 +30,66 @@
     </div>
   </div>
 
-  <div class="sec-t"><i class="ti ti-building-store"></i>Detalle por agencia</div>
-  @if (conciliacion.porAgencia.length > 0) {
-    <div class="tbl scroll">
-      <table class="g">
-        <thead>
-          <tr>
-            <th>Agencia</th>
-            <th class="r">Pendientes</th>
-            <th class="r">Monto pend.</th>
-            <th class="r">Pagadas hoy</th>
-            <th class="r">Monto pagado</th>
-            <th class="r">Atrasadas</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (ag of conciliacion.porAgencia; track ag.idAgencia) {
+  <div class="top-bar">
+    <div class="sec-t" style="margin:0"><i class="ti ti-building-store"></i>Detalle por agencia</div>
+    <div style="flex:1"></div>
+    <div class="pos-search">
+      <i class="ti ti-search"></i>
+      <input type="text" [(ngModel)]="search" placeholder="Buscar agencia..." />
+    </div>
+  </div>
+
+  @if (filteredAgencias.length > 0) {
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="tbl scroll">
+        <table class="data-table">
+          <thead>
             <tr>
-              <td>
-                <div class="fw"><div class="fw-ic"><i class="ti ti-building-store"></i></div><div class="fn">{{ ag.agencia }}</div></div>
-              </td>
-              <td class="r" [class.down]="ag.pendientes > 0"><strong>{{ ag.pendientes }}</strong></td>
-              <td class="r">{{ fmt(ag.montoPendiente) }}</td>
-              <td class="r up">{{ ag.pagadasHoy }}</td>
-              <td class="r">{{ fmt(ag.montoPagado) }}</td>
-              <td class="r">
-                @if (ag.atrasadas > 0) {
-                  <span class="pill p-bad">{{ ag.atrasadas }}</span>
-                } @else {
-                  <span class="muted">0</span>
-                }
-              </td>
+              <th>Agencia</th>
+              <th class="r">Pendientes</th>
+              <th class="r">Monto pend.</th>
+              <th class="r">Pagadas hoy</th>
+              <th class="r">Monto pagado</th>
+              <th class="r">Atrasadas</th>
+              <th class="c">Avance</th>
             </tr>
-          }
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            @for (ag of filteredAgencias; track ag.idAgencia) {
+              <tr [class.row-bad]="ag.atrasadas > 0" [class.row-warn]="ag.atrasadas === 0 && ag.pendientes > 0">
+                <td><strong>{{ ag.agencia }}</strong></td>
+                <td class="r" [class.down]="ag.pendientes > 0"><strong>{{ ag.pendientes }}</strong></td>
+                <td class="r mono">{{ fmt(ag.montoPendiente) }}</td>
+                <td class="r up">{{ ag.pagadasHoy }}</td>
+                <td class="r mono">{{ fmt(ag.montoPagado) }}</td>
+                <td class="r">
+                  @if (ag.atrasadas > 0) {
+                    <span class="pill p-bad">{{ ag.atrasadas }}</span>
+                  } @else {
+                    <span class="muted">0</span>
+                  }
+                </td>
+                <td class="c" style="min-width:80px">
+                  <span class="pct-bar" [style.width.px]="pctPagado(ag) * 0.6"></span>
+                  <span class="muted" style="font-size:11px;margin-left:4px">{{ pctPagado(ag) }}%</span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
     </div>
   } @else {
-    <div class="empty"><i class="ti ti-circle-check" style="font-size:32px;display:block;margin-bottom:8px;color:var(--green)"></i>No hay remesas pendientes.</div>
+    <div class="empty-state">
+      <i class="ti ti-circle-check"></i>
+      <p>No hay remesas pendientes.</p>
+    </div>
   }
 }
 
 @if (!loading && !conciliacion) {
-  <div class="empty">No se pudieron cargar los datos de conciliacion.</div>
+  <div class="empty-state">
+    <i class="ti ti-alert-triangle" style="color:var(--tx3)"></i>
+    <p>No se pudieron cargar los datos de conciliación.</p>
+  </div>
 }

@@ -5,10 +5,15 @@
 @if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
 
 @if (!loading && !selectedAgency) {
-  <div class="filters" style="margin-bottom:12px">
-    <div class="fdrop">
+  <div class="mov-toolbar" style="margin-bottom:12px">
+    <div class="fdrop" style="flex:0 0 auto">
       <input type="text" [(ngModel)]="searchTerm" placeholder="Buscar agencia...">
     </div>
+    <span class="hint" style="margin-left:8px">{{ filteredAgencias.length }} agencia(s)</span>
+    <div style="flex:1"></div>
+    <button class="obtn" (click)="openExport()" [disabled]="!filteredAgencias.length">
+      <i class="ti ti-download"></i>Exportar
+    </button>
   </div>
 
   <div class="ag-list">
@@ -178,4 +183,80 @@
       </div>
     }
   }
+}
+
+<!-- ═══ EXPORT MODAL ═══ -->
+@if (exportOpen) {
+  <div class="export-overlay" (click)="closeExport()"></div>
+  <div class="export-modal">
+    <div class="export-header">
+      <h3><i class="ti ti-download"></i> Exportar Consolidado</h3>
+      <button class="dp-close" (click)="closeExport()"><i class="ti ti-x"></i></button>
+    </div>
+
+    <div class="export-body">
+      <div class="export-cols-section">
+        <div class="export-cols-head">
+          <span class="export-cols-title">Seleccionar columnas</span>
+          <div class="export-cols-actions">
+            <button class="link-btn" (click)="selectAllColumns()">Todas</button>
+            <span class="divider">|</span>
+            <button class="link-btn" (click)="deselectAllColumns()">Ninguna</button>
+          </div>
+        </div>
+        <div class="export-cols-grid">
+          @for (col of exportColumns; track col.key) {
+            <label class="export-col-check">
+              <input type="checkbox" [(ngModel)]="col.selected">
+              <span>{{ col.label }}</span>
+            </label>
+          }
+        </div>
+      </div>
+
+      <div class="export-preview-section">
+        <div class="export-preview-title">
+          Vista previa
+          <span class="hint">{{ exportData.length }} agencia(s) — mostrando {{ exportPreviewRows.length }}</span>
+        </div>
+        @if (selectedExportColumns.length === 0) {
+          <div class="export-preview-empty">Seleccione al menos una columna para previsualizar.</div>
+        } @else {
+          <div class="export-preview-tbl scroll">
+            <table class="g compact">
+              <thead>
+                <tr>
+                  @for (col of selectedExportColumns; track col.key) {
+                    <th [style.text-align]="col.align || 'left'">{{ col.label }}</th>
+                  }
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of exportPreviewRows; track $index) {
+                  <tr>
+                    @for (col of selectedExportColumns; track col.key) {
+                      <td [style.text-align]="col.align || 'left'">{{ formatCell(row[col.key], col) }}</td>
+                    }
+                  </tr>
+                }
+                @if (exportData.length > 10) {
+                  <tr><td [attr.colspan]="selectedExportColumns.length" class="empty">... y {{ exportData.length - 10 }} agencia(s) mas</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="export-footer">
+      <button class="obtn" (click)="closeExport()">Cancelar</button>
+      <button class="obtn primary" (click)="exportExcel()" [disabled]="selectedExportColumns.length === 0">
+        <i class="ti ti-file-spreadsheet"></i>Excel
+      </button>
+      <button class="obtn primary" (click)="exportPdf()" [disabled]="selectedExportColumns.length === 0">
+        <i class="ti ti-file-type-pdf"></i>PDF
+      </button>
+    </div>
+  </div>
 }

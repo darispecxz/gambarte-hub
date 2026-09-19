@@ -1,0 +1,184 @@
+@if (loading) {
+  <div class="loading-block"><span class="spin lg"></span>Cargando saldos bancarios...</div>
+}
+
+@if (error) {
+  <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div>
+}
+
+@if (!loading && !error && cuentas.length) {
+  <div class="mov-toolbar" style="margin-bottom:14px">
+    <div class="moneda-filter">
+      <label style="font-size:12px;font-weight:600;color:var(--tx2);margin-right:6px">Moneda</label>
+      <button class="moneda-toggle" (click)="monedaDropOpen = !monedaDropOpen">
+        {{ monedaLabel }} <i class="ti ti-chevron-down" [class.open]="monedaDropOpen"></i>
+      </button>
+      @if (monedaDropOpen) {
+        <div class="moneda-drop">
+          @for (m of allMonedas; track m) {
+            <label class="moneda-opt" (click)="$event.stopPropagation()">
+              <input type="checkbox" [checked]="monedas.has(m)" (change)="toggleMoneda(m)">
+              <span>{{ m }}</span>
+            </label>
+          }
+        </div>
+      }
+    </div>
+    <span class="hint" style="margin-left:8px">Ejercicio {{ ejercicio }} &middot; {{ filteredCuentas.length }} cuenta(s)</span>
+    <div style="flex:1"></div>
+    <button class="obtn" (click)="openExport()" [disabled]="!filteredCuentas.length">
+      <i class="ti ti-download"></i>Exportar
+    </button>
+  </div>
+
+  <!-- KPI cards -->
+  <div class="kgrid" style="margin-bottom:14px">
+    @for (t of filteredTotales; track t.moneda) {
+      <div class="kcard">
+        <div class="fw">
+          <div class="fw-ic"><i class="ti ti-building-bank"></i></div>
+          <div>
+            <div class="fn">{{ t.moneda }}</div>
+            <div class="fv">{{ t.cuentas }} cuenta(s)</div>
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <div style="font-size:11px;color:var(--tx3);text-transform:uppercase;font-weight:600;letter-spacing:.03em">Saldo Operativo</div>
+          <div style="font-family:'Manrope',sans-serif;font-size:20px;font-weight:700;letter-spacing:-.3px">{{ t.total | number:'1.2-2' }}</div>
+        </div>
+      </div>
+    }
+    <div class="kcard">
+      <div class="fw">
+        <div class="fw-ic" style="background:var(--green-track);color:var(--green)"><i class="ti ti-live-photo"></i></div>
+        <div>
+          <div class="fn">Operando</div>
+          <div class="fv">cuentas activas hoy</div>
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <div style="font-family:'Manrope',sans-serif;font-size:20px;font-weight:700;letter-spacing:-.3px">{{ operandoCount }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="tbl scroll">
+    <table class="g">
+      <thead>
+        <tr>
+          <th>Agencia</th>
+          <th>Banco</th>
+          <th>Cuenta</th>
+          <th>Moneda</th>
+          <th class="r">Saldo Actual</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (c of filteredCuentas; track c.numCuenta + c.moneda + c.idAgencia) {
+          <tr [class.operando-row]="c.operando">
+            <td><strong>{{ c.agencia }}</strong></td>
+            <td>{{ c.entidadDesc }}</td>
+            <td class="mono">{{ c.numCuenta }}</td>
+            <td><span class="tag">{{ c.moneda }}</span></td>
+            <td class="r" style="font-weight:600;font-variant-numeric:tabular-nums">
+              @if (c.operando && c.saldoActual !== null) {
+                {{ c.saldoActual | number:'1.2-2' }}
+              } @else {
+                {{ c.saldoOBEL | number:'1.2-2' }}
+              }
+            </td>
+            <td>
+              @if (c.operando) {
+                <span class="pill operando-pill"><i class="ti ti-live-photo"></i> Operando</span>
+              } @else {
+                <span class="muted">&mdash;</span>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+@if (!loading && !error && !cuentas.length) {
+  <div class="empty-state"><i class="ti ti-wallet-off"></i>No hay cuentas con saldo.</div>
+}
+
+<!-- ═══ EXPORT MODAL ═══ -->
+@if (exportOpen) {
+  <div class="export-overlay" (click)="closeExport()"></div>
+  <div class="export-modal">
+    <div class="export-header">
+      <h3><i class="ti ti-download"></i> Exportar Saldos Operativos</h3>
+      <button class="dp-close" (click)="closeExport()"><i class="ti ti-x"></i></button>
+    </div>
+
+    <div class="export-body">
+      <div class="export-cols-section">
+        <div class="export-cols-head">
+          <span class="export-cols-title">Seleccionar columnas</span>
+          <div class="export-cols-actions">
+            <button class="link-btn" (click)="selectAllColumns()">Todas</button>
+            <span class="divider">|</span>
+            <button class="link-btn" (click)="deselectAllColumns()">Ninguna</button>
+          </div>
+        </div>
+        <div class="export-cols-grid">
+          @for (col of exportColumns; track col.key) {
+            <label class="export-col-check">
+              <input type="checkbox" [(ngModel)]="col.selected">
+              <span>{{ col.label }}</span>
+            </label>
+          }
+        </div>
+      </div>
+
+      <div class="export-preview-section">
+        <div class="export-preview-title">
+          Vista previa
+          <span class="hint">{{ exportData.length }} registro(s) — mostrando {{ exportPreviewRows.length }}</span>
+        </div>
+        @if (selectedExportColumns.length === 0) {
+          <div class="export-preview-empty">Seleccione al menos una columna para previsualizar.</div>
+        } @else {
+          <div class="export-preview-tbl scroll">
+            <table class="g compact">
+              <thead>
+                <tr>
+                  @for (col of selectedExportColumns; track col.key) {
+                    <th [style.text-align]="col.align || 'left'">{{ col.label }}</th>
+                  }
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of exportPreviewRows; track $index) {
+                  <tr>
+                    @for (col of selectedExportColumns; track col.key) {
+                      <td [style.text-align]="col.align || 'left'">{{ formatCell(row[col.key], col) }}</td>
+                    }
+                  </tr>
+                }
+                @if (exportData.length > 10) {
+                  <tr><td [attr.colspan]="selectedExportColumns.length" class="empty">... y {{ exportData.length - 10 }} registro(s) mas</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="export-footer">
+      <button class="obtn" (click)="closeExport()">Cancelar</button>
+      <button class="obtn primary" (click)="exportExcel()" [disabled]="selectedExportColumns.length === 0">
+        <i class="ti ti-file-spreadsheet"></i>Excel
+      </button>
+      <button class="obtn primary" (click)="exportPdf()" [disabled]="selectedExportColumns.length === 0">
+        <i class="ti ti-file-type-pdf"></i>PDF
+      </button>
+    </div>
+  </div>
+}

@@ -23,6 +23,14 @@ export interface ExportColumn {
   format?: 'number' | 'number4' | 'text' | 'date';
 }
 
+interface ReportTabMeta { label: string; icon: string; desc: string; }
+
+const REPORT_TAB_META: Record<OpReportType, ReportTabMeta> = {
+  cambios: { label: 'Cambios', icon: 'ti-currency-dollar', desc: 'Registro de operaciones de cambio de moneda por agencia y cajero.' },
+  giros:   { label: 'Giros Nacionales', icon: 'ti-transfer-vertical', desc: 'Giros nacionales enviados y pagados entre agencias.' },
+  remesas: { label: 'Remesas', icon: 'ti-world', desc: 'Remesas familiares y giros internacionales entrantes y salientes.' },
+};
+
 @Component({
   selector: 'app-op-reports',
   standalone: true,
@@ -44,6 +52,7 @@ export class OpReportsComponent implements OnInit, OnDestroy {
   }
 
   selected: OpReportType = 'cambios';
+  get reportTabMeta(): ReportTabMeta { return REPORT_TAB_META[this.selected]; }
   desde = new Date().toISOString().slice(0, 10);
   hasta = '';
   agencia: number | null = null;

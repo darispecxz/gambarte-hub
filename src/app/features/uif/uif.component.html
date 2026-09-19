@@ -36,6 +36,7 @@
         <option [ngValue]="2">Venta</option>
         <option [ngValue]="3">Giro</option>
         <option [ngValue]="4">Remesa</option>
+        <option [ngValue]="-1">Pago</option>
       </select>
     </div>
   }
@@ -342,6 +343,7 @@
           <th>TC</th>
           <th>Comision [BOB]</th>
           <th>Total Operacion [BOB]</th>
+          <th>{{ destRemLabel }}</th>
         </tr>
       </thead>
       <tbody>
@@ -350,8 +352,8 @@
             <td class="r">{{ pageIndex * pageSize + i + 1 }}</td>
             <td>{{ row.id_transaccion }}</td>
             <td>{{ row.numero }}</td>
-            <td>{{ row.id_operacion }}</td>
-            <td>{{ row.id_agencia }}</td>
+            <td>{{ row.tipo_operacion }}</td>
+            <td>{{ row.agencia }}</td>
             <td>{{ row.nombres }} {{ row.ape_pat }} {{ row.ape_mat }}</td>
             <td>{{ row.num_doc_identidad }}</td>
             <td>{{ row.fecha }}</td>
@@ -360,10 +362,11 @@
             <td class="r">{{ row.tipo_cambio | number:'1.4-4' }}</td>
             <td class="r">{{ row.comision_bob | number:'1.2-2' }}</td>
             <td class="r">{{ row.total_operacion_bob | number:'1.2-2' }}</td>
+            <td>{{ row.destinatario || '-' }}</td>
           </tr>
         }
         @if (!displayRows.length && !loading) {
-          <tr><td colspan="13" class="empty">Sin registros.</td></tr>
+          <tr><td colspan="14" class="empty">Sin registros.</td></tr>
         }
       </tbody>
     </table>
@@ -490,11 +493,11 @@
           </label>
           <label class="export-col-check">
             <input type="checkbox" [(ngModel)]="extractoOpRemesas">
-            <span>Remesas</span>
+            <span>Remesas / Giros</span>
           </label>
           <label class="export-col-check">
             <input type="checkbox" [(ngModel)]="extractoOpPagos">
-            <span>Pagos (Giros)</span>
+            <span>Pagos</span>
           </label>
         </div>
       </div>

@@ -24,6 +24,14 @@ interface ReportTab {
   icon: string;
 }
 
+interface TabMeta { label: string; icon: string; desc: string; }
+
+const TAB_META: Record<ReportType, TabMeta> = {
+  balance:       { label: 'Balance Sumas y Saldos', icon: 'ti-scale',          desc: 'Balance de sumas y saldos por cuenta contable en el ejercicio.' },
+  'libro-mayor': { label: 'Libro Mayor',            icon: 'ti-book',           desc: 'Movimientos del libro mayor por subcuenta con saldos acumulados.' },
+  comprobantes:  { label: 'Comprobantes Contables',  icon: 'ti-file-invoice',   desc: 'Listado de comprobantes contables con detalle de asientos.' },
+};
+
 @Component({
   selector: 'app-acct-reports',
   standalone: true,
@@ -38,6 +46,7 @@ export class AcctReportsComponent implements OnInit, OnDestroy {
   private routeSub: any;
 
   selected: ReportType = 'balance';
+  get tabMeta(): TabMeta { return TAB_META[this.selected]; }
 
   ejercicio = new Date().getFullYear().toString();
   ejercicios: Ejercicio[] = [];

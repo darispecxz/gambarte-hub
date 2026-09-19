@@ -1,0 +1,207 @@
+:host { display: block; }
+
+// ── Sub-nav tabs ──
+.gst-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+
+// ═══════════════════════════════════════════════════
+// RESUMEN — Statement cards (Fuse-inspired)
+// ═══════════════════════════════════════════════════
+
+.gst-statements {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;
+}
+
+.gst-stmt { padding: 20px; }
+.gst-stmt-head {
+  display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;
+}
+.gst-stmt-title { font-size: 16px; font-weight: 700; }
+.gst-stmt-sub { font-size: 12px; color: var(--tx3); margin-top: 2px; }
+.gst-stmt-icon {
+  width: 48px; height: 48px; border-radius: 50%; display: flex;
+  align-items: center; justify-content: center; flex-shrink: 0;
+}
+.gst-stmt-vals {
+  display: flex; gap: 28px; flex-wrap: wrap;
+}
+.gst-stmt-label { font-size: 11px; color: var(--tx3); text-transform: uppercase; letter-spacing: .03em; font-weight: 600; }
+.gst-stmt-amount {
+  font-family: 'Manrope', sans-serif; font-size: 20px; font-weight: 700; margin-top: 4px;
+  letter-spacing: -.5px;
+}
+
+.gst-balance { padding: 20px; display: flex; flex-direction: column; }
+.gst-balance-head { margin-bottom: 16px; }
+.gst-balance-kpis { display: flex; gap: 32px; margin-bottom: 12px; }
+.gst-balance-big {
+  font-family: 'Manrope', sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -.5px;
+}
+.gst-balance-label { font-size: 11.5px; color: var(--tx3); margin-top: 2px; }
+
+.gst-mini-chart-wrap {
+  flex: 1; min-height: 40px; margin-top: auto;
+}
+.gst-mini-chart { width: 100%; height: 40px; }
+
+// ═══════════════════════════════════════════════════
+// Budget-style category rows
+// ═══════════════════════════════════════════════════
+
+.gst-budget { padding: 20px; }
+.gst-budget-head {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+}
+.gst-budget-list { display: flex; flex-direction: column; gap: 16px; }
+.gst-budget-row {
+  display: flex; align-items: center; gap: 12px;
+  .fw-ic { flex: 0 0 36px; width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+}
+.gst-budget-info { flex: 1; min-width: 0; }
+.gst-budget-cat-name { font-size: 13px; font-weight: 600; }
+.gst-budget-cat-amount {
+  font-family: 'Manrope', sans-serif; font-size: 15px; font-weight: 700; margin: 2px 0 6px;
+}
+.gst-budget-bar {
+  position: relative; height: 4px; border-radius: 2px; overflow: hidden;
+}
+.gst-budget-bar-bg {
+  position: absolute; inset: 0; background: var(--line-2); border-radius: 2px;
+}
+.gst-budget-bar-fill {
+  position: relative; z-index: 1; height: 100%; border-radius: 2px;
+  transition: width .4s ease; opacity: .7;
+}
+.gst-budget-pct {
+  flex: 0 0 52px; text-align: right;
+  span { font-size: 12px; font-weight: 600; color: var(--tx2); }
+}
+
+// ═══════════════════════════════════════════════════
+// Full chart
+// ═══════════════════════════════════════════════════
+
+.gst-legend { display: flex; gap: 14px; flex-wrap: wrap; }
+.gst-legend-item { font-size: 11.5px; color: var(--tx3); display: flex; align-items: center; gap: 5px; }
+.gst-dot { width: 10px; height: 3px; border-radius: 2px; display: inline-block;
+  &.gst-dot-dash { border-top: 2px dashed; background: none !important; }
+}
+
+.gst-chart-wrap { position: relative; display: flex; height: 220px; }
+.gst-y-axis { width: 40px; position: relative; flex-shrink: 0; }
+.gst-y-label {
+  position: absolute; right: 6px; font-size: 10px; color: var(--tx3);
+  font-variant-numeric: tabular-nums; transform: translateY(50%);
+}
+.gst-chart { flex: 1; height: 100%; }
+.gst-x-axis {
+  display: flex; justify-content: space-between; margin-left: 40px;
+  font-size: 10px; color: var(--tx3); padding-top: 4px;
+}
+
+// ═══════════════════════════════════════════════════
+// Categorias detail
+// ═══════════════════════════════════════════════════
+
+.gst-cat-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; cursor: pointer;
+  &:hover { background: var(--sub); }
+}
+
+.gst-sub-row {
+  cursor: pointer;
+  &:hover { background: var(--sub); }
+}
+
+// ═══════════════════════════════════════════════════
+// Agencias grid (card-based like Fuse)
+// ═══════════════════════════════════════════════════
+
+.gst-ag-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px;
+}
+.gst-ag-card { padding: 16px; }
+.gst-ag-clickable { cursor: pointer; transition: border-color .15s, box-shadow .15s; &:hover { border-color: var(--orange); box-shadow: 0 2px 8px rgba(0,0,0,.06); } }
+.gst-ag-card-head {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+  .fw-ic { display: flex; align-items: center; justify-content: center; font-size: 18px; }
+}
+.gst-ag-kpis { display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
+.gst-ag-kpi-label { font-size: 11px; color: var(--tx3); text-transform: uppercase; letter-spacing: .03em; font-weight: 600; }
+.gst-ag-kpi-val { font-family: 'Manrope', sans-serif; font-size: 15px; font-weight: 700; margin-top: 2px; }
+.gst-ag-coverage { margin-top: 4px; }
+.gst-ag-cov-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+.gst-ag-cov-label { font-size: 11px; color: var(--tx3); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+.gst-ag-cov-pct { font-family: 'Manrope', sans-serif; font-size: 13px; font-weight: 700; }
+.gst-ag-admin-note {
+  display: flex; align-items: center; gap: 6px; margin-top: 8px;
+  font-size: 11.5px; color: var(--blue); background: rgba(31,95,166,.04);
+  padding: 8px 10px; border-radius: 8px;
+}
+
+// ═══════════════════════════════════════════════════
+// Modal
+// ═══════════════════════════════════════════════════
+
+.gst-modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 1000;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.gst-modal {
+  background: var(--bg); border-radius: 14px; width: 100%; max-width: 720px;
+  max-height: 80vh; overflow-y: auto; box-shadow: 0 16px 48px rgba(0,0,0,.18);
+}
+.gst-modal-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 18px 20px 12px; border-bottom: 1px solid var(--line-2);
+  position: sticky; top: 0; background: var(--bg); z-index: 1;
+  .tag { margin-right: 6px; }
+}
+.gst-modal-lg { max-width: 820px; }
+.gst-modal-summary {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 20px; font-size: 12.5px; color: var(--tx2); border-bottom: 1px solid var(--line-2);
+}
+
+// Agency detail modal
+.gst-ag-modal-summary {
+  display: flex; gap: 20px; flex-wrap: wrap; padding: 16px 20px;
+  border-bottom: 1px solid var(--line-2);
+}
+.gst-ag-modal-kpi { min-width: 100px; }
+.gst-ag-modal-kpi-val { font-family: 'Manrope', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: -.3px; }
+.gst-ag-modal-kpi-label { font-size: 11px; color: var(--tx3); text-transform: uppercase; letter-spacing: .03em; font-weight: 600; margin-top: 2px; }
+.gst-ag-modal-cov {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: 'Manrope', sans-serif; font-size: 18px; font-weight: 700;
+  padding: 4px 12px; border-radius: 8px;
+}
+.gst-ag-status {
+  display: flex; align-items: center; gap: 8px; margin: 12px 20px;
+  padding: 10px 14px; border-radius: 10px; font-size: 12.5px; font-weight: 600;
+  border-left: 3px solid;
+}
+.gst-ag-modal-cats { padding: 4px 20px 12px; display: flex; flex-direction: column; gap: 10px; }
+.gst-ag-modal-cat-row {
+  display: flex; align-items: center; gap: 10px;
+  .fw-ic { display: flex; align-items: center; justify-content: center; }
+}
+
+// ═══════════════════════════════════════════════════
+// Mobile
+// ═══════════════════════════════════════════════════
+
+@media (max-width: 640px) {
+  .gst-tabs { overflow-x: auto; }
+  .gst-statements { grid-template-columns: 1fr; }
+  .gst-stmt-vals { gap: 16px; }
+  .gst-stmt-amount { font-size: 17px; }
+  .gst-balance-kpis { gap: 20px; }
+  .gst-balance-big { font-size: 20px; }
+  .gst-ag-grid { grid-template-columns: 1fr; }
+  .gst-ag-modal-summary { gap: 14px; }
+  .gst-ag-modal-kpi-val { font-size: 15px; }
+  .gst-modal-lg { max-width: 100%; margin: 10px; }
+  .gst-cat-head { flex-wrap: wrap; gap: 8px; }
+  .gst-modal { max-width: 100%; margin: 10px; }
+}

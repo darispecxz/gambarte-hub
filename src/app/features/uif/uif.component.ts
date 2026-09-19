@@ -53,6 +53,12 @@ export class UifComponent implements OnInit, OnDestroy {
   ufApeMat = '';
   ufOperacion: number | null = null;
 
+  get destRemLabel(): string {
+    if (this.ufOperacion === -1 || this.ufOperacion === 4) return 'Remitente';
+    if (this.ufOperacion === 3) return 'Destinatario';
+    return 'Dest. / Remitente';
+  }
+
   loading = false;
   error = '';
 
@@ -227,8 +233,8 @@ export class UifComponent implements OnInit, OnDestroy {
   private readonly usuarioColumns: ExportColumn[] = [
     { key: 'id_transaccion', label: 'ID Transaccion', selected: true, align: 'center' },
     { key: 'numero', label: 'Factura', selected: true },
-    { key: 'id_operacion', label: 'Operacion', selected: true },
-    { key: 'id_agencia', label: 'Agencia', selected: true },
+    { key: 'tipo_operacion', label: 'Operacion', selected: true },
+    { key: 'agencia', label: 'Agencia', selected: true },
     { key: 'nombres', label: 'Nombres', selected: true },
     { key: 'ape_pat', label: 'Ap. Paterno', selected: true },
     { key: 'ape_mat', label: 'Ap. Materno', selected: true },
@@ -239,7 +245,13 @@ export class UifComponent implements OnInit, OnDestroy {
     { key: 'tipo_cambio', label: 'TC', selected: true, align: 'right', format: 'number4' },
     { key: 'comision_bob', label: 'Comision BOB', selected: true, align: 'right', format: 'number' },
     { key: 'total_operacion_bob', label: 'Total Operacion BOB', selected: true, align: 'right', format: 'number' },
+    { key: 'destinatario', label: 'Destinatario', selected: true },
   ];
+
+  private updateDestLabel(): void {
+    const col = this.usuarioColumns.find(c => c.key === 'destinatario');
+    if (col) col.label = this.destRemLabel;
+  }
 
   private routeSub: any;
 
@@ -313,7 +325,7 @@ export class UifComponent implements OnInit, OnDestroy {
           desde: this.desde,
           hasta: hasta || this.desde,
         }).subscribe({
-          next: (d) => { this.usuarioData = d.records; this.totalRecords = d.total; this.loading = false; this.refreshPage(); },
+          next: (d) => { this.usuarioData = d.records; this.totalRecords = d.total; this.updateDestLabel(); this.loading = false; this.refreshPage(); },
           error: (e: Error) => this.fail(e),
         });
         break;
@@ -380,7 +392,8 @@ export class UifComponent implements OnInit, OnDestroy {
         return this.filterList(this.usuarioData, (m) =>
           (m.nombres || '') + (m.ape_pat || '') + (m.ape_mat || '') +
           (m.num_doc_identidad || '') + String(m.id_transaccion) +
-          (m.numero || '') + (m.origen || ''), q
+          (m.numero || '') + (m.origen || '') + (m.destinatario || '') +
+          (m.tipo_operacion || '') + (m.agencia || ''), q
         );
     }
   }
@@ -680,11 +693,12 @@ export class UifComponent implements OnInit, OnDestroy {
   }
 
   get extractoRows(): UsuarioFinancieroRow[] {
-    const ops = new Set<number>();
-    if (this.extractoOpCambios) { ops.add(1); ops.add(2); }
-    if (this.extractoOpRemesas) { ops.add(4); }
-    if (this.extractoOpPagos) { ops.add(3); }
-    return this.getFilteredData().filter((r: UsuarioFinancieroRow) => ops.has(r.id_operacion));
+    return this.getFilteredData().filter((r: UsuarioFinancieroRow) => {
+      if (this.extractoOpCambios && r.fuente === 'C') return true;
+      if (this.extractoOpRemesas && (r.fuente === 'R' || r.fuente === 'G')) return true;
+      if (this.extractoOpPagos && r.fuente === 'P') return true;
+      return false;
+    });
   }
 
   private get extractoTipoLabel(): string {
@@ -711,7 +725,12 @@ export class UifComponent implements OnInit, OnDestroy {
     return n.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
   }
 
+  private get extractoPagosOnly(): boolean {
+    return this.extractoOpPagos && !this.extractoOpCambios && !this.extractoOpRemesas;
+  }
+
   async extractoExcel(): Promise<void> {
+    if (this.extractoPagosOnly) return this.extractoPagosExcel();
     const rows = this.extractoRows;
     if (!rows.length) return;
     const nombre = this.extractoNombre || '-';
@@ -719,7 +738,7 @@ export class UifComponent implements OnInit, OnDestroy {
     const hoy = new Date().toLocaleDateString('es-BO', { day: 'numeric', month: 'long', year: 'numeric' });
     const titulo = `EXTRACTO DE OPERACIONES - ${this.extractoTipoLabel}`;
     const agencia = this.agencies.find(a => a.id_agencia === this.agencia)?.descripcion || 'OFICINA CENTRAL';
-    const colCount = 13;
+    const colCount = 14;
 
     const wb = new Workbook();
     const ws = wb.addWorksheet('Extracto');
@@ -748,7 +767,7 @@ export class UifComponent implements OnInit, OnDestroy {
 
     const headers = ['Nro', 'ID Transaccion', 'Factura', 'Operacion', 'Agencia',
       'Usuario Financiero', 'Documento', 'Fecha y Hora', 'Moneda', 'Monto', 'TC',
-      'Comision BOB', 'Total Operacion BOB'];
+      'Comision BOB', 'Total Operacion BOB', this.destRemLabel];
     const hdrRow = ws.addRow(headers);
     hdrRow.eachCell(cell => {
       cell.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
@@ -758,17 +777,18 @@ export class UifComponent implements OnInit, OnDestroy {
 
     rows.forEach((r, i) => {
       ws.addRow([
-        i + 1, r.id_transaccion, r.numero, this.opLabel(r.id_operacion), r.id_agencia,
+        i + 1, r.id_transaccion, r.numero, r.tipo_operacion, r.agencia,
         `${r.nombres} ${r.ape_pat} ${r.ape_mat}`, r.num_doc_identidad, r.fecha,
         r.moneda, Number(r.monto) || 0, Number(r.tipo_cambio) || 0,
         Number(r.comision_bob) || 0, Number(r.total_operacion_bob) || 0,
+        r.destinatario || '',
       ]);
     });
 
     const totRow = ws.addRow(['', '', '', '', '', '', '', '', 'TOTALES:',
       rows.reduce((s, r) => s + (Number(r.monto) || 0), 0), '',
       rows.reduce((s, r) => s + (Number(r.comision_bob) || 0), 0),
-      rows.reduce((s, r) => s + (Number(r.total_operacion_bob) || 0), 0)]);
+      rows.reduce((s, r) => s + (Number(r.total_operacion_bob) || 0), 0), '']);
     totRow.font = { bold: true };
 
     [10, 11, 12, 13].forEach(ci => {
@@ -778,6 +798,7 @@ export class UifComponent implements OnInit, OnDestroy {
     ws.getColumn(1).width = 6;
     ws.getColumn(6).width = 28;
     ws.getColumn(8).width = 20;
+    ws.getColumn(14).width = 28;
     [2, 3, 4, 5, 7, 9].forEach(ci => { ws.getColumn(ci).width = 14; });
 
     const buf = await wb.xlsx.writeBuffer();
@@ -785,7 +806,171 @@ export class UifComponent implements OnInit, OnDestroy {
       `extracto_usuario_financiero_${this.desde}.xlsx`);
   }
 
+  private async extractoPagosExcel(): Promise<void> {
+    const rows = this.extractoRows;
+    if (!rows.length) return;
+    const nombre = this.extractoNombre || '-';
+    const doc = this.extractoDocumento || '-';
+    const hoy = new Date().toLocaleDateString('es-BO', { day: 'numeric', month: 'long', year: 'numeric' });
+    const titulo = 'EXTRACTO DE OPERACIONES - PAGOS';
+    const agencia = this.agencies.find(a => a.id_agencia === this.agencia)?.descripcion || 'OFICINA CENTRAL';
+    const colCount = 10;
+
+    const wb = new Workbook();
+    const ws = wb.addWorksheet('Extracto');
+
+    const r1 = ws.addRow([titulo]);
+    r1.font = { bold: true, size: 14 };
+    ws.mergeCells(1, 1, 1, colCount);
+
+    const r2 = ws.addRow([agencia]);
+    r2.font = { size: 10 };
+    ws.mergeCells(2, 1, 2, colCount);
+
+    const r3 = ws.addRow([`Fecha: ${hoy}`]);
+    r3.font = { size: 10 };
+    ws.mergeCells(3, 1, 3, colCount);
+
+    const r4 = ws.addRow([`Solicitado por: ${nombre}    Documento: ${doc}`]);
+    r4.font = { size: 10 };
+    ws.mergeCells(4, 1, 4, colCount);
+
+    const r5 = ws.addRow([`Periodo: ${this.desde} al ${this.hasta || this.desde}`]);
+    r5.font = { size: 10 };
+    ws.mergeCells(5, 1, 5, colCount);
+
+    ws.addRow([]);
+
+    const headers = ['Nro', 'Codigo', 'N° Identidad', 'Ordenante', 'Destinatario',
+      'Destino', 'Fecha Envio', 'Fecha Pago', 'Monto', 'Estado'];
+    const hdrRow = ws.addRow(headers);
+    hdrRow.eachCell(cell => {
+      cell.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF14213D' } };
+      cell.alignment = { horizontal: 'center' };
+    });
+
+    rows.forEach((r, i) => {
+      ws.addRow([
+        i + 1, r.codigo || '', r.chile_doc_des || '',
+        r.chile_ordenante || '', r.chile_destinatario || '',
+        r.chile_tipo || r.tipo_operacion, r.chile_fec_envio || '',
+        r.fecha, `Bs. ${this.fmtNum(r.monto)}`, 'PAGADO',
+      ]);
+    });
+
+    const totRow = ws.addRow(['', '', '', '', '', '', '', 'TOTALES:',
+      `Bs. ${this.fmtNum(rows.reduce((s, r) => s + (Number(r.monto) || 0), 0))}`, '']);
+    totRow.font = { bold: true };
+
+    ws.getColumn(1).width = 6;
+    ws.getColumn(2).width = 10;
+    ws.getColumn(3).width = 16;
+    ws.getColumn(4).width = 30;
+    ws.getColumn(5).width = 30;
+    ws.getColumn(6).width = 18;
+    ws.getColumn(7).width = 20;
+    ws.getColumn(8).width = 20;
+    ws.getColumn(9).width = 14;
+    ws.getColumn(10).width = 10;
+
+    const buf = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+      `extracto_pagos_${this.desde}.xlsx`);
+  }
+
+  private extractoPagosPdf(): void {
+    const rows = this.extractoRows;
+    if (!rows.length) return;
+    const nombre = this.extractoNombre || '-';
+    const doc = this.extractoDocumento || '-';
+    const hoy = new Date().toLocaleDateString('es-BO', { day: 'numeric', month: 'long', year: 'numeric' });
+    const titulo = 'EXTRACTO DE OPERACIONES - PAGOS';
+    const agencia = this.agencies.find(a => a.id_agencia === this.agencia)?.descripcion || 'OFICINA CENTRAL';
+
+    const trs = rows.map((r, i) => `<tr>
+      <td class="c">${i + 1}</td>
+      <td class="c">${this.esc(r.codigo)}</td>
+      <td>${this.esc(r.chile_doc_des)}</td>
+      <td>${this.esc(r.chile_ordenante)}</td>
+      <td>${this.esc(r.chile_destinatario)}</td>
+      <td>${this.esc(r.chile_tipo || r.tipo_operacion)}</td>
+      <td>${this.esc(r.chile_fec_envio)}</td>
+      <td>${this.esc(r.fecha)}</td>
+      <td class="r">Bs. ${this.fmtNum(r.monto)}</td>
+      <td class="c">PAGADO</td>
+    </tr>`).join('\n');
+
+    const totalMonto = rows.reduce((s, r) => s + Number(r.monto || 0), 0);
+
+    const html = `<!DOCTYPE html><html><head><title>${this.esc(titulo)}</title>
+<style>
+  @page { size: landscape; margin: 14mm; }
+  * { box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; font-size: 11px; color: #1a1a1a; margin: 0; padding: 20px; }
+  .header-bar { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #14213d; padding-bottom: 8px; margin-bottom: 4px; }
+  .header-bar .logo img { height: 50px; width: auto; }
+  .header-bar .title { font-size: 16px; font-weight: 700; color: #14213d; text-align: right; }
+  .sub-bar { display: flex; justify-content: space-between; font-size: 11px; color: #555; border-bottom: 1px solid #ccc; padding: 4px 0 6px; margin-bottom: 10px; }
+  .info { margin-bottom: 14px; font-size: 11px; }
+  .info b { color: #14213d; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  th { background: #14213d; color: #fff; font-size: 9px; text-transform: uppercase; letter-spacing: .4px; padding: 7px 6px; text-align: left; }
+  td { padding: 5px 6px; border-bottom: 1px solid #e5e7eb; font-size: 10px; }
+  tr:nth-child(even) { background: #f8f9fb; }
+  .r { text-align: right; } .c { text-align: center; }
+  .totals td { font-weight: 700; border-top: 2px solid #14213d; background: #f3f4f6; }
+  .signatures { display: flex; justify-content: space-around; margin-top: 60px; }
+  .sig-box { text-align: center; width: 220px; }
+  .sig-line { border-top: 1px solid #000; margin-top: 60px; padding-top: 4px; font-size: 10px; font-weight: 700; }
+  .footer { margin-top: 20px; font-size: 9px; color: #888; display: flex; justify-content: space-between; }
+</style></head><body>
+<div class="header-bar">
+  <span class="logo"><img src="${LOGO_GAMBARTE_BASE64}" alt="Gambarte"></span>
+  <span class="title">${this.esc(titulo)}</span>
+</div>
+<div class="sub-bar">
+  <span>${this.esc(agencia)}</span>
+  <span>${hoy}</span>
+</div>
+<div class="info">
+  <b>SOLICITADO POR:</b> ${this.esc(nombre)} &nbsp;&nbsp;&nbsp; <b>DOCUMENTO:</b> ${this.esc(doc)}<br>
+  <b>FECHA DE LA SOLICITUD:</b> ${new Date().toISOString().slice(0, 10)} &nbsp;&nbsp;&nbsp;
+  <b>PERIODO:</b> ${this.desde} al ${this.hasta || this.desde}
+</div>
+<div style="text-align:center;font-weight:700;margin-bottom:8px;font-size:12px;">Reporte de Extracto</div>
+<table>
+  <thead><tr>
+    <th>Nro</th><th>Codigo</th><th>N&deg; Identidad</th><th>Ordenante</th><th>Destinatario</th>
+    <th>Destino</th><th>Fecha Envio</th><th>Fecha Pago</th><th>Monto</th><th>Estado</th>
+  </tr></thead>
+  <tbody>
+    ${trs}
+    <tr class="totals">
+      <td colspan="8" class="r">TOTALES:</td>
+      <td class="r">Bs. ${this.fmtNum(totalMonto)}</td>
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+<div class="signatures">
+  <div class="sig-box"><div class="sig-line">RECIBI CONFORME</div></div>
+  <div class="sig-box"><div class="sig-line">ENTREGUE CONFORME</div></div>
+</div>
+<div class="footer">
+  <span>Generado: ${new Date().toLocaleString()}</span>
+  <span>${rows.length} registro(s)</span>
+  <span>CGR - Sistema de Gestion y Reportes</span>
+</div>
+<script>window.onload=function(){window.print();}</script>
+</body></html>`;
+
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); }
+  }
+
   extractoPdf(): void {
+    if (this.extractoPagosOnly) return this.extractoPagosPdf();
     const rows = this.extractoRows;
     if (!rows.length) return;
     const nombre = this.extractoNombre || '-';
@@ -798,8 +983,8 @@ export class UifComponent implements OnInit, OnDestroy {
       <td class="c">${i + 1}</td>
       <td class="c">${r.id_transaccion}</td>
       <td>${this.esc(r.numero)}</td>
-      <td>${this.opLabel(r.id_operacion)}</td>
-      <td>${r.id_agencia}</td>
+      <td>${this.esc(r.tipo_operacion)}</td>
+      <td>${this.esc(r.agencia)}</td>
       <td>${this.esc(r.nombres)} ${this.esc(r.ape_pat)} ${this.esc(r.ape_mat)}</td>
       <td>${this.esc(r.num_doc_identidad)}</td>
       <td>${this.esc(r.fecha)}</td>
@@ -808,6 +993,7 @@ export class UifComponent implements OnInit, OnDestroy {
       <td class="r">${this.fmtNum(r.tipo_cambio, 4)}</td>
       <td class="r">${this.fmtNum(r.comision_bob)}</td>
       <td class="r">${this.fmtNum(r.total_operacion_bob)}</td>
+      <td>${this.esc(r.destinatario) || '-'}</td>
     </tr>`).join('\n');
 
     const totalMonto = rows.reduce((s, r) => s + Number(r.monto || 0), 0);
@@ -853,7 +1039,7 @@ export class UifComponent implements OnInit, OnDestroy {
   <thead><tr>
     <th>Nro</th><th>ID Trans.</th><th>Factura</th><th>Operacion</th><th>Agencia</th>
     <th>Usuario Financiero</th><th>Documento</th><th>Fecha y Hora</th>
-    <th>Moneda</th><th>Monto</th><th>TC</th><th>Comision BOB</th><th>Total Op. BOB</th>
+    <th>Moneda</th><th>Monto</th><th>TC</th><th>Comision BOB</th><th>Total Op. BOB</th><th>${this.destRemLabel}</th>
   </tr></thead>
   <tbody>
     ${trs}
@@ -863,6 +1049,7 @@ export class UifComponent implements OnInit, OnDestroy {
       <td></td>
       <td></td>
       <td class="r">${this.fmtNum(totalBob)}</td>
+      <td></td>
     </tr>
   </tbody>
 </table>

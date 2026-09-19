@@ -1,72 +1,82 @@
-<div class="ph">
-  <h1>Operaciones</h1>
-  <i class="ti ti-chevron-right chev"></i>
-  <span class="view-chip"><i class="ti ti-report-analytics" style="font-size:14px"></i>Reportes de Operaciones</span>
+<div class="page-head">
+  <nav class="breadcrumb">
+    <span class="bc-item">Operaciones</span>
+    <span class="bc-sep">&gt;</span>
+    <span class="bc-item">Reportes</span>
+    <span class="bc-sep">&gt;</span>
+    <span class="bc-item bc-active"><i class="ti {{ reportTabMeta.icon }}"></i> {{ reportTabMeta.label }}</span>
+  </nav>
+  <div class="page-title-row">
+    <div class="page-title-block">
+      <h1 class="page-title"><i class="ti {{ reportTabMeta.icon }}"></i>{{ reportTabMeta.label }}</h1>
+      <p class="page-desc">{{ reportTabMeta.desc }}</p>
+    </div>
+    <div class="page-actions">
+      <div class="filters-inline">
+        <div class="fdrop"><label>Desde</label><input type="date" [(ngModel)]="desde"></div>
+        <div class="fdrop"><label>Hasta</label><input type="date" [(ngModel)]="hasta"></div>
+        <div class="fdrop"><label>Agencia</label>
+          <select [(ngModel)]="agencia">
+            <option [ngValue]="null">Todas</option>
+            @for (ag of agencies; track ag.id_agencia) {
+              <option [ngValue]="ag.id_agencia">{{ ag.descripcion }}</option>
+            }
+          </select>
+        </div>
+
+        @if (selected === 'cambios') {
+          <div class="fdrop"><label>Tipo</label>
+            <select [(ngModel)]="tipoOperacion">
+              <option [ngValue]="null">Todos</option>
+              <option [ngValue]="1">Compra</option>
+              <option [ngValue]="2">Venta</option>
+            </select>
+          </div>
+        }
+
+        @if (selected === 'giros' || selected === 'remesas') {
+          <div class="fdrop estado-drop">
+            <label>Estado</label>
+            <button class="estado-btn" type="button" (click)="estadoDropdownOpen = !estadoDropdownOpen">
+              {{ estadoLabel }}
+              <i class="ti ti-chevron-down" [class.open]="estadoDropdownOpen"></i>
+            </button>
+            @if (estadoDropdownOpen) {
+              <div class="estado-menu">
+                <label class="estado-check"><input type="checkbox" [checked]="estadoFilter.includes(0)" (change)="toggleEstado(0)"> Pendiente</label>
+                <label class="estado-check"><input type="checkbox" [checked]="estadoFilter.includes(1)" (change)="toggleEstado(1)"> Pagado</label>
+                <label class="estado-check"><input type="checkbox" [checked]="estadoFilter.includes(2)" (change)="toggleEstado(2)"> Devuelto</label>
+                @if (selected === 'remesas') {
+                  <label class="estado-check"><input type="checkbox" [checked]="estadoFilter.includes(5)" (change)="toggleEstado(5)"> Anulado</label>
+                }
+              </div>
+            }
+          </div>
+        }
+
+        @if (selected === 'remesas') {
+          <div class="fdrop"><label>Subtipo</label>
+            <select [(ngModel)]="subtipoFilter">
+              <option value="">Todos</option>
+              <option value="R">Remesa Familiar</option>
+              <option value="G">Giro Internacional</option>
+            </select>
+          </div>
+        }
+
+        @if (selected === 'giros' || selected === 'remesas') {
+          <div class="fdrop"><label>Codigo</label>
+            <input type="number" [(ngModel)]="codigoFilter" placeholder="Codigo..." style="width:100px">
+          </div>
+        }
+
+        <button class="obtn primary" (click)="load()" [disabled]="loading"><i class="ti ti-eye"></i>Consultar</button>
+      </div>
+    </div>
+  </div>
 </div>
-<p class="page-sub">Reportes centralizados de Cambios, Giros Nacionales y Remesas / Giros Internacionales</p>
 
 @if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
-
-<div class="filters">
-  <div class="fdrop"><label>Desde</label><input type="date" [(ngModel)]="desde"></div>
-  <div class="fdrop"><label>Hasta</label><input type="date" [(ngModel)]="hasta"></div>
-  <div class="fdrop"><label>Agencia</label>
-    <select [(ngModel)]="agencia">
-      <option [ngValue]="null">Todas</option>
-      @for (ag of agencies; track ag.id_agencia) {
-        <option [ngValue]="ag.id_agencia">{{ ag.descripcion }}</option>
-      }
-    </select>
-  </div>
-
-  @if (selected === 'cambios') {
-    <div class="fdrop"><label>Tipo</label>
-      <select [(ngModel)]="tipoOperacion">
-        <option [ngValue]="null">Todos</option>
-        <option [ngValue]="1">Compra</option>
-        <option [ngValue]="2">Venta</option>
-      </select>
-    </div>
-  }
-
-  @if (selected === 'giros' || selected === 'remesas') {
-    <div class="fdrop estado-drop">
-      <label>Estado</label>
-      <button class="estado-btn" type="button" (click)="estadoDropdownOpen = !estadoDropdownOpen">
-        {{ estadoLabel }}
-        <i class="ti ti-chevron-down" [class.open]="estadoDropdownOpen"></i>
-      </button>
-      @if (estadoDropdownOpen) {
-        <div class="estado-menu">
-          <label class="estado-check"><input type="checkbox" [checked]="estadoFilter.includes(0)" (change)="toggleEstado(0)"> Pendiente</label>
-          <label class="estado-check"><input type="checkbox" [checked]="estadoFilter.includes(1)" (change)="toggleEstado(1)"> Pagado</label>
-          <label class="estado-check"><input type="checkbox" [checked]="estadoFilter.includes(2)" (change)="toggleEstado(2)"> Devuelto</label>
-          @if (selected === 'remesas') {
-            <label class="estado-check"><input type="checkbox" [checked]="estadoFilter.includes(5)" (change)="toggleEstado(5)"> Anulado</label>
-          }
-        </div>
-      }
-    </div>
-  }
-
-  @if (selected === 'remesas') {
-    <div class="fdrop"><label>Subtipo</label>
-      <select [(ngModel)]="subtipoFilter">
-        <option value="">Todos</option>
-        <option value="R">Remesa Familiar</option>
-        <option value="G">Giro Internacional</option>
-      </select>
-    </div>
-  }
-
-  @if (selected === 'giros' || selected === 'remesas') {
-    <div class="fdrop"><label>Codigo</label>
-      <input type="number" [(ngModel)]="codigoFilter" placeholder="Codigo..." style="width:100px">
-    </div>
-  }
-
-  <button class="obtn primary" (click)="load()" [disabled]="loading"><i class="ti ti-eye"></i>Consultar</button>
-</div>
 
 @if (loading) {
   <app-loading message="Consultando reporte..."></app-loading>
@@ -74,11 +84,6 @@
 
 <!-- ═══ CAMBIOS ═══ -->
 @if (!loading && selected === 'cambios' && cambiosData.length > 0) {
-  <div class="sec-t">
-    <i class="ti ti-currency-dollar"></i>Cambios de Moneda
-    <span class="hint">{{ totalRecords }} registro(s)</span>
-  </div>
-
   <div class="mov-toolbar">
     <div class="mov-search">
       <i class="ti ti-search"></i>
@@ -128,11 +133,6 @@
 
 <!-- ═══ GIROS ═══ -->
 @if (!loading && selected === 'giros' && girosData.length > 0) {
-  <div class="sec-t">
-    <i class="ti ti-transfer-vertical"></i>Giros Nacionales
-    <span class="hint">{{ totalRecords }} registro(s)</span>
-  </div>
-
   <div class="mov-toolbar">
     <div class="mov-search">
       <i class="ti ti-search"></i>
@@ -182,11 +182,6 @@
 
 <!-- ═══ REMESAS ═══ -->
 @if (!loading && selected === 'remesas' && remesasData.length > 0) {
-  <div class="sec-t">
-    <i class="ti ti-world"></i>Remesas / Giros Internacionales
-    <span class="hint">{{ totalRecords }} registro(s)</span>
-  </div>
-
   <div class="mov-toolbar">
     <div class="mov-search">
       <i class="ti ti-search"></i>

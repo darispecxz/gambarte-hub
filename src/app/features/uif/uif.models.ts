@@ -182,6 +182,15 @@ export interface UsuarioFinancieroRow {
   total_operacion_bob: number;
   codigo: string;
   origen: string;
+  destinatario: string | null;
+  fuente: string;
+  tipo_operacion: string;
+  agencia: string;
+  chile_ordenante?: string;
+  chile_destinatario?: string;
+  chile_doc_des?: string;
+  chile_fec_envio?: string;
+  chile_tipo?: string;
 }
 
 export interface UifReportResponse<T> {

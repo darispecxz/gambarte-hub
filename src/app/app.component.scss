@@ -51,10 +51,29 @@
 }
 
 .sub-items { padding-left: 14px; }
+.sub-items.nested { padding-left: 10px; }
+.sub-section {
+  margin: 4px 0 2px;
+  padding: 0 11px;
+  border-top: 1px solid rgba(255,255,255,.06);
+  .sub-section-lbl {
+    display: block;
+    padding-top: 5px;
+    font-size: 9.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: rgba(255,255,255,.32);
+  }
+}
 .sub-item {
   font-size: 12.5px; padding: 7px 11px;
   i { font-size: 16px; }
   &.mobile-only { display: none; }
+}
+.sub-item-3 {
+  font-size: 11.5px; padding: 6px 11px;
+  i { font-size: 14px; }
 }
 @media (max-width: 640px) {
   .sub-item.mobile-only { display: flex; }

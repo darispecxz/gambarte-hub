@@ -86,4 +86,53 @@
       No hay datos de rendimiento para esta fecha.
     </div>
   }
+
+  <!-- Top cajeros por volumen de operaciones -->
+  <div class="sec-t" style="margin-top:20px"><i class="ti ti-user-star"></i>Top cajeros por operaciones</div>
+  @if (loadingTopCajeros) {
+    <div class="loading-block"><span class="spin"></span></div>
+  } @else if (topCajeros.length > 0) {
+    <div class="tbl scroll">
+      <table class="g">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Cajero</th>
+            <th class="c">Cambios</th>
+            <th class="c">Giros</th>
+            <th class="c">Remesas</th>
+            <th class="r">Total</th>
+            <th style="min-width:80px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (c of topCajeros; track c.login; let i = $index) {
+            <tr>
+              <td><span class="rend-rank" [class.rend-rank-top]="i < 3">{{ i + 1 }}</span></td>
+              <td>
+                <div class="fw">
+                  <div class="fw-ic"><i class="ti ti-user"></i></div>
+                  <div>
+                    <div class="fn">{{ c.nombre || c.login }}</div>
+                    <div class="fv">{{ c.agencia }}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="c">{{ c.cambio }}</td>
+              <td class="c">{{ c.giro }}</td>
+              <td class="c">{{ c.remesa }}</td>
+              <td class="r"><span class="score" style="font-size:15px">{{ c.total }}</span></td>
+              <td>
+                <div class="heat-bar-track" style="min-width:60px">
+                  <div class="heat-bar-fill heat-med" [style.width.%]="(c.total / maxTopCajeroOps) * 100"></div>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    <div class="empty" style="padding:20px"><span class="muted">Sin datos de cajeros para esta fecha.</span></div>
+  }
 }

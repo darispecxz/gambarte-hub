@@ -1,19 +1,28 @@
-<div class="ph">
-  <h1>Operaciones</h1>
-  <i class="ti ti-chevron-right chev"></i>
-  <span class="view-chip"><i class="ti ti-eye" style="font-size:14px"></i>Vista comercial</span>
-  <div class="pr">
-    <button class="obtn" (click)="load()" [disabled]="loadingAny">
-      @if (loadingAny) { <span class="spin"></span> } @else { <i class="ti ti-refresh"></i> }
-      Actualizar
-    </button>
+<div class="page-head">
+  <nav class="breadcrumb">
+    <span class="bc-item">Operaciones</span>
+    <span class="bc-sep">&gt;</span>
+    <span class="bc-item bc-active"><i class="ti ti-chart-line"></i> Comercial</span>
+  </nav>
+  <div class="page-title-row">
+    <div class="page-title-block">
+      <h1 class="page-title"><i class="ti ti-chart-line"></i>Comercial</h1>
+      <p class="page-desc">Análisis de operaciones de cambio: volumen, utilidad, cotizaciones y rendimiento por agencia.</p>
+    </div>
+    <div class="page-actions">
+      <div class="filters-inline">
+        <div class="fdrop"><label>Desde</label><input type="date" [(ngModel)]="dateFrom"></div>
+        <div class="fdrop"><label>Hasta</label><input type="date" [(ngModel)]="dateTo"></div>
+        <button class="obtn primary" (click)="load()" [disabled]="loadingAny"><i class="ti ti-filter"></i>Aplicar</button>
+      </div>
+      <div class="action-group">
+        <button class="obtn" (click)="load()" [disabled]="loadingAny">
+          @if (loadingAny) { <span class="spin"></span> } @else { <i class="ti ti-refresh"></i> }
+          Actualizar
+        </button>
+      </div>
+    </div>
   </div>
-</div>
-
-<div class="filters">
-  <div class="fdrop"><label>Desde</label><input type="date" [(ngModel)]="dateFrom"></div>
-  <div class="fdrop"><label>Hasta</label><input type="date" [(ngModel)]="dateTo"></div>
-  <button class="obtn primary" (click)="load()" [disabled]="loadingAny"><i class="ti ti-filter"></i>Aplicar</button>
 </div>
 
 @if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
@@ -102,65 +111,40 @@
     } @else { <div class="loading-block"><span class="spin lg"></span></div> }
   </div>
 
-  <!-- Resumen por moneda + Cajeros -->
-  <div class="two">
-    <div>
-      <div class="sec-t"><i class="ti ti-coin"></i>Resumen por moneda</div>
-      <div class="tbl scroll">
-        @if (ready['moneda']) {
-          <table class="g">
-            <thead><tr><th>Moneda</th><th class="r">Ops</th><th>Volumen</th><th class="r">Utilidad</th></tr></thead>
-            <tbody>
-              @for (m of porMoneda; track m.moneda) {
-                <tr>
-                  <td><span class="tag">{{ m.moneda }}</span></td>
-                  <td class="r">{{ fmt(m.ops) }}</td>
-                  <td><div class="assets"><div class="bar blue"><i [style.width.%]="(m.vol / maxVol) * 100"></i></div><span class="frac">{{ fmt(m.vol) }}</span></div></td>
-                  <td class="r"><span [class]="m.util >= 0 ? 'up' : 'down'">{{ fmt(m.util) }}</span></td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        } @else { <div class="loading-block"><span class="spin lg"></span></div> }
-      </div>
-    </div>
-    <div>
-      <div class="sec-t"><i class="ti ti-user-star"></i>Cajeros con más operaciones</div>
-      <div class="tbl scroll">
-        @if (ready['cajeros']) {
-          <table class="g">
-            <thead><tr><th>Cajero</th><th class="c">Cambios</th><th class="c">Giros</th><th class="c">Remesas</th><th class="r">Total</th></tr></thead>
-            <tbody>
-              @for (c of cajeros; track c.login) {
-                <tr>
-                  <td><div class="fw"><div class="fw-ic"><i class="ti ti-user"></i></div><div><div class="fn">{{ c.nombre || c.login }}</div><div class="fv">{{ c.agencia }}</div></div></div></td>
-                  <td class="c">{{ fmt(c.cambio) }}</td><td class="c">{{ fmt(c.giro) }}</td><td class="c">{{ fmt(c.remesa) }}</td>
-                  <td class="r"><span class="score" style="font-size:15px">{{ fmt(c.total) }}</span></td>
-                </tr>
-              }
-              @if (!cajeros.length) { <tr><td colspan="5" class="empty">Sin datos.</td></tr> }
-            </tbody>
-          </table>
-        } @else { <div class="loading-block"><span class="spin lg"></span></div> }
-      </div>
-    </div>
-  </div>
-
-  <!-- Precios -->
-  <div class="sec-t"><i class="ti ti-tags"></i>Precios de compra y venta por moneda<span class="hint">promedio · mín–máx del período</span></div>
+  <!-- Resumen por moneda (operativo + precios fusionados) -->
+  <div class="sec-t"><i class="ti ti-coin"></i>Resumen por moneda<span class="hint">operaciones, utilidad y rango de precios del período</span></div>
   <div class="tbl scroll">
-    @if (ready['precios']) {
+    @if (ready['moneda'] && ready['precios']) {
       <table class="g">
-        <thead><tr><th>Moneda</th><th class="r">Compra prom.</th><th class="r">Rango compra</th><th class="r">Venta prom.</th><th class="r">Rango venta</th><th class="c">Días</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Moneda</th>
+            <th class="r">Ops</th>
+            <th>Volumen</th>
+            <th class="r">Utilidad</th>
+            <th class="r">Compra prom.</th>
+            <th class="r">Rango compra</th>
+            <th class="r">Venta prom.</th>
+            <th class="r">Rango venta</th>
+          </tr>
+        </thead>
         <tbody>
-          @for (p of precios; track p.moneda) {
+          @for (m of porMonedaEnriquecido; track m.moneda) {
             <tr>
-              <td><span class="tag">{{ p.moneda }}</span></td>
-              <td class="r">{{ fmt(p.prom_compra, 4) }}</td>
-              <td class="r muted">{{ fmt(p.min_compra, 4) }} – {{ fmt(p.max_compra, 4) }}</td>
-              <td class="r">{{ fmt(p.prom_venta, 4) }}</td>
-              <td class="r muted">{{ fmt(p.min_venta, 4) }} – {{ fmt(p.max_venta, 4) }}</td>
-              <td class="c">{{ p.dias_datos }}</td>
+              <td>
+                <div class="fw">
+                  @if (flag(m.moneda)) { <span class="{{ flag(m.moneda) }} ficon"></span> }
+                  @else { <div class="fw-ic"><i class="ti ti-currency-dollar"></i></div> }
+                  <div class="fn">{{ m.moneda }}<span class="fv">{{ cname(m.moneda) }}</span></div>
+                </div>
+              </td>
+              <td class="r">{{ fmt(m.ops) }}</td>
+              <td><div class="assets"><div class="bar blue"><i [style.width.%]="(m.vol / maxVol) * 100"></i></div><span class="frac">{{ fmt(m.vol) }}</span></div></td>
+              <td class="r"><span [class]="m.util >= 0 ? 'up' : 'down'">{{ fmt(m.util) }}</span></td>
+              <td class="r">{{ m.prom_compra != null ? fmt(m.prom_compra, 4) : '—' }}</td>
+              <td class="r muted">{{ m.min_compra != null ? fmt(m.min_compra, 4) + ' – ' + fmt(m.max_compra, 4) : '—' }}</td>
+              <td class="r">{{ m.prom_venta != null ? fmt(m.prom_venta, 4) : '—' }}</td>
+              <td class="r muted">{{ m.min_venta != null ? fmt(m.min_venta, 4) + ' – ' + fmt(m.max_venta, 4) : '—' }}</td>
             </tr>
           }
         </tbody>

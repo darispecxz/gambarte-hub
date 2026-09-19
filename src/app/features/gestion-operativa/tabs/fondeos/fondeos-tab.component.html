@@ -4,8 +4,12 @@
 
 @if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
 
-@if (!loading && solicitudes.length > 0) {
-  <div class="sec-t"><i class="ti ti-clock-pause"></i>Solicitudes pendientes de aprobacion</div>
+@if (!loading) {
+
+<!-- ── Solicitudes ── -->
+<div class="sec-t"><i class="ti ti-clock-pause"></i>Solicitudes pendientes de aprobación</div>
+<p class="sec-desc">Peticiones de cajeros que necesitan fondos de bóveda. Requieren aprobación del encargado de agencia.</p>
+@if (solicitudes.length > 0) {
   <div class="tbl scroll">
     <table class="g">
       <thead>
@@ -27,10 +31,17 @@
       </tbody>
     </table>
   </div>
+} @else {
+  <div class="empty-hint">
+    <i class="ti ti-circle-check"></i>
+    No hay solicitudes pendientes. Aparecen aquí cuando un cajero solicita fondos desde su caja y aún no fueron aprobados.
+  </div>
 }
 
-@if (!loading && fondeoRemesas.length > 0) {
-  <div class="sec-t"><i class="ti ti-alert-triangle" style="color:var(--red)"></i>Fondeos por remesas pendientes</div>
+<!-- ── Fondeos por remesas ── -->
+@if (fondeoRemesas.length > 0) {
+  <div class="sec-t" style="margin-top:24px"><i class="ti ti-alert-triangle" style="color:var(--red)"></i>Fondeos por remesas pendientes</div>
+  <p class="sec-desc">Agencias con remesas por pagar que superan su saldo disponible. Se analiza la forma de pago predominante (transferencia o efectivo) y se sugieren fuentes de fondeo.</p>
   <div class="recom-list">
     @for (fr of fondeoRemesas; track fr.destino.agencia + fr.destino.moneda) {
       <div class="card recom-card" [style.border-left-color]="fr.destino.autoFondeable ? 'var(--amber)' : 'var(--red)'">
@@ -52,25 +63,25 @@
               </div>
               <div class="fv" style="margin-top:2px">
                 Banco: <strong>{{ fr.destino.moneda }} {{ fmt(fr.destino.saldoBanco) }}</strong>
-                · Boveda: <strong>{{ fmt(fr.destino.saldoBoveda) }}</strong>
+                · Bóveda: <strong>{{ fmt(fr.destino.saldoBoveda) }}</strong>
                 · Caja: <strong>{{ fmt(fr.destino.saldoCaja) }}</strong>
-                · Pago: <span class="pill" [class.p-info]="fr.destino.formaPago === 'transferencia'" [class.p-ok]="fr.destino.formaPago === 'efectivo'">{{ fr.destino.formaPago === 'transferencia' ? 'Deposito bancario' : 'Efectivo en caja' }}</span>
+                · Pago: <span class="pill" [class.p-info]="fr.destino.formaPago === 'transferencia'" [class.p-ok]="fr.destino.formaPago === 'efectivo'">{{ fr.destino.formaPago === 'transferencia' ? 'Depósito bancario' : 'Efectivo en caja' }}</span>
               </div>
               <div class="fv" style="margin-top:2px">
                 @if (fr.destino.autoFondeable) {
                   @if (fr.destino.formaPago === 'transferencia') {
-                    <span class="pill p-warn">Puede auto-fondearse · Depositar {{ fr.destino.moneda }} {{ fmt(fr.destino.deficitCanal) }} de boveda/caja a banco</span>
+                    <span class="pill p-warn">Puede auto-fondearse · Depositar {{ fr.destino.moneda }} {{ fmt(fr.destino.deficitCanal) }} de bóveda/caja a banco</span>
                   } @else {
-                    <span class="pill p-warn">Puede auto-fondearse · Transferir {{ fr.destino.moneda }} {{ fmt(fr.destino.deficitCanal) }} de banco a boveda/caja</span>
+                    <span class="pill p-warn">Puede auto-fondearse · Transferir {{ fr.destino.moneda }} {{ fmt(fr.destino.deficitCanal) }} de banco a bóveda/caja</span>
                   }
                 } @else {
                   @if (fr.destino.formaPago === 'transferencia') {
-                    Deficit bancario: <strong class="down">{{ fr.destino.moneda }} {{ fmt(fr.destino.deficitCanal) }}</strong>
+                    Déficit bancario: <strong class="down">{{ fr.destino.moneda }} {{ fmt(fr.destino.deficitCanal) }}</strong>
                   } @else {
-                    Deficit efectivo: <strong class="down">{{ fr.destino.moneda }} {{ fmt(fr.destino.deficitCanal) }}</strong>
+                    Déficit efectivo: <strong class="down">{{ fr.destino.moneda }} {{ fmt(fr.destino.deficitCanal) }}</strong>
                   }
                   · Fondos propios: <strong>{{ fmt(fr.destino.fondosPropios) }}</strong>
-                  · Deficit real: <strong class="down">{{ fr.destino.moneda }} {{ fmt(fr.destino.deficit) }}</strong>
+                  · Déficit real: <strong class="down">{{ fr.destino.moneda }} {{ fmt(fr.destino.deficit) }}</strong>
                 }
               </div>
             </div>
@@ -85,7 +96,7 @@
               <div class="source-row">
                 <strong>{{ src.agencia }}</strong>
                 <span class="muted">Banco: {{ fmt(src.enBanco) }}</span>
-                <span class="muted">· Boveda: {{ fmt(src.enBoveda) }}</span>
+                <span class="muted">· Bóveda: {{ fmt(src.enBoveda) }}</span>
                 <span class="muted">· Caja: {{ fmt(src.enCaja) }}</span>
                 <span class="up" style="margin-left:auto">{{ fr.destino.moneda }} {{ fmt(src.disponible) }}</span>
               </div>
@@ -101,8 +112,9 @@
   </div>
 }
 
-@if (!loading) {
-<div class="sec-t"><i class="ti ti-bulb"></i>Recomendaciones por limites de caja</div>
+<!-- ── Recomendaciones por límites ── -->
+<div class="sec-t" style="margin-top:24px"><i class="ti ti-bulb"></i>Recomendaciones por límites de caja</div>
+<p class="sec-desc">Detecta cajas con saldo por debajo de su mínimo configurado y sugiere agencias con excedente o bóveda disponible para fondearlas.</p>
 @if (recomendaciones.length > 0) {
   <div class="recom-list">
     @for (rec of recomendaciones; track rec.destino.agencia + rec.destino.moneda) {
@@ -125,7 +137,7 @@
           @for (src of rec.origenesPosibles; track src.agencia) {
             <div class="source-row">
               <strong>{{ src.agencia }}</strong>
-              <span class="muted">Boveda: {{ fmt(src.disponibleBoveda) }}</span>
+              <span class="muted">Bóveda: {{ fmt(src.disponibleBoveda) }}</span>
               @if (src.excedenteCaja > 0) { <span class="muted">· Exc: {{ fmt(src.excedenteCaja) }}</span> }
               <span class="up" style="margin-left:auto">{{ src.moneda }} {{ fmt(src.totalDisponible) }}</span>
             </div>
@@ -139,6 +151,10 @@
     }
   </div>
 } @else {
-  <div class="empty"><i class="ti ti-circle-check" style="font-size:32px;display:block;margin-bottom:8px;color:var(--green)"></i>Todas las cajas dentro de limites.</div>
+  <div class="empty-hint">
+    <i class="ti ti-circle-check"></i>
+    Todas las cajas dentro de límites. Aparecen recomendaciones cuando el saldo de una caja cae por debajo de su mínimo configurado.
+  </div>
 }
+
 }

@@ -1,25 +1,35 @@
 <!-- Header -->
-<div class="ph">
-  <h1>Gestion Operativa</h1>
-  <i class="ti ti-chevron-right chev"></i>
-  <span class="view-chip"><i class="ti ti-command" style="font-size:14px"></i>Panel de decision</span>
-  <div class="pr">
-    <button class="obtn" (click)="load()" [disabled]="loading">
-      @if (loading) { <span class="spin"></span> } @else { <i class="ti ti-refresh"></i> }
-      Actualizar
-    </button>
-    <button class="obtn sm" (click)="toggleAutoRefresh()" [class.primary]="autoRefresh"
-            [title]="autoRefresh ? 'Auto-refresh activo (cada 3 min)' : 'Auto-refresh desactivado'">
-      <i class="ti" [class.ti-player-pause]="autoRefresh" [class.ti-player-play]="!autoRefresh"></i>
-      {{ autoRefresh ? 'Auto' : 'Manual' }}
-    </button>
-    <span class="muted" style="font-size:11px">{{ lastRefresh | date:'HH:mm:ss' }}</span>
+<div class="page-head">
+  <nav class="breadcrumb">
+    <span class="bc-item">Operaciones</span>
+    <span class="bc-sep">&gt;</span>
+    <span class="bc-item">Administración Operativa</span>
+    <span class="bc-sep">&gt;</span>
+    <span class="bc-item bc-active"><i class="ti {{ tabMeta.icon }}"></i> {{ tabMeta.label }}</span>
+  </nav>
+  <div class="page-title-row">
+    <div class="page-title-block">
+      <h1 class="page-title"><i class="ti {{ tabMeta.icon }}"></i>{{ tabMeta.label }}</h1>
+      <p class="page-desc">{{ tabMeta.desc }}</p>
+    </div>
+    <div class="page-actions">
+      <div class="filters-inline">
+        <div class="fdrop"><label>Fecha</label><input type="date" [(ngModel)]="fecha"></div>
+        <button class="obtn primary" (click)="load()" [disabled]="loading"><i class="ti ti-filter"></i>Aplicar</button>
+      </div>
+      <div class="action-group">
+        @if (consolidado) {
+          <span class="hdr-badge" [class.hdr-badge-warn]="totalAlertas > 0" title="Alertas"><i class="ti ti-alert-triangle"></i> {{ totalAlertas }}</span>
+          <span class="hdr-badge" [class.hdr-badge-warn]="notiConteo.critica > 0" title="Notificaciones"><i class="ti ti-bell"></i> {{ notiConteo.total }}</span>
+        }
+        <button class="obtn" (click)="load()" [disabled]="loading">
+          @if (loading) { <span class="spin"></span> } @else { <i class="ti ti-refresh"></i> }
+          Actualizar
+        </button>
+        <span class="muted" style="font-size:11px">{{ lastRefresh | date:'HH:mm:ss' }}</span>
+      </div>
+    </div>
   </div>
-</div>
-
-<div class="filters">
-  <div class="fdrop"><label>Fecha</label><input type="date" [(ngModel)]="fecha"></div>
-  <button class="obtn primary" (click)="load()" [disabled]="loading"><i class="ti ti-filter"></i>Aplicar</button>
 </div>
 
 @if (error) { <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div> }
@@ -31,7 +41,7 @@
 @if (consolidado) {
 
   <!-- KPIs: always visible on desktop, hidden on mobile (shown via "resumen" tab) -->
-  <div class="kpi-desktop">
+  <div class="kpi-desktop" [hidden]="activeTab === 'saldos' || activeTab === 'saldos-agencias' || activeTab === 'fallas'">
     <div class="kgrid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
       <div class="kcard" [class.kcard-loading]="loading">
         <div class="ktit"><i class="ti ti-wallet"></i>Total Gambarte Bolivia</div>
@@ -70,21 +80,6 @@
           <div class="ksub">BOB equiv.</div>
         }
         <div class="kchip" style="background:var(--amber-soft);color:var(--amber)"><i class="ti ti-building-bank"></i></div>
-      </div>
-      <div class="kcard">
-        <div class="ktit"><i class="ti ti-alert-triangle"></i>Alertas</div>
-        <div class="kval" [class.down]="totalAlertas > 0">{{ totalAlertas }}</div>
-        <div class="ksub">requieren atencion</div>
-        <div class="kchip"><i class="ti ti-alert-triangle"></i></div>
-      </div>
-      <div class="kcard">
-        <div class="ktit"><i class="ti ti-bell"></i>Notificaciones</div>
-        <div class="kval" [class.down]="notiConteo.critica > 0">{{ notiConteo.total }}</div>
-        <div class="ksub">
-          @if (notiConteo.critica > 0) { <span style="color:var(--red)">{{ notiConteo.critica }} criticas</span> }
-          @else { sin leer }
-        </div>
-        <div class="kchip"><i class="ti ti-bell"></i></div>
       </div>
     </div>
 
@@ -147,21 +142,6 @@
           }
           <div class="kchip" style="background:var(--amber-soft);color:var(--amber)"><i class="ti ti-building-bank"></i></div>
         </div>
-        <div class="kcard">
-          <div class="ktit"><i class="ti ti-alert-triangle"></i>Alertas</div>
-          <div class="kval" [class.down]="totalAlertas > 0">{{ totalAlertas }}</div>
-          <div class="ksub">requieren atencion</div>
-          <div class="kchip"><i class="ti ti-alert-triangle"></i></div>
-        </div>
-        <div class="kcard">
-          <div class="ktit"><i class="ti ti-bell"></i>Notificaciones</div>
-          <div class="kval" [class.down]="notiConteo.critica > 0">{{ notiConteo.total }}</div>
-          <div class="ksub">
-            @if (notiConteo.critica > 0) { <span style="color:var(--red)">{{ notiConteo.critica }} criticas</span> }
-            @else { sin leer }
-          </div>
-          <div class="kchip"><i class="ti ti-bell"></i></div>
-        </div>
       </div>
 
       @if (resumen && resumen.cotizaciones.length > 0) {
@@ -213,6 +193,18 @@
     }
     @case ('notificaciones') {
       <app-notificaciones-tab [fecha]="fecha" [version]="tabVersion" [notiConteo]="notiConteo" (navigate)="onNotificacionNavigate($event)" />
+    }
+    @case ('gastos') {
+      <app-gastos-tab [fecha]="fecha" [version]="tabVersion" />
+    }
+    @case ('saldos') {
+      <app-saldos-tab [fecha]="fecha" [version]="tabVersion" />
+    }
+    @case ('saldos-agencias') {
+      <app-saldos-agencias-tab [fecha]="fecha" [version]="tabVersion" />
+    }
+    @case ('fallas') {
+      <app-fallas-tab [fecha]="fecha" [version]="tabVersion" />
     }
   }
 

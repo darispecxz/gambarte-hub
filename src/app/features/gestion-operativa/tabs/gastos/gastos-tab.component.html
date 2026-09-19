@@ -1,0 +1,423 @@
+@if (loading) {
+  <div class="loading-block"><span class="spin lg"></span>Cargando gastos operativos...</div>
+}
+
+@if (!loading && data) {
+  <!-- Sub-navigation -->
+  <div class="gst-tabs">
+    <button class="obtn" [class.primary]="subView === 'resumen'" (click)="setSubView('resumen')">
+      <i class="ti ti-chart-area-line"></i> Resumen
+    </button>
+    <button class="obtn" [class.primary]="subView === 'categorias'" (click)="setSubView('categorias')">
+      <i class="ti ti-category-2"></i> Por Categor&iacute;a
+    </button>
+    <button class="obtn" [class.primary]="subView === 'agencias'" (click)="setSubView('agencias')">
+      <i class="ti ti-building-store"></i> Por Agencia
+    </button>
+  </div>
+
+  <!-- ═══════════════════════ RESUMEN ═══════════════════════ -->
+  @if (subView === 'resumen') {
+    <!-- Statement cards row -->
+    <div class="gst-statements">
+      <!-- Gastos card (like "Current Statement") -->
+      <div class="card gst-stmt">
+        <div class="gst-stmt-head">
+          <div>
+            <div class="gst-stmt-title">Gastos del Mes</div>
+            <div class="gst-stmt-sub" [style.color]="data.balance < 0 ? 'var(--red)' : 'var(--tx3)'">
+              {{ mesLabel() }} &middot; D&iacute;a {{ data.diaActual }} de {{ data.diasMes }}
+            </div>
+          </div>
+          <div class="gst-stmt-icon" [style.background]="data.cobertura >= 100 ? 'var(--green-track)' : data.cobertura >= 70 ? 'var(--amber-soft)' : 'rgba(229,72,77,.1)'" [style.color]="data.cobertura >= 100 ? 'var(--green)' : data.cobertura >= 70 ? 'var(--amber)' : 'var(--red)'">
+            <i class="ti {{ coberturaIcon() }}" style="font-size:28px"></i>
+          </div>
+        </div>
+        <div class="gst-stmt-vals">
+          <div>
+            <div class="gst-stmt-label">Total Gastos</div>
+            <div class="gst-stmt-amount">Bs {{ fmt(data.totalGastos) }}</div>
+          </div>
+          <div>
+            <div class="gst-stmt-label">Ingresos</div>
+            <div class="gst-stmt-amount">Bs {{ fmt(data.totalIngresos) }}</div>
+          </div>
+          <div>
+            <div class="gst-stmt-label">Proyecci&oacute;n</div>
+            <div class="gst-stmt-amount">Bs {{ fmt(data.proyeccion) }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Balance card (like "Account Balance") -->
+      <div class="card gst-balance">
+        <div class="gst-balance-head">
+          <div class="gst-stmt-title">Balance Operativo</div>
+          <div class="gst-stmt-sub">Cobertura de gastos con ingresos operativos</div>
+        </div>
+        <div class="gst-balance-kpis">
+          <div>
+            <div class="gst-balance-big" [style.color]="data.cobertura >= 100 ? 'var(--green)' : data.cobertura >= 70 ? 'var(--amber)' : 'var(--red)'">{{ data.cobertura }}%</div>
+            <div class="gst-balance-label">Cobertura</div>
+          </div>
+          <div>
+            <div class="gst-balance-big" [style.color]="data.balance >= 0 ? 'var(--green)' : 'var(--red)'">Bs {{ fmtCompact(data.balance) }}</div>
+            <div class="gst-balance-label">Balance del Mes</div>
+          </div>
+        </div>
+        <!-- Mini chart -->
+        <div class="gst-mini-chart-wrap">
+          <svg class="gst-mini-chart" viewBox="0 0 100 40" preserveAspectRatio="none">
+            <polygon [attr.points]="miniAreaPoints('gastos')" fill="rgba(229,72,77,.06)" />
+            <polygon [attr.points]="miniAreaPoints('ingresos')" fill="rgba(18,161,80,.06)" />
+            <polyline [attr.points]="miniLinePoints('gastos')" fill="none" stroke="var(--red)" stroke-width="0.5" />
+            <polyline [attr.points]="miniLinePoints('ingresos')" fill="none" stroke="var(--green)" stroke-width="0.5" />
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Budget / Top gastos (like Fuse "Budget" card) -->
+    <div class="card gst-budget">
+      <div class="gst-budget-head">
+        <div>
+          <div style="font-size:15px;font-weight:700">Gastos por Categor&iacute;a</div>
+          <div class="muted">{{ activeCats.length }} categor&iacute;as con movimientos</div>
+        </div>
+      </div>
+      <div class="gst-budget-list">
+        @for (cat of activeCats.slice(0, 8); track cat.key) {
+          <div class="gst-budget-row">
+            <div class="fw-ic" [style.background]="cat.key === 'alquileres' ? 'rgba(229,72,77,.08)' : cat.key === 'sueldos' ? 'rgba(31,95,166,.08)' : 'var(--sub)'" [style.color]="cat.key === 'alquileres' ? 'var(--red)' : cat.key === 'sueldos' ? 'var(--blue)' : 'var(--orange-deep)'">
+              <i class="ti {{ cat.icon }}"></i>
+            </div>
+            <div class="gst-budget-info">
+              <div class="gst-budget-cat-name">{{ cat.label }}</div>
+              <div class="gst-budget-cat-amount">Bs {{ fmt(cat.total) }}</div>
+              <div class="gst-budget-bar">
+                <div class="gst-budget-bar-fill" [style.width.%]="pct(cat.total, data.totalGastos)" [style.background]="cat.key === 'alquileres' ? 'var(--red)' : cat.key === 'sueldos' ? 'var(--blue)' : 'var(--orange)'"></div>
+                <div class="gst-budget-bar-bg"></div>
+              </div>
+            </div>
+            <div class="gst-budget-pct">
+              <span>{{ pctDec(cat.total, data.totalGastos) }}%</span>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Acumulado chart full -->
+    <div class="card" style="margin-top:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:15px;font-weight:700">Acumulado Diario</div>
+          <div class="muted">Gastos vs ingresos acumulados en el mes (Bs)</div>
+        </div>
+        <div class="gst-legend">
+          <span class="gst-legend-item"><span class="gst-dot" style="background:var(--red)"></span> Gastos</span>
+          <span class="gst-legend-item"><span class="gst-dot" style="background:var(--green)"></span> Ingresos</span>
+          <span class="gst-legend-item"><span class="gst-dot gst-dot-dash" style="border-color:var(--amber)"></span> Proyecci&oacute;n</span>
+        </div>
+      </div>
+      <div class="gst-chart-wrap">
+        <div class="gst-y-axis">
+          @for (yl of yLabels(); track yl.label) {
+            <span class="gst-y-label" [style.bottom.%]="100 - yl.y">{{ yl.label }}</span>
+          }
+        </div>
+        <svg class="gst-chart" viewBox="0 0 100 100" preserveAspectRatio="none">
+          @for (yl of yLabels(); track yl.label) {
+            <line [attr.x1]="0" [attr.y1]="yl.y" [attr.x2]="100" [attr.y2]="yl.y" stroke="var(--line-2)" stroke-width="0.3" />
+          }
+          <line x1="0" [attr.y1]="proyeccionY()" x2="100" [attr.y2]="proyeccionY()" stroke="var(--amber)" stroke-width="0.4" stroke-dasharray="2 1.5" />
+          <polygon [attr.points]="chartAreaPoints('gastos')" fill="rgba(229,72,77,.08)" />
+          <polygon [attr.points]="chartAreaPoints('ingresos')" fill="rgba(18,161,80,.08)" />
+          <polyline [attr.points]="chartPoints('gastos')" fill="none" stroke="var(--red)" stroke-width="0.6" />
+          <polyline [attr.points]="chartPoints('ingresos')" fill="none" stroke="var(--green)" stroke-width="0.6" />
+          <line [attr.x1]="currentDayX()" y1="0" [attr.x2]="currentDayX()" y2="100" stroke="var(--ink)" stroke-width="0.3" stroke-dasharray="1 1" opacity=".4" />
+        </svg>
+      </div>
+      <div class="gst-x-axis">
+        <span>1</span>
+        <span>{{ Math.ceil(data.diasMes / 4) }}</span>
+        <span>{{ Math.ceil(data.diasMes / 2) }}</span>
+        <span>{{ Math.ceil(data.diasMes * 3 / 4) }}</span>
+        <span>{{ data.diasMes }}</span>
+      </div>
+    </div>
+  }
+
+  <!-- ═══════════════════════ POR CATEGORIA ═══════════════════════ -->
+  @if (subView === 'categorias') {
+    <div class="sec-t"><i class="ti ti-category-2"></i>Gastos por categor&iacute;a<span class="hint">Click en subcuenta para ver asientos</span></div>
+    @for (cat of data.categorias; track cat.key) {
+      @if (cat.total > 0) {
+        <div class="card" style="padding:0;overflow:hidden;margin-bottom:8px" [style.borderLeftColor]="expandedCat.has(cat.key) ? 'var(--orange)' : ''" [style.borderLeftWidth]="expandedCat.has(cat.key) ? '3px' : ''">
+          <div class="gst-cat-head" (click)="toggleCat(cat.key)">
+            <div class="fw" style="flex:1">
+              <div class="fw-ic"><i class="ti {{ cat.icon }}"></i></div>
+              <div>
+                <div class="fn">{{ cat.label }}</div>
+                <div class="fv">{{ cat.subcuentas.length }} subcuenta{{ cat.subcuentas.length !== 1 ? 's' : '' }} &middot; {{ pctDec(cat.total, data.totalGastos) }}% del total</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="score" style="font-size:15px">Bs {{ fmt(cat.total) }}</span>
+              <i class="ti ti-chevron-down" style="font-size:16px;color:var(--tx3);transition:transform .2s" [style.transform]="expandedCat.has(cat.key) ? 'rotate(180deg)' : ''"></i>
+            </div>
+          </div>
+          @if (expandedCat.has(cat.key)) {
+            <div class="tbl" style="border:0;border-radius:0;border-top:1px solid var(--line-2)">
+              <table class="g">
+                <thead>
+                  <tr><th>Cuenta</th><th>Descripci&oacute;n</th><th class="r">Monto (Bs)</th><th class="r" style="width:40px"></th></tr>
+                </thead>
+                <tbody>
+                  @for (sub of cat.subcuentas; track sub.codsubcuenta) {
+                    <tr class="gst-sub-row" (click)="openSubcuentaDetail(sub)">
+                      <td><span class="tag">{{ sub.codsubcuenta }}</span></td>
+                      <td>{{ sub.descripcion }}</td>
+                      <td class="r"><strong>{{ fmtDec(sub.total) }}</strong></td>
+                      <td class="r"><i class="ti ti-external-link" style="font-size:14px;color:var(--tx3)"></i></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      }
+    }
+  }
+
+  <!-- ═══════════════════════ POR AGENCIA ═══════════════════════ -->
+  @if (subView === 'agencias') {
+    <div class="sec-t"><i class="ti ti-building-store"></i>Distribuci&oacute;n por agencia<span class="hint">Click en agencia para ver detalle</span></div>
+    <div class="gst-ag-grid">
+      @for (ag of data.agencias; track ag.agenciaId) {
+        <div class="card gst-ag-card gst-ag-clickable" (click)="openAgenciaDetail(ag)">
+          <div class="gst-ag-card-head">
+            <div class="fw">
+              <div class="fw-ic" [style.background]="ag.esAdministrativa ? 'rgba(31,95,166,.08)' : coberturaBg(ag.cobertura)" [style.color]="ag.esAdministrativa ? 'var(--blue)' : coberturaColor(ag.cobertura)">
+                <i class="ti" [class]="ag.esAdministrativa ? 'ti-building' : 'ti-building-store'"></i>
+              </div>
+              <div>
+                <div class="fn">{{ ag.nombre }}</div>
+                <div class="fv">
+                  @if (ag.esAdministrativa) {
+                    <span class="pill" style="background:rgba(31,95,166,.08);color:var(--blue)">Administrativa</span>
+                  } @else {
+                    {{ pctDec(ag.total, data.totalGastos) }}% del gasto total
+                  }
+                </div>
+              </div>
+            </div>
+            <i class="ti ti-chevron-right" style="font-size:16px;color:var(--tx3)"></i>
+          </div>
+          <!-- KPI row -->
+          <div class="gst-ag-kpis">
+            <div class="gst-ag-kpi">
+              <div class="gst-ag-kpi-label">Gastos</div>
+              <div class="gst-ag-kpi-val" style="color:var(--red)">Bs {{ fmtCompact(ag.total) }}</div>
+            </div>
+            @if (!ag.esAdministrativa) {
+              <div class="gst-ag-kpi">
+                <div class="gst-ag-kpi-label">Ingresos</div>
+                <div class="gst-ag-kpi-val" style="color:var(--green)">Bs {{ fmtCompact(ag.ingresos) }}</div>
+              </div>
+              <div class="gst-ag-kpi">
+                <div class="gst-ag-kpi-label">Balance</div>
+                <div class="gst-ag-kpi-val" [style.color]="ag.balance >= 0 ? 'var(--green)' : 'var(--red)'">Bs {{ fmtCompact(ag.balance) }}</div>
+              </div>
+            }
+          </div>
+          <!-- Coverage bar -->
+          @if (!ag.esAdministrativa) {
+            <div class="gst-ag-coverage">
+              <div class="gst-ag-cov-header">
+                <span class="gst-ag-cov-label">Cobertura</span>
+                <span class="gst-ag-cov-pct" [style.color]="coberturaColor(ag.cobertura)">{{ ag.cobertura }}%</span>
+              </div>
+              <div class="gst-budget-bar">
+                <div class="gst-budget-bar-fill" [style.width.%]="Math.min(ag.cobertura, 100)" [style.background]="coberturaColor(ag.cobertura)"></div>
+                <div class="gst-budget-bar-bg"></div>
+              </div>
+            </div>
+          } @else {
+            <div class="gst-ag-admin-note">
+              <i class="ti ti-info-circle" style="font-size:14px"></i>
+              Solo gastos administrativos &mdash; cubiertos por las agencias operativas
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+}
+
+@if (!loading && !data) {
+  <div class="empty">
+    <i class="ti ti-receipt-off" style="font-size:32px;display:block;margin-bottom:8px;color:var(--tx3)"></i>
+    No se pudieron cargar los datos de gastos.
+  </div>
+}
+
+<!-- ═══ Modal: Detalle agencia ═══ -->
+@if (agModalOpen) {
+  <div class="gst-modal-backdrop" (click)="closeAgModal()">
+    <div class="gst-modal gst-modal-lg" (click)="$event.stopPropagation()">
+      <div class="gst-modal-head">
+        <div>
+          <div style="font-size:15px;font-weight:700">{{ agModalAgencia?.nombre }}</div>
+          <div class="muted">
+            @if (agModalAgencia?.esAdministrativa) {
+              Agencia administrativa &middot; {{ mesLabel() }}
+            } @else {
+              Detalle de gastos e ingresos &middot; {{ mesLabel() }}
+            }
+          </div>
+        </div>
+        <button class="obtn" (click)="closeAgModal()"><i class="ti ti-x"></i></button>
+      </div>
+
+      @if (agModalLoading) {
+        <div class="loading-block" style="padding:32px"><span class="spin"></span>Cargando detalle...</div>
+      }
+
+      @if (!agModalLoading && agModalDetalle) {
+        <!-- Summary KPIs -->
+        <div class="gst-ag-modal-summary">
+          <div class="gst-ag-modal-kpi">
+            <div class="gst-ag-modal-kpi-val" style="color:var(--red)">Bs {{ fmt(agModalDetalle.totalGastos) }}</div>
+            <div class="gst-ag-modal-kpi-label">Total Gastos</div>
+          </div>
+          @if (!agModalDetalle.esAdministrativa) {
+            <div class="gst-ag-modal-kpi">
+              <div class="gst-ag-modal-kpi-val" style="color:var(--green)">Bs {{ fmt(agModalDetalle.totalIngresos) }}</div>
+              <div class="gst-ag-modal-kpi-label">Total Ingresos</div>
+            </div>
+            <div class="gst-ag-modal-kpi">
+              <div class="gst-ag-modal-kpi-val" [style.color]="agModalDetalle.balance >= 0 ? 'var(--green)' : 'var(--red)'">Bs {{ fmt(agModalDetalle.balance) }}</div>
+              <div class="gst-ag-modal-kpi-label">Balance</div>
+            </div>
+            <div class="gst-ag-modal-kpi">
+              <div class="gst-ag-modal-cov" [style.background]="coberturaBg(agModalDetalle.cobertura)" [style.color]="coberturaColor(agModalDetalle.cobertura)">
+                {{ agModalDetalle.cobertura }}%
+              </div>
+              <div class="gst-ag-modal-kpi-label">Cobertura</div>
+            </div>
+          }
+        </div>
+
+        <!-- Status banner -->
+        @if (!agModalDetalle.esAdministrativa) {
+          <div class="gst-ag-status" [style.background]="agModalDetalle.balance >= 0 ? 'var(--green-track)' : 'rgba(229,72,77,.06)'" [style.color]="agModalDetalle.balance >= 0 ? 'var(--green)' : 'var(--red)'" [style.borderColor]="agModalDetalle.balance >= 0 ? 'var(--green)' : 'var(--red)'">
+            <i class="ti" [class]="agModalDetalle.balance >= 0 ? 'ti-circle-check' : 'ti-alert-triangle'" style="font-size:16px"></i>
+            @if (agModalDetalle.balance >= 0) {
+              Esta agencia cubre sus gastos operativos con sus ingresos
+            } @else {
+              Esta agencia no logra cubrir sus gastos &mdash; d&eacute;ficit de Bs {{ fmt(Math.abs(agModalDetalle.balance)) }}
+            }
+          </div>
+        } @else {
+          <div class="gst-ag-status" style="background:rgba(31,95,166,.04);color:var(--blue);border-color:var(--blue)">
+            <i class="ti ti-info-circle" style="font-size:16px"></i>
+            Of. Central no genera ingresos operativos. Sus gastos son cubiertos proporcionalmente por las agencias seg&uacute;n sus ingresos.
+          </div>
+        }
+
+        <!-- Categories breakdown -->
+        @if (agModalDetalle.categorias.length > 0) {
+          <div style="padding:12px 20px 4px">
+            <div style="font-size:13px;font-weight:700">Gastos por Categor&iacute;a</div>
+          </div>
+          <div class="gst-ag-modal-cats">
+            @for (cat of agModalDetalle.categorias; track cat.key) {
+              <div class="gst-ag-modal-cat-row">
+                <div class="fw-ic" style="width:28px;height:28px;flex:0 0 28px;font-size:14px;border-radius:8px">
+                  <i class="ti {{ cat.icon }}"></i>
+                </div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:12.5px;font-weight:600">{{ cat.label }}</div>
+                </div>
+                <div style="text-align:right">
+                  <span class="score" style="font-size:13px">Bs {{ fmt(cat.total) }}</span>
+                  <div style="font-size:11px;color:var(--tx3)">{{ pctDec(cat.total, agModalDetalle.totalGastos) }}%</div>
+                </div>
+              </div>
+            }
+          </div>
+        }
+
+        <!-- Top asientos -->
+        @if (agModalDetalle.asientos.length > 0) {
+          <div style="padding:12px 20px 4px">
+            <div style="font-size:13px;font-weight:700">Mayores Gastos</div>
+            <div class="muted">Top {{ agModalDetalle.asientos.length }} asientos por monto</div>
+          </div>
+          <div class="tbl" style="border-radius:0;border-left:0;border-right:0">
+            <table class="g">
+              <thead>
+                <tr><th>Fecha</th><th>Concepto</th><th>Cuenta</th><th class="r">Debe (Bs)</th></tr>
+              </thead>
+              <tbody>
+                @for (a of agModalDetalle.asientos; track a.idasiento) {
+                  <tr>
+                    <td style="white-space:nowrap">{{ a.fecha }}</td>
+                    <td style="max-width:280px">{{ a.concepto }}</td>
+                    <td><span class="tag">{{ a.codsubcuenta }}</span></td>
+                    <td class="r"><strong>{{ fmtDec(a.debe) }}</strong></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      }
+    </div>
+  </div>
+}
+
+<!-- ═══ Modal: Detalle asientos de subcuenta ═══ -->
+@if (modalOpen) {
+  <div class="gst-modal-backdrop" (click)="closeModal()">
+    <div class="gst-modal" (click)="$event.stopPropagation()">
+      <div class="gst-modal-head">
+        <div>
+          <div style="font-size:15px;font-weight:700">Detalle de Asientos</div>
+          @if (modalSubcuenta) {
+            <div class="muted"><span class="tag">{{ modalSubcuenta.codsubcuenta }}</span> {{ modalSubcuenta.descripcion }}</div>
+          }
+        </div>
+        <button class="obtn" (click)="closeModal()"><i class="ti ti-x"></i></button>
+      </div>
+      @if (modalLoading) {
+        <div class="loading-block" style="padding:32px"><span class="spin"></span>Cargando asientos...</div>
+      }
+      @if (!modalLoading && modalDetalle) {
+        <div class="gst-modal-summary">
+          <span>{{ modalDetalle.asientos.length }} asiento{{ modalDetalle.asientos.length !== 1 ? 's' : '' }}</span>
+          <strong>Total: Bs {{ fmtDec(modalDetalle.total) }}</strong>
+        </div>
+        <div class="tbl" style="border-radius:0;border-left:0;border-right:0">
+          <table class="g">
+            <thead>
+              <tr><th>#</th><th>Fecha</th><th>Concepto</th><th class="r">Debe (Bs)</th></tr>
+            </thead>
+            <tbody>
+              @for (a of modalDetalle.asientos; track a.idasiento; let i = $index) {
+                <tr>
+                  <td class="muted">{{ a.idasiento }}</td>
+                  <td>{{ a.fecha }}</td>
+                  <td style="max-width:320px">{{ a.concepto }}</td>
+                  <td class="r"><strong>{{ fmtDec(a.debe) }}</strong></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  </div>
+}

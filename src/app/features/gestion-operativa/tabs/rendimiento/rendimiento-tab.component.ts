@@ -2,6 +2,7 @@ import { Component, Input, OnInit, OnChanges, SimpleChanges, inject } from '@ang
 import { CommonModule } from '@angular/common';
 import { GestionOperativaService } from '../../gestion-operativa.service';
 import { ResumenEjecutivo, RendimientoCajero } from '../../gestion-operativa.models';
+import { ApiService } from '../../../../core/api.service';
 
 @Component({
   selector: 'app-rendimiento-tab',
@@ -15,8 +16,11 @@ export class RendimientoTabComponent implements OnInit, OnChanges {
   @Input() version = 0;
 
   private svc = inject(GestionOperativaService);
+  private api = inject(ApiService);
 
   resumen: ResumenEjecutivo | null = null;
+  topCajeros: { agencia: string; login: string; nombre: string; cambio: number; giro: number; remesa: number; total: number }[] = [];
+  loadingTopCajeros = true;
   loading = true;
   expandedAgencies = new Set<number>();
 
@@ -32,10 +36,19 @@ export class RendimientoTabComponent implements OnInit, OnChanges {
 
   private loadData(): void {
     this.loading = true;
+    this.loadingTopCajeros = true;
     this.svc.getResumenEjecutivo(this.fecha).subscribe({
       next: (d) => { this.resumen = d; this.loading = false; },
       error: () => { this.loading = false; },
     });
+    this.api.getOperation('cajeros', this.fecha, this.fecha).subscribe({
+      next: (d) => { this.topCajeros = d || []; this.loadingTopCajeros = false; },
+      error: () => { this.loadingTopCajeros = false; },
+    });
+  }
+
+  get maxTopCajeroOps(): number {
+    return this.topCajeros.length ? Math.max(...this.topCajeros.map(c => c.total), 1) : 1;
   }
 
   toggleAgency(id: number): void {

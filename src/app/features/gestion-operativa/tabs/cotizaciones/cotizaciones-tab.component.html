@@ -3,92 +3,221 @@
 }
 
 @if (!loading && cotizacionesAgencia.length > 0) {
-  <div class="cotiz-filter">
-    <button class="obtn sm" [class.primary]="selectedMoneda === ''" (click)="selectedMoneda = ''">Todas</button>
-    @for (m of monedas; track m) {
-      <button class="obtn sm" [class.primary]="selectedMoneda === m" (click)="selectedMoneda = m">{{ m }}</button>
-    }
+  <!-- Toolbar: currency select + view toggle -->
+  <div class="cotiz-toolbar">
+    <div class="cotiz-filter">
+      <div class="cotiz-select-wrap">
+        <i class="ti ti-currency-dollar cotiz-select-icon"></i>
+        <select class="cotiz-select" [ngModel]="selectedMoneda" (ngModelChange)="selectedMoneda = $event">
+          <option value="">Todas las monedas</option>
+          @for (m of monedas; track m) {
+            <option [value]="m">{{ m }} — {{ cname(m) }}</option>
+          }
+        </select>
+        <i class="ti ti-chevron-down cotiz-select-arrow"></i>
+      </div>
+      <div class="cotiz-select-wrap">
+        <i class="ti ti-building-store cotiz-select-icon"></i>
+        <select class="cotiz-select" [ngModel]="selectedAgencia" (ngModelChange)="selectedAgencia = $event">
+          <option value="">Todas las agencias</option>
+          @for (ag of agencias; track ag.id) {
+            <option [value]="ag.id">{{ ag.nombre }}</option>
+          }
+        </select>
+        <i class="ti ti-chevron-down cotiz-select-arrow"></i>
+      </div>
+    </div>
+    <div class="cotiz-view-toggle">
+      <button class="obtn sm icon-only" [class.active]="viewMode === 'table'" (click)="viewMode = 'table'" title="Vista tabla">
+        <i class="ti ti-table"></i>
+      </button>
+      <button class="obtn sm icon-only" [class.active]="viewMode === 'cards'" (click)="viewMode = 'cards'" title="Vista tarjetas">
+        <i class="ti ti-layout-grid"></i>
+      </button>
+    </div>
   </div>
 
-  <div class="kgrid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-bottom:16px">
-    <div class="kcard">
-      <div class="ktit"><i class="ti ti-arrow-down-left"></i>Prom. compra</div>
-      <div class="kval" style="font-size:22px">{{ fmt(promedioCompra, 4) }}</div>
-      <div class="ksub">{{ selectedMoneda || 'todas' }}</div>
-      <div class="kchip" style="background:var(--green-track);color:var(--green)"><i class="ti ti-arrow-down-left"></i></div>
+  <!-- Summary strip -->
+  <div class="cotiz-summary">
+    <div class="cotiz-stat">
+      <span class="cotiz-stat-label">Prom. Compra</span>
+      <span class="cotiz-stat-val up">{{ fmt(promedioCompra, 4) }}</span>
     </div>
-    <div class="kcard">
-      <div class="ktit"><i class="ti ti-arrow-up-right"></i>Prom. venta</div>
-      <div class="kval" style="font-size:22px">{{ fmt(promedioVenta, 4) }}</div>
-      <div class="ksub">{{ selectedMoneda || 'todas' }}</div>
-      <div class="kchip" style="background:var(--blue-soft);color:var(--blue)"><i class="ti ti-arrow-up-right"></i></div>
+    <div class="cotiz-stat-sep"></div>
+    <div class="cotiz-stat">
+      <span class="cotiz-stat-label">Prom. Venta</span>
+      <span class="cotiz-stat-val down">{{ fmt(promedioVenta, 4) }}</span>
     </div>
-    <div class="kcard">
-      <div class="ktit"><i class="ti ti-arrows-diff"></i>Spread prom.</div>
-      <div class="kval" style="font-size:22px">{{ fmt(promedioSpread, 4) }}</div>
-      <div class="ksub">margen</div>
-      <div class="kchip" style="background:var(--amber-soft);color:var(--amber)"><i class="ti ti-arrows-diff"></i></div>
+    <div class="cotiz-stat-sep"></div>
+    <div class="cotiz-stat">
+      <span class="cotiz-stat-label">Spread Prom.</span>
+      <span class="cotiz-stat-val">{{ fmt(promedioSpread, 4) }}</span>
     </div>
     @if (oficial.compra != null) {
-      <div class="kcard">
-        <div class="ktit"><i class="ti ti-building-bank"></i>Oficial BCB</div>
-        <div class="kval" style="font-size:22px">{{ fmt(oficial.compra, 4) }}</div>
-        <div class="ksub">tasa referencia</div>
-        <div class="kchip"><i class="ti ti-building-bank"></i></div>
+      <div class="cotiz-stat-sep"></div>
+      <div class="cotiz-stat">
+        <span class="cotiz-stat-label">Oficial BCB</span>
+        <span class="cotiz-stat-val">{{ fmt(oficial.compra, 4) }} / {{ fmt(oficial.venta, 4) }}</span>
+      </div>
+    }
+    @if (minSpreadAgencia && maxSpreadAgencia && filtered.length > 1) {
+      <div class="cotiz-stat-sep hide-mobile"></div>
+      <div class="cotiz-stat hide-mobile">
+        <span class="cotiz-stat-label">Menor Spread</span>
+        <span class="cotiz-stat-val" style="color:var(--green)">{{ fmt(minSpreadAgencia.spread, 4) }}</span>
+        <span class="cotiz-stat-sub">{{ minSpreadAgencia.agencia | slice:0:20 }}</span>
+      </div>
+      <div class="cotiz-stat-sep hide-mobile"></div>
+      <div class="cotiz-stat hide-mobile">
+        <span class="cotiz-stat-label">Mayor Spread</span>
+        <span class="cotiz-stat-val" style="color:var(--red)">{{ fmt(maxSpreadAgencia.spread, 4) }}</span>
+        <span class="cotiz-stat-sub">{{ maxSpreadAgencia.agencia | slice:0:20 }}</span>
       </div>
     }
   </div>
 
-  <div class="cotiz-grid">
-    @for (c of filtered; track c.idAgencia + c.moneda) {
-      <div class="card cotiz-card">
-        <div class="cotiz-card-head">
-          <div class="fw">
-            <div class="fw-ic"><i class="ti ti-building-store"></i></div>
-            <div>
-              <div class="fn">{{ c.agencia }}</div>
-              <div class="fv"><span class="tag">{{ c.moneda }}</span></div>
+  <!-- TABLE VIEW -->
+  @if (viewMode === 'table') {
+    <div class="tbl scroll">
+      <table class="g">
+        <thead>
+          <tr>
+            <th class="sortable" (click)="toggleSort('agencia')">
+              Agencia <i class="ti {{ sortIcon('agencia') }}"></i>
+            </th>
+            @if (!selectedMoneda) {
+              <th class="c">Moneda</th>
+            }
+            <th class="r sortable" (click)="toggleSort('compra')">
+              Compra <i class="ti {{ sortIcon('compra') }}"></i>
+            </th>
+            <th class="r sortable" (click)="toggleSort('venta')">
+              Venta <i class="ti {{ sortIcon('venta') }}"></i>
+            </th>
+            <th class="r sortable" (click)="toggleSort('spread')">
+              Spread <i class="ti {{ sortIcon('spread') }}"></i>
+            </th>
+            <th class="c" style="min-width:100px">Spread</th>
+            @if (oficial.compra != null) {
+              <th class="r sortable" (click)="toggleSort('diff')">
+                vs Oficial <i class="ti {{ sortIcon('diff') }}"></i>
+              </th>
+            }
+            <th class="r">Última Modif.</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (c of sorted; track c.idAgencia + c.moneda) {
+            <tr>
+              <td>
+                <div class="cotiz-ag-name">
+                  <i class="ti ti-building-store" style="color:var(--tx3)"></i>
+                  {{ c.agencia }}
+                </div>
+              </td>
+              @if (!selectedMoneda) {
+                <td class="c">
+                  <div class="cotiz-moneda-cell">
+                    @if (flag(c.moneda)) {
+                      <span class="{{ flag(c.moneda) }} ficon"></span>
+                    }
+                    <span class="tag">{{ c.moneda }}</span>
+                  </div>
+                </td>
+              }
+              <td class="r">
+                <span class="cotiz-num up">{{ fmt(c.compra, 4) }}</span>
+              </td>
+              <td class="r">
+                <span class="cotiz-num down">{{ fmt(c.venta, 4) }}</span>
+              </td>
+              <td class="r">
+                <span class="cotiz-num fw700">{{ fmt(c.spread, 4) }}</span>
+              </td>
+              <td>
+                <div class="cotiz-spread-bar">
+                  <div class="cotiz-spread-fill" [style.width.%]="spreadPct(c.spread)" [style.background]="spreadColor(c)"></div>
+                </div>
+              </td>
+              @if (oficial.compra != null) {
+                <td class="r">
+                  @if (c.diffCompra != null && c.diffCompra !== 0) {
+                    <span class="pill {{ diffClass(c) }}">
+                      {{ c.diffCompra > 0 ? '+' : '' }}{{ fmt(c.diffCompra, 4) }}
+                    </span>
+                  } @else {
+                    <span class="muted">—</span>
+                  }
+                </td>
+              }
+              <td class="r">
+                <span class="muted" style="font-size:12px">{{ c.ultimaModif }}</span>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  <!-- CARDS VIEW -->
+  @if (viewMode === 'cards') {
+    <div class="cotiz-grid">
+      @for (c of sorted; track c.idAgencia + c.moneda) {
+        <div class="card cotiz-card">
+          <div class="cotiz-card-head">
+            <div class="fw">
+              <div class="fw-ic"><i class="ti ti-building-store"></i></div>
+              <div>
+                <div class="fn">{{ c.agencia }}</div>
+                <div class="fv">
+                  @if (flag(c.moneda)) {
+                    <span class="{{ flag(c.moneda) }} ficon" style="margin-right:4px"></span>
+                  }
+                  <span class="tag">{{ c.moneda }}</span>
+                </div>
+              </div>
+            </div>
+            @if (c.diffCompra != null && c.diffCompra !== 0) {
+              <span class="pill {{ diffClass(c) }}">
+                {{ c.diffCompra > 0 ? '+' : '' }}{{ fmt(c.diffCompra, 4) }} vs oficial
+              </span>
+            }
+          </div>
+
+          <div class="cotiz-rates-row">
+            <div class="cotiz-rate">
+              <span class="cotiz-rate-label">Compra</span>
+              <span class="cotiz-rate-val up">{{ fmt(c.compra, 4) }}</span>
+            </div>
+            <div class="cotiz-rate">
+              <span class="cotiz-rate-label">Venta</span>
+              <span class="cotiz-rate-val down">{{ fmt(c.venta, 4) }}</span>
+            </div>
+            <div class="cotiz-rate">
+              <span class="cotiz-rate-label">Spread</span>
+              <span class="cotiz-rate-val">{{ fmt(c.spread, 4) }}</span>
             </div>
           </div>
-          @if (c.diffCompra != null && c.diffCompra !== 0) {
-            <span class="pill" [class.p-bad]="c.diffCompra < -0.2" [class.p-warn]="c.diffCompra >= -0.2 && c.diffCompra < 0" [class.p-ok]="c.diffCompra >= 0">
-              {{ c.diffCompra > 0 ? '+' : '' }}{{ fmt(c.diffCompra, 4) }} vs oficial
-            </span>
-          }
-        </div>
 
-        <div class="cotiz-rates-row">
-          <div class="cotiz-rate">
-            <span class="cotiz-rate-label">Compra</span>
-            <span class="cotiz-rate-val up">{{ fmt(c.compra, 4) }}</span>
+          <div class="cotiz-spread-bar">
+            <div class="cotiz-spread-fill" [style.width.%]="spreadPct(c.spread)" [style.background]="spreadColor(c)"></div>
           </div>
-          <div class="cotiz-rate">
-            <span class="cotiz-rate-label">Venta</span>
-            <span class="cotiz-rate-val down">{{ fmt(c.venta, 4) }}</span>
-          </div>
-          <div class="cotiz-rate">
-            <span class="cotiz-rate-label">Spread</span>
-            <span class="cotiz-rate-val">{{ fmt(c.spread, 4) }}</span>
-          </div>
-        </div>
 
-        <div class="cotiz-spread-bar">
-          <div class="cotiz-spread-fill" [style.width.%]="spreadPct(c.spread)" [style.background]="spreadColor(c)"></div>
-        </div>
-
-        <div class="cotiz-card-foot">
-          <span class="muted" style="font-size:11px">
-            <i class="ti ti-clock" style="font-size:13px"></i> {{ c.ultimaModif }}
-          </span>
-          @if (c.oficialCompra != null) {
+          <div class="cotiz-card-foot">
             <span class="muted" style="font-size:11px">
-              Oficial: {{ fmt(c.oficialCompra, 4) }} / {{ fmt(c.oficialVenta, 4) }}
+              <i class="ti ti-clock" style="font-size:13px"></i> {{ c.ultimaModif }}
             </span>
-          }
+            @if (c.oficialCompra != null) {
+              <span class="muted" style="font-size:11px">
+                Oficial: {{ fmt(c.oficialCompra, 4) }} / {{ fmt(c.oficialVenta, 4) }}
+              </span>
+            }
+          </div>
         </div>
-      </div>
-    }
-  </div>
+      }
+    </div>
+  }
 }
 
 @if (!loading && cotizacionesAgencia.length === 0) {

@@ -7,6 +7,7 @@ import {
   TransferenciaBoveda, SolicitudCajero, DetalleAgencia,
   ResumenEjecutivo, RecomendacionesResponse,
   ConciliacionRemesas, MovimientoAgencia, CotizacionAgencia,
+  GastosOperativoResumen, GastosDetalleSubcuenta, GastosAgenciaDetalle,
 } from './gestion-operativa.models';
 
 interface Envelope<T> { success: boolean; data: T; message: string; }
@@ -83,6 +84,26 @@ export class GestionOperativaService {
   getCotizacionesAgencia(): Observable<CotizacionAgencia[]> {
     return this.unwrap(this.http.get<Envelope<CotizacionAgencia[]>>(
       `${this.base}/cotizaciones-agencia`
+    ));
+  }
+
+  getGastosOperativo(mes: string): Observable<GastosOperativoResumen> {
+    return this.unwrap(this.http.get<Envelope<GastosOperativoResumen>>(
+      `${this.base}/gastos-operativo`, { params: new HttpParams().set('mes', mes) }
+    ));
+  }
+
+  getGastosDetalleAgencia(mes: string, agenciaId: number): Observable<GastosAgenciaDetalle> {
+    const params = new HttpParams().set('mes', mes).set('agencia', agenciaId.toString());
+    return this.unwrap(this.http.get<Envelope<GastosAgenciaDetalle>>(
+      `${this.base}/gastos-detalle-agencia`, { params }
+    ));
+  }
+
+  getGastosDetalleSubcuenta(mes: string, codsubcuenta: string): Observable<GastosDetalleSubcuenta> {
+    const params = new HttpParams().set('mes', mes).set('codsubcuenta', codsubcuenta);
+    return this.unwrap(this.http.get<Envelope<GastosDetalleSubcuenta>>(
+      `${this.base}/gastos-detalle-subcuenta`, { params }
     ));
   }
 }

@@ -297,3 +297,93 @@ export interface CotizacionAgencia {
   diffVenta: number | null;
   ultimaModif: string;
 }
+
+// ── Gastos operativo ──
+
+export interface GastosAcumuladoDia {
+  dia: number;
+  gastoDelDia: number;
+  ingresoDelDia: number;
+  gastoAcumulado: number;
+  ingresoAcumulado: number;
+}
+
+export interface GastosSubcuenta {
+  codsubcuenta: string;
+  descripcion: string;
+  total: number;
+}
+
+export interface GastosCategoria {
+  key: string;
+  label: string;
+  icon: string;
+  total: number;
+  subcuentas: GastosSubcuenta[];
+}
+
+export interface GastosAgencia {
+  agenciaId: number;
+  nombre: string;
+  total: number;
+  ingresos: number;
+  balance: number;
+  cobertura: number;
+  esAdministrativa: boolean;
+  cuotaCentral: number;
+  balanceNeto: number;
+}
+
+export interface GastosCategoriaMeta {
+  key: string;
+  label: string;
+  icon: string;
+}
+
+export interface GastosAsiento {
+  idasiento: number;
+  fecha: string;
+  concepto: string;
+  debe: number;
+}
+
+export interface GastosDetalleSubcuenta {
+  codsubcuenta: string;
+  total: number;
+  asientos: GastosAsiento[];
+}
+
+export interface GastosAgenciaAsiento {
+  idasiento: number;
+  fecha: string;
+  concepto: string;
+  codsubcuenta: string;
+  debe: number;
+}
+
+export interface GastosAgenciaDetalle {
+  agenciaId: number;
+  nombre: string;
+  esAdministrativa: boolean;
+  totalGastos: number;
+  totalIngresos: number;
+  balance: number;
+  cobertura: number;
+  categorias: GastosCategoria[];
+  asientos: GastosAgenciaAsiento[];
+}
+
+export interface GastosOperativoResumen {
+  mes: string;
+  diasMes: number;
+  diaActual: number;
+  totalGastos: number;
+  totalIngresos: number;
+  balance: number;
+  cobertura: number;
+  proyeccion: number;
+  acumulado: GastosAcumuladoDia[];
+  categorias: GastosCategoria[];
+  agencias: GastosAgencia[];
+  categoriaMeta: GastosCategoriaMeta[];
+}

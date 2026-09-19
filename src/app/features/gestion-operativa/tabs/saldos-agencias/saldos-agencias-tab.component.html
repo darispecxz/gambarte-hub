@@ -1,0 +1,156 @@
+@if (loading) {
+  <div class="loading-block"><span class="spin lg"></span>Cargando saldos de agencias...</div>
+}
+
+@if (error) {
+  <div class="msg-err"><i class="ti ti-alert-triangle"></i>{{ error }}</div>
+}
+
+@if (!loading && !error && rows.length) {
+  <div class="mov-toolbar" style="margin-bottom:14px">
+    <div class="moneda-filter">
+      <label style="font-size:12px;font-weight:600;color:var(--tx2);margin-right:6px">Moneda</label>
+      <button class="moneda-toggle" (click)="monedaDropOpen = !monedaDropOpen">
+        {{ monedaLabel }} <i class="ti ti-chevron-down" [class.open]="monedaDropOpen"></i>
+      </button>
+      @if (monedaDropOpen) {
+        <div class="moneda-drop">
+          @for (m of allMonedas; track m) {
+            <label class="moneda-opt" (click)="$event.stopPropagation()">
+              <input type="checkbox" [checked]="monedas.has(m)" (change)="toggleMoneda(m)">
+              <span>{{ m }}</span>
+            </label>
+          }
+        </div>
+      }
+    </div>
+    <span class="hint" style="margin-left:8px">{{ fecha }} &middot; {{ filteredRows.length }} registro(s)</span>
+    <div style="flex:1"></div>
+    <button class="obtn" (click)="openExport()" [disabled]="!filteredRows.length">
+      <i class="ti ti-download"></i>Exportar
+    </button>
+  </div>
+
+  <!-- KPI cards -->
+  <div class="kgrid" style="margin-bottom:14px">
+    @for (t of filteredTotales; track t.moneda) {
+      <div class="kcard">
+        <div class="fw">
+          <div class="fw-ic"><i class="ti ti-coin"></i></div>
+          <div>
+            <div class="fn">Total {{ t.moneda }}</div>
+            <div class="fv">{{ t.cuentas }} agencia(s)</div>
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <div style="font-size:11px;color:var(--tx3);text-transform:uppercase;font-weight:600;letter-spacing:.03em">Saldo Total</div>
+          <div style="font-family:'Manrope',sans-serif;font-size:18px;font-weight:700;letter-spacing:-.3px">{{ t.total | number:'1.2-2' }}</div>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Table -->
+  <div class="tbl scroll">
+    <table class="g">
+      <thead>
+        <tr>
+          <th>Agencia</th>
+          <th>Moneda</th>
+          <th class="r">Efectivo (Caja + B&oacute;veda)</th>
+          <th class="r">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (r of filteredRows; track r.idAgencia + r.moneda) {
+          <tr>
+            <td><strong>{{ r.agencia }}</strong> <span class="tag" style="margin-left:4px">{{ r.abreviatura }}</span></td>
+            <td><span class="tag">{{ r.moneda }}</span></td>
+            <td class="r mono">{{ r.efectivo | number:'1.2-2' }}</td>
+            <td class="r mono" style="font-weight:700">{{ r.total | number:'1.2-2' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+@if (!loading && !error && !rows.length) {
+  <div class="empty-state"><i class="ti ti-building-store-off"></i>No hay datos de agencias.</div>
+}
+
+<!-- ═══ EXPORT MODAL ═══ -->
+@if (exportOpen) {
+  <div class="export-overlay" (click)="closeExport()"></div>
+  <div class="export-modal">
+    <div class="export-header">
+      <h3><i class="ti ti-download"></i> Exportar Saldos de Agencias</h3>
+      <button class="dp-close" (click)="closeExport()"><i class="ti ti-x"></i></button>
+    </div>
+
+    <div class="export-body">
+      <div class="export-cols-section">
+        <div class="export-cols-head">
+          <span class="export-cols-title">Seleccionar columnas</span>
+          <div class="export-cols-actions">
+            <button class="link-btn" (click)="selectAllColumns()">Todas</button>
+            <span class="divider">|</span>
+            <button class="link-btn" (click)="deselectAllColumns()">Ninguna</button>
+          </div>
+        </div>
+        <div class="export-cols-grid">
+          @for (col of exportColumns; track col.key) {
+            <label class="export-col-check">
+              <input type="checkbox" [(ngModel)]="col.selected">
+              <span>{{ col.label }}</span>
+            </label>
+          }
+        </div>
+      </div>
+
+      <div class="export-preview-section">
+        <div class="export-preview-title">
+          Vista previa
+          <span class="hint">{{ exportData.length }} registro(s) — mostrando {{ exportPreviewRows.length }}</span>
+        </div>
+        @if (selectedExportColumns.length === 0) {
+          <div class="export-preview-empty">Seleccione al menos una columna para previsualizar.</div>
+        } @else {
+          <div class="export-preview-tbl scroll">
+            <table class="g compact">
+              <thead>
+                <tr>
+                  @for (col of selectedExportColumns; track col.key) {
+                    <th [style.text-align]="col.align || 'left'">{{ col.label }}</th>
+                  }
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of exportPreviewRows; track $index) {
+                  <tr>
+                    @for (col of selectedExportColumns; track col.key) {
+                      <td [style.text-align]="col.align || 'left'">{{ formatCell(row[col.key], col) }}</td>
+                    }
+                  </tr>
+                }
+                @if (exportData.length > 10) {
+                  <tr><td [attr.colspan]="selectedExportColumns.length" class="empty">... y {{ exportData.length - 10 }} registro(s) mas</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="export-footer">
+      <button class="obtn" (click)="closeExport()">Cancelar</button>
+      <button class="obtn primary" (click)="exportExcel()" [disabled]="selectedExportColumns.length === 0">
+        <i class="ti ti-file-spreadsheet"></i>Excel
+      </button>
+      <button class="obtn primary" (click)="exportPdf()" [disabled]="selectedExportColumns.length === 0">
+        <i class="ti ti-file-type-pdf"></i>PDF
+      </button>
+    </div>
+  </div>
+}

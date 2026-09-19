@@ -1,5 +1,16 @@
 :host { display: block; }
 
+.sec-desc {
+  font-size: 12.5px; color: var(--tx3); margin: -4px 0 14px; line-height: 1.4;
+}
+
+.empty-hint {
+  display: flex; align-items: center; gap: 8px;
+  padding: 16px 18px; border-radius: 10px;
+  background: var(--sub); font-size: 13px; color: var(--tx2); line-height: 1.4;
+  i { font-size: 20px; color: var(--green); flex-shrink: 0; }
+}
+
 .recom-list { display: flex; flex-direction: column; gap: 12px; }
 .recom-card { border-left: 3px solid var(--red); }
 .recom-head { margin-bottom: 6px; }

@@ -218,6 +218,41 @@ export interface BankDailySummaryReport {
   accounts: DailySummaryAccount[];
 }
 
+// ── Saldos ──
+
+export interface SaldoCuenta {
+  idAgencia: number;
+  agencia: string;
+  idEntidadFinanciera: number;
+  entidad: string;
+  entidadDesc: string;
+  numCuenta: string;
+  idMoneda: number;
+  moneda: string;
+  codsubcuenta: string | null;
+  saldoOBEL: number;
+  saldoContable: number;
+  saldoActual: number | null;
+  operando: boolean;
+  fechaCierre: string | null;
+  diasSinCierre: number | null;
+}
+
+export interface SaldoTotalMoneda {
+  moneda: string;
+  totalOBEL: number;
+  totalContable: number;
+  cuentas: number;
+}
+
+export interface SaldosReport {
+  ejercicio: string;
+  fecha: string;
+  cuentas: SaldoCuenta[];
+  totalesPorMoneda: SaldoTotalMoneda[];
+  totalCuentas: number;
+}
+
 // ── Traspasos ──
 
 export interface BankTransfer {

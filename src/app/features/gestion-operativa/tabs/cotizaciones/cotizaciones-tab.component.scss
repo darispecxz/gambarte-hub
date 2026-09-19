@@ -1,8 +1,89 @@
 :host { display: block; }
 
-.cotiz-filter {
-  display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap;
+// ── Toolbar ──
+.cotiz-toolbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 14px; flex-wrap: wrap;
 }
+.cotiz-filter {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.cotiz-select-wrap {
+  position: relative; display: inline-flex; align-items: center;
+}
+.cotiz-select-icon {
+  position: absolute; left: 10px; font-size: 16px; color: var(--tx3); pointer-events: none; z-index: 1;
+}
+.cotiz-select-arrow {
+  position: absolute; right: 10px; font-size: 13px; color: var(--tx3); pointer-events: none; z-index: 1;
+}
+.cotiz-select {
+  appearance: none; -webkit-appearance: none;
+  padding: 7px 32px 7px 32px; font-size: 13px; font-weight: 600;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--tx1);
+  cursor: pointer; min-width: 200px;
+  &:hover { border-color: var(--tx3); }
+  &:focus { outline: 2px solid var(--orange); outline-offset: 1px; border-color: var(--orange); }
+}
+.cotiz-view-toggle {
+  display: flex; gap: 2px; background: var(--sub); border-radius: 8px; padding: 2px;
+  button.icon-only {
+    width: 32px; height: 28px; display: flex; align-items: center; justify-content: center;
+    border-radius: 6px; border: none; background: transparent; color: var(--tx3);
+    cursor: pointer; font-size: 16px; transition: all .15s;
+    &.active { background: var(--bg); color: var(--tx1); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    &:hover:not(.active) { color: var(--tx2); }
+  }
+}
+
+// ── Summary strip ──
+.cotiz-summary {
+  display: flex; align-items: center; gap: 16px; padding: 12px 18px;
+  background: var(--sub); border: 1px solid var(--line); border-radius: 10px;
+  margin-bottom: 14px; flex-wrap: wrap;
+}
+.cotiz-stat {
+  display: flex; flex-direction: column; gap: 1px; min-width: 0;
+}
+.cotiz-stat-label {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; font-weight: 600; color: var(--tx3);
+}
+.cotiz-stat-val {
+  font-size: 17px; font-weight: 800; font-family: 'Manrope', sans-serif; font-variant-numeric: tabular-nums;
+}
+.cotiz-stat-sub {
+  font-size: 11px; color: var(--tx3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;
+}
+.cotiz-stat-sep {
+  width: 1px; height: 32px; background: var(--line); flex-shrink: 0;
+}
+
+// ── Table enhancements ──
+.sortable {
+  cursor: pointer; user-select: none;
+  &:hover { color: var(--tx1); }
+  i { font-size: 12px; margin-left: 3px; opacity: .5; }
+}
+.cotiz-ag-name {
+  display: flex; align-items: center; gap: 8px; white-space: nowrap; font-weight: 600; font-size: 13px;
+}
+.cotiz-num {
+  font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums;
+}
+.fw700 { font-weight: 700; }
+.cotiz-moneda-cell {
+  display: inline-flex; align-items: center; gap: 6px;
+  .ficon { font-size: 14px; border-radius: 2px; }
+}
+
+.cotiz-spread-bar {
+  height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; min-width: 60px;
+}
+.cotiz-spread-fill {
+  height: 100%; border-radius: 3px; transition: width .3s;
+}
+
+// ── Card view ──
 .cotiz-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px;
 }
@@ -24,18 +105,18 @@
   .cotiz-rate-val {
     font-size: 18px; font-weight: 800; font-family: 'Manrope', sans-serif;
   }
-  .cotiz-spread-bar {
-    height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin-bottom: 10px;
-  }
-  .cotiz-spread-fill {
-    height: 100%; border-radius: 2px; transition: width .3s;
-  }
+  .cotiz-spread-bar { margin-bottom: 10px; }
   .cotiz-card-foot {
     display: flex; justify-content: space-between; align-items: center; gap: 8px;
   }
 }
 
+// ── Responsive ──
 @media (max-width: 640px) {
   .cotiz-grid { grid-template-columns: 1fr; }
   .cotiz-card .cotiz-rate-val { font-size: 15px; }
+  .cotiz-summary { gap: 10px; padding: 10px 14px; }
+  .cotiz-stat-val { font-size: 15px; }
+  .hide-mobile { display: none !important; }
+  .cotiz-stat-sep.hide-mobile { display: none !important; }
 }

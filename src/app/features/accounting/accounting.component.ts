@@ -21,6 +21,15 @@ interface ReportTab {
   icon: string;
 }
 
+interface TabMeta { label: string; icon: string; desc: string; }
+
+const TAB_META: Record<ReportType, TabMeta> = {
+  daily:    { label: 'Resumen Diario',       icon: 'ti-calendar-stats',       desc: 'Resumen consolidado de arqueos del día por agencia y moneda.' },
+  cashier:  { label: 'Arqueos de Cajero',    icon: 'ti-cash-register',        desc: 'Detalle de arqueos por cajero: saldos, diferencias y conciliación.' },
+  movement: { label: 'Resumen Movimientos',  icon: 'ti-arrows-exchange-2',    desc: 'Movimientos consolidados de efectivo entre cajas y bóvedas.' },
+  agency:   { label: 'Cierres por Agencia',  icon: 'ti-building-store',       desc: 'Estado de cierre diario por agencia con totales y diferencias.' },
+};
+
 @Component({
   selector: 'app-accounting',
   standalone: true,
@@ -34,6 +43,7 @@ export class AccountingComponent implements OnInit, OnDestroy {
   private routeSub: any;
 
   selected: ReportType = 'daily';
+  get tabMeta(): TabMeta { return TAB_META[this.selected]; }
   fecha = new Date().toISOString().slice(0, 10);
   agencia: number | null = null;
   agencies: Agency[] = [];
