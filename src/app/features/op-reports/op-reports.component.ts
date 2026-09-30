@@ -13,6 +13,7 @@ import {
   CambioRow, CambioDetail,
   GiroRow, GiroDetail,
   RemesaRow, RemesaDetail,
+  RemesaCgrRow,
 } from './op-reports.models';
 
 export interface ExportColumn {
@@ -26,9 +27,10 @@ export interface ExportColumn {
 interface ReportTabMeta { label: string; icon: string; desc: string; }
 
 const REPORT_TAB_META: Record<OpReportType, ReportTabMeta> = {
-  cambios: { label: 'Cambios', icon: 'ti-currency-dollar', desc: 'Registro de operaciones de cambio de moneda por agencia y cajero.' },
-  giros:   { label: 'Giros Nacionales', icon: 'ti-transfer-vertical', desc: 'Giros nacionales enviados y pagados entre agencias.' },
-  remesas: { label: 'Remesas', icon: 'ti-world', desc: 'Remesas familiares y giros internacionales entrantes y salientes.' },
+  cambios:      { label: 'Cambios', icon: 'ti-currency-dollar', desc: 'Registro de operaciones de cambio de moneda por agencia y cajero.' },
+  giros:        { label: 'Giros Nacionales', icon: 'ti-transfer-vertical', desc: 'Giros nacionales enviados y pagados entre agencias.' },
+  remesas:      { label: 'Remesas', icon: 'ti-world', desc: 'Remesas familiares y giros internacionales entrantes y salientes.' },
+  remesas_cgr:  { label: 'Remesas Recibidas', icon: 'ti-plane-departure', desc: 'Remesas enviadas desde Chile a Bolivia.' },
 };
 
 @Component({
@@ -70,6 +72,8 @@ export class OpReportsComponent implements OnInit, OnDestroy {
   cambiosData: CambioRow[] = [];
   girosData: GiroRow[] = [];
   remesasData: RemesaRow[] = [];
+  remesasCgrData: RemesaCgrRow[] = [];
+  correlativoPaisFilter = '';
   totalRecords = 0;
 
   // Detail panel
@@ -159,13 +163,27 @@ export class OpReportsComponent implements OnInit, OnDestroy {
     { key: 'correlativo', label: 'Correlativo', selected: false },
   ];
 
+  private readonly remesaCgrColumns: ExportColumn[] = [
+    { key: 'correlativoPais', label: 'AI País', selected: true, align: 'center' },
+    { key: 'codigo', label: 'Codigo', selected: true, align: 'center' },
+    { key: 'fecha', label: 'Fecha Envio', selected: true, format: 'date' },
+    { key: 'origen', label: 'Origen', selected: true },
+    { key: 'destino', label: 'Destino', selected: true },
+    { key: 'fechaPago', label: 'Fecha Pago', selected: false, format: 'date' },
+    { key: 'estadoDesc', label: 'Estado', selected: true },
+    { key: 'montoBob', label: 'Monto BOB', selected: true, align: 'right', format: 'number' },
+    { key: 'montoUsd', label: 'Monto USD', selected: true, align: 'right', format: 'number' },
+    { key: 'remitente', label: 'Remitente', selected: true },
+    { key: 'destinatario', label: 'Destinatario', selected: true },
+  ];
+
   ngOnInit(): void {
     this.svc.getAgencies().subscribe({
       next: (list) => (this.agencies = list),
     });
     this.routeSub = this.route.queryParams.subscribe(params => {
       const tab = params['tab'] as OpReportType;
-      if (tab && ['cambios', 'giros', 'remesas'].includes(tab)) {
+      if (tab && ['cambios', 'giros', 'remesas', 'remesas_cgr'].includes(tab)) {
         this.selected = tab;
         this.searchQuery = '';
       }
@@ -183,6 +201,7 @@ export class OpReportsComponent implements OnInit, OnDestroy {
     this.cambiosData = [];
     this.girosData = [];
     this.remesasData = [];
+    this.remesasCgrData = [];
     this.totalRecords = 0;
 
     const hasta = this.hasta || undefined;
@@ -213,6 +232,17 @@ export class OpReportsComponent implements OnInit, OnDestroy {
           this.codigoFilter ? parseInt(this.codigoFilter) : undefined
         ).subscribe({
           next: (d) => { this.remesasData = d.records; this.totalRecords = d.total; this.loading = false; },
+          error: (e: Error) => this.fail(e),
+        });
+        break;
+      case 'remesas_cgr':
+        this.svc.getRemesasCgr(
+          this.desde, hasta,
+          this.estadoFilter.length ? this.estadoFilter.join(',') : undefined,
+          this.codigoFilter ? parseInt(this.codigoFilter) : undefined,
+          this.correlativoPaisFilter ? parseInt(this.correlativoPaisFilter) : undefined
+        ).subscribe({
+          next: (d) => { this.remesasCgrData = d.records; this.totalRecords = d.total; this.loading = false; },
           error: (e: Error) => this.fail(e),
         });
         break;
@@ -297,6 +327,13 @@ export class OpReportsComponent implements OnInit, OnDestroy {
     );
   }
 
+  get filteredRemesasCgr(): RemesaCgrRow[] {
+    return this.filterList(this.remesasCgrData, (m) =>
+      (m.remitente || '') + (m.destinatario || '') + (m.origen || '') +
+      (m.destino || '') + String(m.codigo) + (m.correlativoPais || '')
+    );
+  }
+
   private filterList<T>(list: T[], toStr: (item: T) => string): T[] {
     const q = this.searchQuery.trim().toLowerCase();
     if (!q) return list;
@@ -311,6 +348,7 @@ export class OpReportsComponent implements OnInit, OnDestroy {
       case 1: return 'sem-ok';
       case 2: return 'sem-bad';
       case 5: return 'sem-bad';
+      case 7: return 'sem-info';
       default: return '';
     }
   }
@@ -323,7 +361,7 @@ export class OpReportsComponent implements OnInit, OnDestroy {
 
   get estadoLabel(): string {
     if (!this.estadoFilter.length) return 'Todos';
-    const map: Record<number, string> = { 0: 'Pendiente', 1: 'Pagado', 2: 'Devuelto', 5: 'Anulado' };
+    const map: Record<number, string> = { 0: 'Pendiente', 1: 'Pagado', 2: 'Devuelto', 5: 'Anulado', 7: 'En Proceso' };
     return this.estadoFilter.map(e => map[e] || e).join(', ');
   }
 
@@ -336,8 +374,9 @@ export class OpReportsComponent implements OnInit, OnDestroy {
   // ═══════════════════════════════════════════════════════════
 
   openExport(): void {
-    const source = this.selected === 'cambios' ? this.cambioColumns
-                 : this.selected === 'giros'   ? this.giroColumns
+    const source = this.selected === 'cambios'      ? this.cambioColumns
+                 : this.selected === 'giros'        ? this.giroColumns
+                 : this.selected === 'remesas_cgr'  ? this.remesaCgrColumns
                  : this.remesaColumns;
     this.exportColumns = source.map(c => ({ ...c }));
     this.exportOpen = true;
@@ -356,6 +395,7 @@ export class OpReportsComponent implements OnInit, OnDestroy {
       case 'cambios': return this.filteredCambios as any[];
       case 'giros': return this.filteredGiros as any[];
       case 'remesas': return this.filteredRemesas as any[];
+      case 'remesas_cgr': return this.filteredRemesasCgr as any[];
       default: return [];
     }
   }
@@ -369,6 +409,7 @@ export class OpReportsComponent implements OnInit, OnDestroy {
       cambios: 'REPORTE DE CAMBIOS',
       giros: 'REPORTE DE GIROS NACIONALES',
       remesas: 'REPORTE DE REMESAS / GIROS INTERNACIONALES',
+      remesas_cgr: 'REPORTE DE REMESAS RECIBIDAS (CHILE → BOLIVIA)',
     };
     return titles[this.selected];
   }
@@ -559,6 +600,38 @@ export class OpReportsComponent implements OnInit, OnDestroy {
       estTot.getCell(2).alignment = { horizontal: 'center' };
       estTot.getCell(3).numFmt = '#,##0.00'; estTot.getCell(3).alignment = { horizontal: 'right' };
       estTot.getCell(4).numFmt = '#,##0.00'; estTot.getCell(4).alignment = { horizontal: 'right' };
+    } else if (this.selected === 'remesas_cgr') {
+      const byEstadoCgr: Record<string, { count: number; totalBob: number; totalUsd: number }> = {};
+      for (const r of rows) {
+        const est = String((r as any).estadoDesc || 'DESCONOCIDO');
+        if (!byEstadoCgr[est]) byEstadoCgr[est] = { count: 0, totalBob: 0, totalUsd: 0 };
+        byEstadoCgr[est].count++;
+        byEstadoCgr[est].totalBob += Number((r as any).montoBob) || 0;
+        byEstadoCgr[est].totalUsd += Number((r as any).montoUsd) || 0;
+      }
+
+      const cgrLabel = ws.addRow(['RESUMEN POR ESTADO']);
+      cgrLabel.font = { bold: true, size: 10, name: 'Courier New' };
+      ws.mergeCells(ws.rowCount, 1, ws.rowCount, totalCols);
+
+      const cgrHdr = ws.addRow(['ESTADO', 'N° REMESAS', 'TOTAL [BOB]', 'TOTAL [USD]']);
+      cgrHdr.eachCell(cell => { cell.font = hdrFont; cell.fill = hdrFill; cell.border = thinBorder; cell.alignment = { horizontal: 'center' }; });
+
+      for (const [est, v] of Object.entries(byEstadoCgr)) {
+        const r = ws.addRow([est, v.count, v.totalBob, v.totalUsd]);
+        r.getCell(1).font = bodyFont; r.getCell(1).border = thinBorder;
+        r.getCell(2).font = bodyFont; r.getCell(2).alignment = { horizontal: 'center' }; r.getCell(2).border = thinBorder;
+        r.getCell(3).font = bodyFont; r.getCell(3).numFmt = '#,##0.00'; r.getCell(3).alignment = { horizontal: 'right' }; r.getCell(3).border = thinBorder;
+        r.getCell(4).font = bodyFont; r.getCell(4).numFmt = '#,##0.00'; r.getCell(4).alignment = { horizontal: 'right' }; r.getCell(4).border = thinBorder;
+      }
+      const cgrTotalBob = Object.values(byEstadoCgr).reduce((s, v) => s + v.totalBob, 0);
+      const cgrTotalUsd = Object.values(byEstadoCgr).reduce((s, v) => s + v.totalUsd, 0);
+      const cgrCount = Object.values(byEstadoCgr).reduce((s, v) => s + v.count, 0);
+      const cgrTot = ws.addRow(['TOTAL GENERAL', cgrCount, cgrTotalBob, cgrTotalUsd]);
+      cgrTot.eachCell(cell => { cell.font = boldFont; cell.border = thinBorder; });
+      cgrTot.getCell(2).alignment = { horizontal: 'center' };
+      cgrTot.getCell(3).numFmt = '#,##0.00'; cgrTot.getCell(3).alignment = { horizontal: 'right' };
+      cgrTot.getCell(4).numFmt = '#,##0.00'; cgrTot.getCell(4).alignment = { horizontal: 'right' };
     } else if (this.selected === 'cambios') {
       const byTipo: Record<string, { count: number; totalBob: number }> = {};
       for (const r of rows) {
@@ -686,6 +759,28 @@ export class OpReportsComponent implements OnInit, OnDestroy {
       <table class="summary"><thead><tr><th>ESTADO</th><th>N&deg; REMESAS</th><th class="r">TOTAL MONTO [BOB]</th><th class="r">TOTAL ENV&Iacute;O [USD]</th></tr></thead><tbody>
         ${estRows}
         <tr class="total-row"><td>TOTAL GENERAL</td><td class="c">${estCount}</td><td class="r">${fmtMoney(estTotalBob)}</td><td class="r">${fmtMoney(estTotalUsd)}</td></tr>
+      </tbody></table>`;
+    } else if (this.selected === 'remesas_cgr') {
+      const byEstadoCgr: Record<string, { count: number; totalBob: number; totalUsd: number }> = {};
+      for (const r of rows) {
+        const est = String((r as any).estadoDesc || 'DESCONOCIDO');
+        if (!byEstadoCgr[est]) byEstadoCgr[est] = { count: 0, totalBob: 0, totalUsd: 0 };
+        byEstadoCgr[est].count++;
+        byEstadoCgr[est].totalBob += Number((r as any).montoBob) || 0;
+        byEstadoCgr[est].totalUsd += Number((r as any).montoUsd) || 0;
+      }
+      const cgrRows = Object.entries(byEstadoCgr).map(([est, v]) =>
+        `<tr><td>${this.esc(est)}</td><td class="c">${v.count}</td><td class="r">${fmtMoney(v.totalBob)}</td><td class="r">${fmtMoney(v.totalUsd)}</td></tr>`
+      ).join('');
+      const cgrTotalBob = Object.values(byEstadoCgr).reduce((s, v) => s + v.totalBob, 0);
+      const cgrTotalUsd = Object.values(byEstadoCgr).reduce((s, v) => s + v.totalUsd, 0);
+      const cgrCount = Object.values(byEstadoCgr).reduce((s, v) => s + v.count, 0);
+
+      summaryHtml += `
+      <div class="summary-title">RESUMEN POR ESTADO</div>
+      <table class="summary"><thead><tr><th>ESTADO</th><th>N&deg; REMESAS</th><th class="r">TOTAL [BOB]</th><th class="r">TOTAL [USD]</th></tr></thead><tbody>
+        ${cgrRows}
+        <tr class="total-row"><td>TOTAL GENERAL</td><td class="c">${cgrCount}</td><td class="r">${fmtMoney(cgrTotalBob)}</td><td class="r">${fmtMoney(cgrTotalUsd)}</td></tr>
       </tbody></table>`;
     } else if (this.selected === 'cambios') {
       const byTipo: Record<string, { count: number; totalBob: number }> = {};

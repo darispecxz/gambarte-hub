@@ -91,9 +91,10 @@ export class AppComponent implements OnInit {
       ]},
       { path: '/operaciones', icon: 'ti-chart-line', label: 'Comercial' },
       { path: '/reportes-operaciones', icon: 'ti-report-analytics', label: 'Reportes', roles: [1,2,3,5,7,8,9,10,12,13], children: [
-        { path: '/reportes-operaciones', query: { tab: 'cambios' }, icon: 'ti-currency-dollar',     label: 'Cambios' },
-        { path: '/reportes-operaciones', query: { tab: 'giros' },   icon: 'ti-transfer-vertical',   label: 'Giros Nacionales' },
-        { path: '/reportes-operaciones', query: { tab: 'remesas' }, icon: 'ti-world',               label: 'Remesas / Giros Int.' },
+        { path: '/reportes-operaciones', query: { tab: 'cambios' },      icon: 'ti-currency-dollar',     label: 'Cambios' },
+        { path: '/reportes-operaciones', query: { tab: 'giros' },        icon: 'ti-transfer-vertical',   label: 'Giros Nacionales' },
+        { path: '/reportes-operaciones', query: { tab: 'remesas' },      icon: 'ti-world',               label: 'Remesas / Giros Int.' },
+        { path: '/reportes-operaciones', query: { tab: 'remesas_cgr' },  icon: 'ti-plane-departure',     label: 'Remesas Recibidas' },
       ]},
     ]},
     { area: 'Contabilidad', icon: 'ti-calculator', roles: [1,2,3,7,8], items: [

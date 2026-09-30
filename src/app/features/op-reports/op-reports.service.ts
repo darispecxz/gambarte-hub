@@ -11,6 +11,7 @@ import {
   GiroDetail,
   RemesaRow,
   RemesaDetail,
+  RemesaCgrRow,
   Agency,
 } from './op-reports.models';
 
@@ -80,6 +81,14 @@ export class OpReportsService {
   getRemesaDetail(id: number): Observable<RemesaDetail> {
     return this.unwrap(
       this.http.get<Envelope<RemesaDetail>>(`${this.base}/op-reports/remesa/${id}`)
+    );
+  }
+
+  getRemesasCgr(desde: string, hasta?: string, estado?: string, codigo?: number, correlativoPais?: number): Observable<OpReportResponse<RemesaCgrRow>> {
+    return this.unwrap(
+      this.http.get<Envelope<OpReportResponse<RemesaCgrRow>>>(`${this.base}/op-reports/remesas-cgr`, {
+        params: this.qp({ desde, hasta, estado, codigo, correlativo_pais: correlativoPais }),
+      })
     );
   }
 }

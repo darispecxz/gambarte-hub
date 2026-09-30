@@ -1,4 +1,4 @@
-export type OpReportType = 'cambios' | 'giros' | 'remesas';
+export type OpReportType = 'cambios' | 'giros' | 'remesas' | 'remesas_cgr';
 
 export interface OpReportTab {
   key: OpReportType;
@@ -196,6 +196,24 @@ export interface RemesaDetail {
   destinoNarr: string;
   factura: FacturaInfo | null;
   pago: PagoInfo | null;
+}
+
+// ── Remesas CGR (Chile → Bolivia) ──
+
+export interface RemesaCgrRow {
+  correlativoPais: string;
+  codigo: string;
+  fecha: string;
+  origen: string;
+  destino: string;
+  fechaPago: string | null;
+  estado: number;
+  estadoDesc: string;
+  montoBob: number;
+  montoUsd: number;
+  moneda: string;
+  remitente: string;
+  destinatario: string;
 }
 
 // ── Shared ──

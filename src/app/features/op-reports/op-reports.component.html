@@ -15,14 +15,16 @@
       <div class="filters-inline">
         <div class="fdrop"><label>Desde</label><input type="date" [(ngModel)]="desde"></div>
         <div class="fdrop"><label>Hasta</label><input type="date" [(ngModel)]="hasta"></div>
-        <div class="fdrop"><label>Agencia</label>
-          <select [(ngModel)]="agencia">
-            <option [ngValue]="null">Todas</option>
-            @for (ag of agencies; track ag.id_agencia) {
-              <option [ngValue]="ag.id_agencia">{{ ag.descripcion }}</option>
-            }
-          </select>
-        </div>
+        @if (selected !== 'remesas_cgr') {
+          <div class="fdrop"><label>Agencia</label>
+            <select [(ngModel)]="agencia">
+              <option [ngValue]="null">Todas</option>
+              @for (ag of agencies; track ag.id_agencia) {
+                <option [ngValue]="ag.id_agencia">{{ ag.descripcion }}</option>
+              }
+            </select>
+          </div>
+        }
 
         @if (selected === 'cambios') {
           <div class="fdrop"><label>Tipo</label>
@@ -34,7 +36,7 @@
           </div>
         }
 
-        @if (selected === 'giros' || selected === 'remesas') {
+        @if (selected === 'giros' || selected === 'remesas' || selected === 'remesas_cgr') {
           <div class="fdrop estado-drop">
             <label>Estado</label>
             <button class="estado-btn" type="button" (click)="estadoDropdownOpen = !estadoDropdownOpen">
@@ -46,8 +48,11 @@
                 <label class="estado-check"><input type="checkbox" [checked]="estadoFilter.includes(0)" (change)="toggleEstado(0)"> Pendiente</label>
                 <label class="estado-check"><input type="checkbox" [checked]="estadoFilter.includes(1)" (change)="toggleEstado(1)"> Pagado</label>
                 <label class="estado-check"><input type="checkbox" [checked]="estadoFilter.includes(2)" (change)="toggleEstado(2)"> Devuelto</label>
-                @if (selected === 'remesas') {
+                @if (selected === 'remesas' || selected === 'remesas_cgr') {
                   <label class="estado-check"><input type="checkbox" [checked]="estadoFilter.includes(5)" (change)="toggleEstado(5)"> Anulado</label>
+                }
+                @if (selected === 'remesas_cgr') {
+                  <label class="estado-check"><input type="checkbox" [checked]="estadoFilter.includes(7)" (change)="toggleEstado(7)"> En Proceso</label>
                 }
               </div>
             }
@@ -64,9 +69,15 @@
           </div>
         }
 
-        @if (selected === 'giros' || selected === 'remesas') {
+        @if (selected === 'giros' || selected === 'remesas' || selected === 'remesas_cgr') {
           <div class="fdrop"><label>Codigo</label>
             <input type="number" [(ngModel)]="codigoFilter" placeholder="Codigo..." style="width:100px">
+          </div>
+        }
+
+        @if (selected === 'remesas_cgr') {
+          <div class="fdrop"><label>AI País</label>
+            <input type="number" [(ngModel)]="correlativoPaisFilter" placeholder="AI País..." style="width:100px">
           </div>
         }
 
@@ -224,6 +235,57 @@
           </tr>
         }
         @if (!filteredRemesas.length) {
+          <tr><td colspan="11" class="empty">{{ searchQuery ? 'Sin resultados para la busqueda.' : 'Sin registros.' }}</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+<!-- ═══ REMESAS CGR ═══ -->
+@if (!loading && selected === 'remesas_cgr' && remesasCgrData.length > 0) {
+  <div class="mov-toolbar">
+    <div class="mov-search">
+      <i class="ti ti-search"></i>
+      <input type="text" placeholder="Buscar por remitente, destinatario, origen, destino, codigo..." [(ngModel)]="searchQuery">
+    </div>
+    <button class="obtn" (click)="openExport()"><i class="ti ti-download"></i>Exportar</button>
+  </div>
+
+  <div class="tbl scroll">
+    <table class="g">
+      <thead>
+        <tr>
+          <th>AI País</th>
+          <th>Codigo</th>
+          <th>Fecha Envio</th>
+          <th>Origen</th>
+          <th>Destino</th>
+          <th>Fecha Pago</th>
+          <th>Estado</th>
+          <th class="r">Monto BOB</th>
+          <th class="r">Monto USD</th>
+          <th>Remitente</th>
+          <th>Destinatario</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (r of filteredRemesasCgr; track r.codigo) {
+          <tr>
+            <td class="mono">{{ r.correlativoPais }}</td>
+            <td class="mono"><strong>{{ r.codigo }}</strong></td>
+            <td class="mono small">{{ r.fecha }}</td>
+            <td>{{ r.origen }}</td>
+            <td>{{ r.destino }}</td>
+            <td class="mono small">{{ r.fechaPago || '-' }}</td>
+            <td><span class="pill" [class]="estadoClass(r.estado)">{{ r.estadoDesc }}</span></td>
+            <td class="r"><strong>{{ r.montoBob | number:'1.2-2' }}</strong></td>
+            <td class="r"><strong>{{ r.montoUsd | number:'1.2-2' }}</strong></td>
+            <td>{{ r.remitente }}</td>
+            <td>{{ r.destinatario }}</td>
+          </tr>
+        }
+        @if (!filteredRemesasCgr.length) {
           <tr><td colspan="11" class="empty">{{ searchQuery ? 'Sin resultados para la busqueda.' : 'Sin registros.' }}</td></tr>
         }
       </tbody>
